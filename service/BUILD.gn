@@ -1,0 +1,60 @@
+# Copyright (c) 2023 Huawei Device Co., Ltd.
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+import("//foundation/CastEngine/castengine_cast_framework/cast_engine.gni")
+
+config("cast_service_config") {
+  include_dirs = [
+    "include",
+    "src/include",
+  ]
+}
+
+ohos_shared_library("cast_engine_service") {
+  install_enable = true
+  sources = [
+    "src/cast_service_listener_impl_proxy.cpp",
+    "src/cast_session_manager_service.cpp",
+    "src/cast_session_manager_service_stub.cpp",
+  ]
+
+  configs = [
+    ":cast_service_config",
+    "${cast_engine_root}:cast_engine_default_config",
+  ]
+
+  deps = [
+    "${cast_engine_client}:cast_client_inner",
+    "${cast_engine_common}:cast_engine_common_sources",
+    "src/device_manager:cast_discovery",
+    "${cast_session_stream_path}:cast_session",
+    "//third_party/openssl:libcrypto_shared",
+  ]
+
+  external_deps = [
+    "c_utils:utils",
+    "device_manager:devicemanagersdk",
+    "dsoftbus:softbus_client",
+    "graphic_2d:surface",
+    "hilog:libhilog",
+    "hisysevent:libhisysevent",
+    "input:libmmi-client",
+    "ipc:ipc_core",
+    "player_framework:media_client",
+    "safwk:system_ability_fwk",
+    "samgr:samgr_proxy",
+  ]
+
+  subsystem_name = "castplus"
+  part_name = "cast_engine"
+}

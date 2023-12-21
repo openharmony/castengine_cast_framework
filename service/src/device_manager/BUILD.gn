@@ -1,0 +1,46 @@
+# Copyright (c) 2023 Huawei Device Co., Ltd.
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#    http://www.apache.org/licenses/LICENSE-2.0
+#
+
+import("//foundation/CastEngine/castengine_cast_framework/cast_engine.gni")
+
+config("cast_discovery_config") {
+  include_dirs = [ "include" ]
+}
+
+ohos_static_library("cast_discovery") {
+  sources = [
+    "src/cast_device_data_manager.cpp",
+    "src/connection_manager.cpp",
+    "src/discovery_manager.cpp",
+  ]
+
+  configs = [
+    ":cast_discovery_config",
+    "${cast_engine_root}:cast_engine_default_config",
+  ]
+
+  include_dirs = [
+    "${cast_engine_interfaces}/inner_api/include",
+    "//third_party/json/single_include/nlohmann",
+  ]
+
+  public_configs = [ ":cast_discovery_config" ]
+
+  deps = [ "${cast_engine_common}:cast_engine_common_sources" ]
+
+  external_deps = [
+    "c_utils:utils",
+    "device_manager:devicemanagersdk",
+    "dsoftbus:softbus_client",
+    "hilog:libhilog",
+    "hisysevent:libhisysevent",
+  ]
+
+  subsystem_name = "castplus"
+  part_name = "cast_engine"
+}

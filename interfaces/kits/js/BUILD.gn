@@ -1,0 +1,52 @@
+# Copyright (c) 2023 Huawei Device Co., Ltd.
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#    http://www.apache.org/licenses/LICENSE-2.0
+#
+import("//foundation/CastEngine/castengine_cast_framework/cast_engine.gni")
+
+config("cast_config") {
+  include_dirs = [
+    "include",
+    "${cast_engine_interfaces}/inner_api:cast_interfaces_config"
+  ]
+}
+
+ohos_shared_library("cast") {
+  sources = [
+    "src/napi_cast_session.cpp",
+    "src/napi_cast_session_listener.cpp",
+    "src/napi_cast_session_manager.cpp",
+    "src/napi_cast_session_manager_listener.cpp",
+    "src/napi_castengine_utils.cpp",
+    "src/native_module.cpp",
+    "src/napi_mirror_player.cpp",
+    "src/napi_stream_player.cpp",
+    "src/napi_stream_player_listener.cpp",
+    "src/napi_callback.cpp",
+    "src/napi_async_work.cpp",
+    "src/napi_castengine_enum.cpp"
+  ]
+
+  configs = [
+    ":cast_config",
+    "${cast_engine_root}:cast_engine_default_config"
+  ]
+
+  deps = [
+    "${cast_engine_common}:cast_engine_common_sources",
+    "${cast_engine_interfaces}/inner_api:cast_engine_client",
+  ]
+
+  external_deps = [
+    "hilog:libhilog",
+    "ipc:ipc_core",
+    "napi:ace_napi"
+  ]
+
+  relative_install_dir = "module"
+  subsystem_name = "castplus"
+  part_name = "cast_engine"
+}

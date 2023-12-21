@@ -1,0 +1,88 @@
+{
+    "name":"@ohos/cast_engine",
+    "description":"supply cast engine service",
+    "version":"3.1",
+    "license":"",
+    "publishAs":"binary",
+    "dirs":{},
+    "scripts":{},
+    "component":{
+        "name":"cast_engine",
+        "subsystem":"castplus",
+        "syscap":[
+            ""
+        ],
+        "features":[],
+        "adapted_system_type":[
+            "standard"
+        ],
+        "rom":"5M",
+        "ram":"50M",
+        "hisysevent_config": [
+            "//foundation/CastEngine/castengine_cast_framework/hisysevent.yaml"
+        ],
+        "deps":{
+            "components":[
+                "hilog",
+                "hisysevent",
+                "hitrace",
+                "access_token",
+                "audio_framework",
+                "av_codec",
+                "ipc",
+                "init",
+                "input",
+                "safwk",
+                "samgr",
+                "c_utils",
+                "dsoftbus",
+                "device_manager",
+                "common_event_service",
+                "bundle_framework",
+                "ability_base",
+                "ability_runtime",
+                "ace_engine",
+                "napi",
+                "graphic_2d",
+                "window_manager",
+                "player_framework"
+            ],
+            "third_party":[
+                "glib",
+                "json",
+                "jsoncpp",
+                "openssl",
+                "bounds_checking_function"
+            ]
+        },
+        "build":{
+            "sub_component":[
+                "//foundation/CastEngine/castengine_cast_framework/service:cast_engine_service",
+                "//foundation/CastEngine/castengine_cast_framework/interfaces/inner_api:cast_engine_client",
+                "//foundation/CastEngine/castengine_cast_framework/sa_profile:cast_engine_sa_profile",
+                "//foundation/CastEngine/castengine_cast_framework/etc/init:cast_engine_service.cfg",
+                "//foundation/CastEngine/castengine_cast_framework/interfaces/kits/js:cast"
+            ],
+            "inner_kits":[
+                {
+                    "type": "so",
+                    "name": "//foundation/CastEngine/castengine_cast_framework/interfaces/inner_api:cast_engine_client",
+                    "header": {
+                        "header_base": "//foundation/CastEngine/castengine_cast_framework/interfaces/inner_api/include",
+                        "header_files": [
+                            "cast_engine_common.h",
+                            "cast_session_manager.h",
+                            "i_cast_session.h",
+                            "i_cast_session_manager_adaptor.h",
+                            "i_cast_session_manager_listener.h"
+                        ]
+                    }
+                }
+            ],
+            "test":[
+                "//foundation/CastEngine/castengine_cast_framework/test:cast_unittest",
+                "//foundation/CastEngine/castengine_cast_framework/test/fuzztest:fuzztest"
+            ]
+        }
+    }
+}

@@ -1,0 +1,405 @@
+# Copyright (c) Huawei Technologies Co., Ltd. 2023-2023. All rights reserved.
+
+import("//build/ohos.gni")
+import("//build/ohos_var.gni")
+import("//build/test.gni")
+import("//foundation/CastEngine/castengine_cast_framework/cast_engine.gni")
+
+config("cast_session_config") {
+    include_dirs = [
+        "${cast_engine_interfaces}/inner_api",
+        "${cast_engine_interfaces}/inner_api/include",
+        "//base/security/access_token/interfaces/innerkits/nativetoken/include",
+        "//base/security/access_token/interfaces/innerkits/accesstoken/include",
+        "//base/security/access_token/interfaces/innerkits/token_setproc/include",
+    ]
+}
+
+ohos_unittest("cast_stream_player_manager_test") {
+    module_out_path = "cast_engine/cast_engine/stream/"
+
+    testonly = true
+
+    sources = [
+        "cast_stream_player_manager_test.cpp",
+        "${cast_engine_client}/src/stream_player_listener_impl_stub.cpp"
+    ]
+
+    configs = [
+        ":cast_session_config"
+    ]
+
+    cflags_cc = [
+        "--coverage"
+    ]
+
+    ldflags = [
+        "--coverage",
+    ]
+
+    include_dirs = [
+        "${cast_engine_client}/include",
+        "${cast_session_stream_path}/src/stream/include",
+        "${cast_session_stream_path}/src/channel/include",
+        "//foundation/graphic/graphic_2d/frameworks/surface/include",
+        "//foundation/graphic/graphic_2d/interfaces/inner_api/surface",
+    ]
+
+    deps = [
+        "${cast_session_stream_path}/src/stream:cast_session_stream",
+        "${cast_engine_client}:cast_client_inner",
+        "${cast_engine_common}:cast_engine_common_sources",
+    ]
+
+    external_deps = [
+        "access_token:libnativetoken",
+        "access_token:libtoken_setproc",
+        "access_token:libaccesstoken_sdk",
+        "audio_framework:audio_client",
+        "c_utils:utils",
+        "googletest:gtest",
+        "graphic_2d:surface",
+        "hilog:libhilog",
+        "ipc:ipc_core",
+        "player_framework:media_client",
+    ]
+
+    subsystem_name = "castplus"
+    part_name = "cast_engine"
+}
+
+ohos_unittest("stream_player_test") {
+    module_out_path = "cast_engine/cast_engine/stream/"
+
+    testonly = true
+
+    sources = [
+        "stream_player_test.cpp",
+        "${cast_engine_client}/src/stream_player.cpp",
+        "${cast_engine_client}/src/stream_player_listener_impl_stub.cpp"
+    ]
+
+    configs = [
+        ":cast_session_config"
+    ]
+
+    cflags_cc = [
+        "--coverage"
+    ]
+
+    ldflags = [
+        "--coverage",
+    ]
+
+    include_dirs = [
+        "${cast_engine_client}/include",
+        "${cast_engine_common}/include",
+        "${cast_session_stream_path}/src/stream/include",
+        "${cast_session_stream_path}/src/channel/include",
+        "//foundation/graphic/graphic_2d/frameworks/surface/include",
+        "//foundation/graphic/graphic_2d/interfaces/inner_api/surface",
+    ]
+
+    deps = [
+        "${cast_session_stream_path}/src/stream:cast_session_stream",
+        "${cast_engine_interfaces}/inner_api:cast_engine_client",
+        "${cast_engine_common}:cast_engine_common_sources",
+    ]
+
+    external_deps = [
+        "access_token:libnativetoken",
+        "access_token:libtoken_setproc",
+        "access_token:libaccesstoken_sdk",
+        "audio_framework:audio_client",
+        "c_utils:utils",
+        "googletest:gtest",
+        "graphic_2d:surface",
+        "hilog:libhilog",
+        "ipc:ipc_core",
+        "player_framework:media_client",
+        
+    ]
+
+    subsystem_name = "castplus"
+    part_name = "cast_engine"
+}
+
+ohos_unittest("remote_player_controller_test") {
+    module_out_path = "cast_engine/cast_engine/stream/"
+
+    testonly = true
+
+    sources = [
+        "remote_player_controller_test.cpp",
+        "${cast_engine_client}/src/stream_player_listener_impl_stub.cpp"
+    ]
+
+    configs = [
+        ":cast_session_config"
+    ]
+
+    cflags_cc = [
+        "--coverage"
+    ]
+
+    ldflags = [
+        "--coverage",
+    ]
+
+    include_dirs = [
+        "${cast_engine_client}/include",
+        "${cast_session_stream_path}/src/stream/include",
+        "${cast_session_stream_path}/src/channel/include",
+        "//foundation/graphic/graphic_2d/frameworks/surface/include",
+        "//foundation/graphic/graphic_2d/interfaces/inner_api/surface",
+    ]
+
+    deps = [
+        "${cast_session_stream_path}/src/stream:cast_session_stream",
+        "${cast_engine_client}:cast_client_inner",
+        "${cast_engine_common}:cast_engine_common_sources",
+    ]
+
+    external_deps = [
+        "access_token:libnativetoken",
+        "access_token:libtoken_setproc",
+        "access_token:libaccesstoken_sdk",
+        "audio_framework:audio_client",
+        "c_utils:utils",
+        "googletest:gtest",
+        "graphic_2d:surface",
+        "hilog:libhilog",
+        "ipc:ipc_core",
+        "player_framework:media_client",
+
+    ]
+
+    subsystem_name = "castplus"
+    part_name = "cast_engine"
+}
+
+ohos_unittest("cast_stream_manager_test") {
+    module_out_path = "cast_engine/cast_engine/stream/"
+
+    testonly = true
+
+    sources = [
+        "cast_stream_manager_client_test.cpp",
+        "cast_stream_manager_server_test.cpp",
+        "${cast_engine_client}/src/stream_player_listener_impl_stub.cpp"
+    ]
+
+    configs = [
+        ":cast_session_config"
+    ]
+
+    cflags_cc = [
+        "--coverage"
+    ]
+
+    ldflags = [
+        "--coverage",
+    ]
+
+    include_dirs = [
+        "${cast_engine_client}/include",
+        "${cast_session_stream_path}/src/stream/include",
+        "${cast_session_stream_path}/src/channel/include",
+        "//foundation/graphic/graphic_2d/frameworks/surface/include",
+        "//foundation/graphic/graphic_2d/interfaces/inner_api/surface",
+    ]
+
+    deps = [
+        "${cast_session_stream_path}/src/stream:cast_session_stream",
+        "${cast_engine_client}:cast_client_inner",
+        "${cast_engine_common}:cast_engine_common_sources",
+    ]
+
+    external_deps = [
+        "access_token:libnativetoken",
+        "access_token:libtoken_setproc",
+        "access_token:libaccesstoken_sdk",
+        "audio_framework:audio_client",
+        "c_utils:utils",
+        "googletest:gtest",
+        "graphic_2d:surface",
+        "hilog:libhilog",
+        "ipc:ipc_core",
+        "player_framework:media_client",
+    ]
+
+    subsystem_name = "castplus"
+    part_name = "cast_engine"
+}
+
+ohos_unittest("stream_player_impl_stub_test") {
+    module_out_path = "cast_engine/cast_engine/stream/"
+
+    testonly = true
+
+    sources = [
+        "stream_player_impl_stub_test.cpp",
+        "${cast_engine_client}/src/stream_player_listener_impl_stub.cpp"
+    ]
+
+    configs = [
+        ":cast_session_config"
+    ]
+
+    cflags_cc = [
+        "--coverage"
+    ]
+
+    ldflags = [
+        "--coverage",
+    ]
+
+    include_dirs = [
+        "${cast_engine_client}/include",
+        "${cast_session_stream_path}/src/stream/include",
+        "${cast_session_stream_path}/src/channel/include",
+        "//foundation/graphic/graphic_2d/frameworks/surface/include",
+        "//foundation/graphic/graphic_2d/interfaces/inner_api/surface",
+        "//foundation/graphic/graphic_2d/rosen/modules/platform/ipc_core"
+    ]
+
+    deps = [
+        "${cast_session_stream_path}/src/stream:cast_session_stream",
+        "${cast_engine_client}:cast_client_inner",
+        "${cast_engine_common}:cast_engine_common_sources",
+    ]
+
+    external_deps = [
+        "access_token:libnativetoken",
+        "access_token:libtoken_setproc",
+        "access_token:libaccesstoken_sdk",
+        "audio_framework:audio_client",
+        "c_utils:utils",
+        "googletest:gtest",
+        "graphic_2d:surface",
+        "hilog:libhilog",
+        "ipc:ipc_core",
+        "player_framework:media_client",
+    ]
+
+    subsystem_name = "castplus"
+    part_name = "cast_engine"
+}
+
+ohos_unittest("cast_stream_player_test") {
+    module_out_path = "cast_engine/cast_engine/stream/"
+
+    testonly = true
+
+    sources = [
+        "cast_stream_player_test.cpp",
+        "${cast_engine_client}/src/stream_player_listener_impl_stub.cpp"
+    ]
+
+    configs = [
+        ":cast_session_config"
+    ]
+
+    cflags_cc = [
+        "--coverage"
+    ]
+
+    ldflags = [
+        "--coverage",
+    ]
+
+    include_dirs = [
+        "${cast_engine_client}/include",
+        "${cast_session_stream_path}/src/stream/include",
+        "${cast_session_stream_path}/src/channel/include",
+        "//foundation/graphic/graphic_2d/frameworks/surface/include",
+        "//foundation/graphic/graphic_2d/interfaces/inner_api/surface",
+    ]
+
+    deps = [
+        "${cast_session_stream_path}/src/stream:cast_session_stream",
+        "${cast_engine_client}:cast_client_inner",
+        "${cast_engine_common}:cast_engine_common_sources",
+    ]
+
+    external_deps = [
+        "access_token:libnativetoken",
+        "access_token:libtoken_setproc",
+        "access_token:libaccesstoken_sdk",
+        "audio_framework:audio_client",
+        "c_utils:utils",
+        "googletest:gtest",
+        "graphic_2d:surface",
+        "hilog:libhilog",
+        "ipc:ipc_core",
+        "player_framework:media_client",
+    ]
+
+    subsystem_name = "castplus"
+    part_name = "cast_engine"
+}
+
+ohos_unittest("stream_player_listener_impl_stub_test") {
+    module_out_path = "cast_engine/cast_engine/stream/"
+
+    testonly = true
+
+    sources = [
+        "stream_player_listener_impl_stub_test.cpp",
+        "${cast_engine_client}/src/stream_player_listener_impl_stub.cpp"
+    ]
+
+    configs = [
+        ":cast_session_config"
+    ]
+
+    cflags_cc = [
+        "--coverage"
+    ]
+
+    ldflags = [
+        "--coverage",
+    ]
+
+    include_dirs = [
+        "${cast_engine_client}/include",
+        "${cast_session_stream_path}/src/stream/include",
+        "${cast_session_stream_path}/src/channel/include",
+        "//foundation/graphic/graphic_2d/frameworks/surface/include",
+        "//foundation/graphic/graphic_2d/interfaces/inner_api/surface",
+    ]
+
+    deps = [
+        "${cast_session_stream_path}/src/stream:cast_session_stream",
+        "${cast_engine_client}:cast_client_inner",
+        "${cast_engine_common}:cast_engine_common_sources",
+    ]
+
+    external_deps = [
+        "access_token:libnativetoken",
+        "access_token:libtoken_setproc",
+        "access_token:libaccesstoken_sdk",
+        "audio_framework:audio_client",
+        "c_utils:utils",
+        "googletest:gtest",
+        "graphic_2d:surface",
+        "hilog:libhilog",
+        "ipc:ipc_core",
+        "player_framework:media_client",
+    ]
+
+    subsystem_name = "castplus"
+    part_name = "cast_engine"
+}
+
+group("stream_unittest") {
+  testonly = true
+  deps = [
+      ":cast_stream_manager_test",
+      ":cast_stream_player_test",
+      ":cast_stream_player_manager_test",
+      ":remote_player_controller_test",
+      ":stream_player_test",
+      ":stream_player_listener_impl_stub_test"
+  ]
+}

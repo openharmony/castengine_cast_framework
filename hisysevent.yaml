@@ -1,0 +1,64 @@
+# Copyright (c) 2023 Huawei Device Co., Ltd.
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Description: hisysevent
+# Author: wangxueshuang
+# Create: 2023-01-30
+
+domain: CAST_ENGINE
+
+CAST_ENGINE_ERR:
+  __BASE: {type: FAULT, level: CRITICAL, desc: projection error events}
+  SEQUENTIAL_ID: {type: STRING, desc: used to associate projection events}
+  CAST_SESSION_ID: {type: INT32, desc: projection session ID}
+  ERROR_CODE: {type: INT32, desc: error code}
+  SUB_ERR_CODE: {type: INT32, desc: sub error code}
+  EXT_ERR_INFO: {type: INT32, desc: extended error information}
+  ERR_MSG: {type: STRING, desc: error information sent from the sink during stream projection}
+  WIFI_INFO: {type: STRING, desc: wifi information when a projection error occurs}
+  BIZ_PACKAGE_NAME: {type: STRING, desc: package name}
+  REMOTE_BIZ_TRUNCATED_UDID: {type: STRING, desc: remote truncated UDID}
+
+NO_DEVICE_FOUND:
+  __BASE: {type: STATISTIC, level: MINOR, desc: statistics on undiscovered devices}
+  BT_SWITCH: {type: INT32, desc: bluetooth switch status}
+  WIFI_INFO: {type: STRING, desc: wifi information when the device is not discovered}
+  SCAN_TIME: {type: INT32, desc: scan time}
+
+CAST_ENGINE_EVE:
+  __BASE: {type: STATISTIC, level: MINOR, desc: projection event}
+  SEQUENTIAL_ID: {type: STRING, desc: used to associate projection events}
+  CAST_SESSION_ID: {type: INT32, desc: projection session ID}
+  ERROR_CODE: {type: INT32, desc: error code}
+  SUB_ERR_CODE: {type: INT32, desc: sub error code}
+  EXT_ERR_INFO: {type: INT32, desc: extended error information}
+  ERR_MSG: {type: STRING, desc: error information sent from the sink during stream projection}
+  LOCAL_DEVICE_INFO: {type: STRING, desc: local device information record}
+  REMOTE_DEVICE_INFO: {type: STRING, desc: remote device information record}
+  CONNECT_INFO: {type: STRING, desc: connect information record}
+  CAST_STREAM_INFO: {type: STRING, desc: stream information record}
+
+WIFI_INFO:
+  __BASE: {type: STATISTIC, level: MINOR, desc: wifi information}
+  FREQ: {type: INT32, desc: frequency band of the current wifi connection}
+  RSSI: {type: INT32, desc: signal strength of the current connection}
+  LINKSPEED: {type: INT32, desc: TX rate of the current connection}
+  RXLINKSPEED: {type: INT32, desc: RX rate of the current connection}
+  SNR: {type: INT32, desc: SNR of the current connection}
+  CHLOAD: {type: INT32, desc: channel loading of the current connected}
+  FREQ_P2P: {type: INT32, desc: frequency band of the current P2P wifi connection}
+  RSSI_P2P: {type: INT32, desc: signal strength of the current P2P connection}
+  LINKSPEED_P2P: {type: INT32, desc: TX rate of the current P2P connection}
+  RXLINKSPEED_P2P: {type: INT32, desc: RX rate of the current P2P connection}
+  SNR_P2P: {type: INT32, desc: SNR of the current P2P connection}
+  CHLOAD_P2P: {type: INT32, desc: channel loading of the current P2P connected}
