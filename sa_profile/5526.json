@@ -1,0 +1,12 @@
+{
+    "process": "cast_engine_service",
+    "systemability": [
+        {
+            "name": 5526,
+            "libpath": "libcast_engine_service.z.so",
+            "run-on-create": false,
+            "distributed": false,
+            "dump_level": 1
+        }
+    ]
+}
