@@ -1,0 +1,61 @@
+/*
+ * Copyright (c) 2023 Huawei Device Co., Ltd.
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Description: Channel for transmitting data
+ * Author: sunhong
+ * Create: 2022-01-19
+ */
+
+#ifndef CASTSESSION_CHANNEL_H
+#define CASTSESSION_CHANNEL_H
+
+#include <memory>
+#include "channel_request.h"
+#include "channel_listener.h"
+
+namespace OHOS {
+namespace CastEngine {
+namespace CastEngineService {
+class Channel {
+public:
+    virtual ~Channel() = default;
+
+    void SetRequest(const ChannelRequest &request)
+    {
+        channelRequest_ = request;
+    }
+
+    const ChannelRequest &GetRequest() const
+    {
+        return channelRequest_;
+    }
+
+    void SetListener(std::shared_ptr<IChannelListener> listener)
+    {
+        channelListener_ = listener;
+    }
+
+    std::shared_ptr<IChannelListener> GetListener()
+    {
+        return channelListener_;
+    }
+
+    virtual bool Send(const uint8_t *buffer, int length)
+    {
+        return false;
+    }
+
+private:
+    ChannelRequest channelRequest_;
+    std::shared_ptr<IChannelListener> channelListener_;
+};
+} // namespace CastEngineService
+} // namespace CastEngine
+} // namespace OHOS
+
+#endif // CASTSESSION_CHANNEL_H

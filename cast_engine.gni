@@ -14,7 +14,7 @@ cast_engine_client = "$cast_engine_root/client"
 cast_engine_common = "$cast_engine_root/common"
 cast_engine_interfaces = "$cast_engine_root/interfaces"
 cast_engine_service = "$cast_engine_root/service"
-cast_session_stream_path = "//foundation/CastEngine/castengine_cast_plus_stream"
+cast_session_stream_path = "$cast_engine_service/src/session"
 
 graphic_2d_path = "//foundation/graphic/graphic_2d"
 

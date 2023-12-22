@@ -1,0 +1,58 @@
+# Copyright (c) Huawei Technologies Co., Ltd. 2023-2023. All rights reserved.
+
+import("//foundation/CastEngine/castengine_cast_framework/cast_engine.gni")
+
+config("cast_session_stream_config") {
+  include_dirs = [
+    "include",
+    "${cast_session_stream_path}/include",
+    "${cast_session_stream_path}/src/utils/include",
+    "${cast_session_stream_path}/src/stream/include",
+    "${cast_session_stream_path}/src/stream/src/local/include",
+    "${cast_session_stream_path}/src/stream/src/player/include",
+    "//third_party/json/single_include/nlohmann",
+  ]
+}
+
+ohos_static_library("cast_session_stream") {
+  sources = [
+    "src/cast_stream_manager_client.cpp",
+    "src/cast_stream_manager_server.cpp",
+    "src/i_cast_stream_manager.cpp",
+    "src/local/src/cast_local_file_channel_client.cpp",
+    "src/local/src/cast_local_file_channel_common.cpp",
+    "src/local/src/cast_local_file_channel_server.cpp",
+    "src/local/src/local_data_source.cpp",
+    "src/player/src/cast_stream_player.cpp",
+    "src/player/src/cast_stream_player_manager.cpp",
+    "src/player/src/remote_player_controller.cpp",
+    "src/player/src/stream_player_impl_stub.cpp",
+    "src/player/src/stream_player_listener_impl_proxy.cpp",
+    "src/player/src/cast_stream_player_utils.cpp",
+  ]
+
+  configs = [
+    ":cast_session_stream_config",
+    "${cast_engine_root}:cast_engine_default_config",
+  ]
+
+  public_configs = [ ":cast_session_stream_config" ]
+
+  deps = [
+    "${cast_engine_common}:cast_engine_common_sources",
+    "${cast_session_stream_path}/src/channel:cast_session_channel",
+    "${cast_session_stream_path}/src/utils:cast_session_utils",
+  ]
+
+  external_deps = [
+    "audio_framework:audio_client",
+    "c_utils:utils",
+    "graphic_2d:surface",
+    "hilog:libhilog",
+    "hisysevent:libhisysevent",
+    "player_framework:media_client"
+  ]
+
+  subsystem_name = "castplus"
+  part_name = "cast_engine"
+}

@@ -1,0 +1,47 @@
+# Copyright (c) 2023 Huawei Device Co., Ltd.
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+
+import("//foundation/CastEngine/castengine_cast_framework/cast_engine.gni")
+
+config("cast_session_rtsp_config") {
+  include_dirs = [ "include" ]
+}
+
+ohos_static_library("cast_session_rtsp") {
+  sources = [
+    "src/rtsp_channel_manager.cpp",
+    "src/rtsp_controller.cpp",
+    "src/rtsp_package.cpp",
+    "src/rtsp_param_info.cpp",
+    "src/rtsp_parse.cpp",
+  ]
+
+  include_dirs = [ "src" ]
+
+  configs = [
+    ":cast_session_rtsp_config",
+    "${cast_engine_root}:cast_engine_default_config",
+  ]
+
+  public_configs = [ ":cast_session_rtsp_config" ]
+
+  deps = [
+    "${cast_engine_common}:cast_engine_common_sources",
+    "${cast_session_stream_path}/src/channel:cast_session_channel",
+    "${cast_session_stream_path}/src/utils:cast_session_utils",
+    "//third_party/openssl:libcrypto_shared",
+  ]
+
+  external_deps = [
+    "hilog:libhilog",
+    "ipc:ipc_core",
+  ]
+
+  subsystem_name = "castplus"
+  part_name = "cast_engine"
+}

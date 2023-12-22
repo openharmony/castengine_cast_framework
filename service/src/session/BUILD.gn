@@ -1,0 +1,63 @@
+# Copyright (c) 2023 Huawei Device Co., Ltd.
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+
+import("//foundation/CastEngine/castengine_cast_framework/cast_engine.gni")
+
+config("cast_session_config") {
+  include_dirs = [
+    "include",
+    "//third_party/jsoncpp/include", ]
+}
+
+ohos_static_library("cast_session") {
+  sources = [
+    "src/cast_session_impl.cpp",
+    "src/cast_session_impl_stub.cpp",
+    "src/cast_session_listener_impl_proxy.cpp",
+    "src/cast_session_listeners.cpp",
+    "src/cast_session_state.cpp",
+  ]
+
+  configs = [
+    ":cast_session_config",
+    "${cast_engine_root}:cast_engine_default_config",
+  ]
+
+  public_configs = [
+    ":cast_session_config",
+    "src/channel:cast_session_channel_config",
+    "src/utils:cast_session_utils_config",
+    "src/rtsp:cast_session_rtsp_config",
+    "src/stream:cast_session_stream_config",
+  ]
+
+  deps = [
+    "${cast_engine_common}:cast_engine_common_sources",
+    "${cast_engine_service}/src/device_manager:cast_discovery",
+    "src/channel:cast_session_channel",
+    "src/stream:cast_session_stream",
+    "src/rtsp:cast_session_rtsp",
+    "src/utils:cast_session_utils",
+    "//third_party/openssl:libcrypto_shared",
+    "//third_party/jsoncpp:jsoncpp",
+  ]
+
+  external_deps = [
+    "c_utils:utils",
+    "hilog:libhilog",
+    "ipc:ipc_core",
+    "player_framework:media_client",
+    "audio_framework:audio_client",
+    "device_manager:devicemanagersdk",
+    "input:libmmi-client",
+    "graphic_2d:surface"
+  ]
+
+  subsystem_name = "castplus"
+  part_name = "cast_engine"
+}

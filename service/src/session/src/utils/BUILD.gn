@@ -1,0 +1,52 @@
+# Copyright (c) 2023 Huawei Device Co., Ltd.
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#    http://www.apache.org/licenses/LICENSE-2.0
+#
+
+import("//foundation/CastEngine/castengine_cast_framework/cast_engine.gni")
+
+config("cast_session_utils_config") {
+  include_dirs = [
+    "include",
+    "//third_party/glib/glib",
+    "//third_party/glib",
+  ]
+}
+
+ohos_static_library("cast_session_utils") {
+  sources = [
+    "src/encrypt_decrypt.cpp",
+    "src/handler.cpp",
+    "src/message.cpp",
+    "src/permission.cpp",
+    "src/state_machine.cpp",
+    "src/timer.cpp",
+    "src/utils.cpp",
+  ]
+
+  configs = [
+    ":cast_session_utils_config",
+    "${cast_engine_root}:cast_engine_default_config",
+  ]
+
+  public_configs = [ ":cast_session_utils_config" ]
+
+  deps = [
+    "${cast_engine_common}:cast_engine_common_sources",
+    "//third_party/openssl:libcrypto_shared",
+    "//third_party/glib:glib_packages",
+  ]
+
+  external_deps = [
+    "access_token:libaccesstoken_sdk",
+    "c_utils:utils",
+    "hilog:libhilog",
+    "ipc:ipc_core",
+  ]
+
+  subsystem_name = "castplus"
+  part_name = "cast_engine"
+}
