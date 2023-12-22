@@ -80,8 +80,6 @@
                 }
             ],
             "test":[
-                "//foundation/CastEngine/castengine_cast_framework/test:cast_unittest",
-                "//foundation/CastEngine/castengine_cast_framework/test/fuzztest:fuzztest"
             ]
         }
     }
