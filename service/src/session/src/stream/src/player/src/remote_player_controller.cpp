@@ -1,11 +1,5 @@
 /*
- * Copyright (c) 2023 Huawei Device Co., Ltd.
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
+ * Copyright (c) Huawei Technologies Co., Ltd. 2023-2023. All rights reserved.
  * Description: stream player remote controller realization.
  * Author: huangchanggui
  * Create: 2023-02-01
@@ -80,6 +74,16 @@ int32_t RemotePlayerController::SetSurface(sptr<IBufferProducer> producer)
 
 int32_t RemotePlayerController::Load(const MediaInfo &mediaInfo)
 {
+    HiSysEventWriteWrap(__func__, {
+            {"BIZ_SCENE", static_cast<int32_t>(BIZSceneType::DUAL_POINTS_CONTROL)},
+            {"BIZ_STAGE", static_cast<int32_t>(BIZSceneStage::SOURCE_CONTROL)},
+            {"STAGE_RES", static_cast<int32_t>(StageResType::STAGE_RES_SUCCESS)},
+            {"ERROR_CODE", CAST_RADAR_SUCCESS}}, {
+            {"TO_CALL_PKG", DSOFTBUS_NAME},
+            {"LOCAL_SESS_NAME", ""},
+            {"PEER_SESS_NAME", ""},
+            {"PEER_UDID", ""}});
+
     CLOGI("Load in");
     if (!fileChannelServer_) {
         CLOGE("fileChannelServer_ is nullptr");
@@ -95,15 +99,37 @@ int32_t RemotePlayerController::Load(const MediaInfo &mediaInfo)
         CLOGE("ICastStreamManagerClient is null");
         return CAST_ENGINE_ERROR;
     }
-    if (!targetCallback->NotifyPeerLoad(mediaInfoToPlay)) {
-        CLOGE("NotifyPeerLoad failed");
-        return CAST_ENGINE_ERROR;
+    if (targetCallback->IsDoubleFrame()) {
+        if (mediaInfo.mediaUrl == "http:") {
+            CLOGD("No need for double frame to load");
+            return CAST_ENGINE_SUCCESS;
+        }
+        if (!targetCallback->NotifyPeerPlay(mediaInfoToPlay)) {
+            CLOGE("NotifyPeerPlay failed");
+            return CAST_ENGINE_ERROR;
+        }
+    } else {
+        if (!targetCallback->NotifyPeerLoad(mediaInfoToPlay)) {
+            CLOGE("NotifyPeerLoad failed");
+            return CAST_ENGINE_ERROR;
+        }
     }
     return CAST_ENGINE_SUCCESS;
 }
 
 int32_t RemotePlayerController::Play(const MediaInfo &mediaInfo)
 {
+    HiSysEventWriteWrap(__func__, {
+            {"BIZ_SCENE", static_cast<int32_t>(BIZSceneType::DUAL_POINTS_CONTROL)},
+            {"BIZ_STATE", static_cast<int32_t>(BIZStateType::BIZ_STATE_BEGIN)},
+            {"BIZ_STAGE", static_cast<int32_t>(BIZSceneStage::SOURCE_CONTROL)},
+            {"STAGE_RES", static_cast<int32_t>(StageResType::STAGE_RES_SUCCESS)},
+            {"ERROR_CODE", CAST_RADAR_SUCCESS}}, {
+            {"TO_CALL_PKG", DSOFTBUS_NAME},
+            {"LOCAL_SESS_NAME", ""},
+            {"PEER_SESS_NAME", ""},
+            {"PEER_UDID", ""}});
+
     CLOGI("Start in");
     if (!fileChannelServer_) {
         CLOGE("fileChannelServer_ is nullptr");
@@ -134,6 +160,17 @@ int32_t RemotePlayerController::Play(int index)
 
 int32_t RemotePlayerController::Play()
 {
+    HiSysEventWriteWrap(__func__, {
+            {"BIZ_SCENE", static_cast<int32_t>(BIZSceneType::DUAL_POINTS_CONTROL)},
+            {"BIZ_STATE", static_cast<int32_t>(BIZStateType::BIZ_STATE_BEGIN)},
+            {"BIZ_STAGE", static_cast<int32_t>(BIZSceneStage::SOURCE_CONTROL)},
+            {"STAGE_RES", static_cast<int32_t>(StageResType::STAGE_RES_SUCCESS)},
+            {"ERROR_CODE", CAST_RADAR_SUCCESS}}, {
+            {"TO_CALL_PKG", DSOFTBUS_NAME},
+            {"LOCAL_SESS_NAME", ""},
+            {"PEER_SESS_NAME", ""},
+            {"PEER_UDID", ""}});
+
     CLOGI("Play in");
     std::shared_ptr<ICastStreamManagerClient> targetCallback = callback_.lock();
     if (!targetCallback) {
@@ -149,6 +186,17 @@ int32_t RemotePlayerController::Play()
 
 int32_t RemotePlayerController::Pause()
 {
+    HiSysEventWriteWrap(__func__, {
+            {"BIZ_SCENE", static_cast<int32_t>(BIZSceneType::DUAL_POINTS_CONTROL)},
+            {"BIZ_STATE", static_cast<int32_t>(BIZStateType::BIZ_STATE_BEGIN)},
+            {"BIZ_STAGE", static_cast<int32_t>(BIZSceneStage::SOURCE_CONTROL)},
+            {"STAGE_RES", static_cast<int32_t>(StageResType::STAGE_RES_SUCCESS)},
+            {"ERROR_CODE", CAST_RADAR_SUCCESS}}, {
+            {"TO_CALL_PKG", DSOFTBUS_NAME},
+            {"LOCAL_SESS_NAME", ""},
+            {"PEER_SESS_NAME", ""},
+            {"PEER_UDID", ""}});
+
     CLOGI("Pause in");
     std::shared_ptr<ICastStreamManagerClient> targetCallback = callback_.lock();
     if (!targetCallback) {
@@ -164,6 +212,16 @@ int32_t RemotePlayerController::Pause()
 
 int32_t RemotePlayerController::Stop()
 {
+    HiSysEventWriteWrap(__func__, {
+            {"BIZ_SCENE", static_cast<int32_t>(BIZSceneType::DUAL_POINTS_CONTROL)},
+            {"BIZ_STAGE", static_cast<int32_t>(BIZSceneStage::SOURCE_CONTROL)},
+            {"STAGE_RES", static_cast<int32_t>(StageResType::STAGE_RES_SUCCESS)},
+            {"ERROR_CODE", CAST_RADAR_SUCCESS}}, {
+            {"TO_CALL_PKG", DSOFTBUS_NAME},
+            {"LOCAL_SESS_NAME", ""},
+            {"PEER_SESS_NAME", ""},
+            {"PEER_UDID", ""}});
+
     CLOGI("Stop in");
     std::shared_ptr<ICastStreamManagerClient> targetCallback = callback_.lock();
     if (!targetCallback) {
@@ -185,6 +243,16 @@ sptr<IStreamPlayerListenerImpl> RemotePlayerController::PlayerListenerGetter()
 
 int32_t RemotePlayerController::Next()
 {
+    HiSysEventWriteWrap(__func__, {
+            {"BIZ_SCENE", static_cast<int32_t>(BIZSceneType::DUAL_POINTS_CONTROL)},
+            {"BIZ_STAGE", static_cast<int32_t>(BIZSceneStage::SOURCE_CONTROL)},
+            {"STAGE_RES", static_cast<int32_t>(StageResType::STAGE_RES_SUCCESS)},
+            {"ERROR_CODE", CAST_RADAR_SUCCESS}}, {
+            {"TO_CALL_PKG", DSOFTBUS_NAME},
+            {"LOCAL_SESS_NAME", ""},
+            {"PEER_SESS_NAME", ""},
+            {"PEER_UDID", ""}});
+
     CLOGI("Next in");
     auto playerListener = PlayerListenerGetter();
     if (!playerListener) {
@@ -197,6 +265,16 @@ int32_t RemotePlayerController::Next()
 
 int32_t RemotePlayerController::Previous()
 {
+    HiSysEventWriteWrap(__func__, {
+            {"BIZ_SCENE", static_cast<int32_t>(BIZSceneType::DUAL_POINTS_CONTROL)},
+            {"BIZ_STAGE", static_cast<int32_t>(BIZSceneStage::SOURCE_CONTROL)},
+            {"STAGE_RES", static_cast<int32_t>(StageResType::STAGE_RES_SUCCESS)},
+            {"ERROR_CODE", CAST_RADAR_SUCCESS}}, {
+            {"TO_CALL_PKG", DSOFTBUS_NAME},
+            {"LOCAL_SESS_NAME", ""},
+            {"PEER_SESS_NAME", ""},
+            {"PEER_UDID", ""}});
+
     CLOGI("Previous in");
     auto playerListener = PlayerListenerGetter();
     if (!playerListener) {
@@ -209,6 +287,16 @@ int32_t RemotePlayerController::Previous()
 
 int32_t RemotePlayerController::Seek(int position)
 {
+    HiSysEventWriteWrap(__func__, {
+            {"BIZ_SCENE", static_cast<int32_t>(BIZSceneType::DUAL_POINTS_CONTROL)},
+            {"BIZ_STAGE", static_cast<int32_t>(BIZSceneStage::SOURCE_CONTROL)},
+            {"STAGE_RES", static_cast<int32_t>(StageResType::STAGE_RES_SUCCESS)},
+            {"ERROR_CODE", CAST_RADAR_SUCCESS}}, {
+            {"TO_CALL_PKG", DSOFTBUS_NAME},
+            {"LOCAL_SESS_NAME", ""},
+            {"PEER_SESS_NAME", ""},
+            {"PEER_UDID", ""}});
+
     CLOGI("Seek in position:%{public}d", position);
     if (position < 0) {
         CLOGE("position is null");
@@ -228,6 +316,16 @@ int32_t RemotePlayerController::Seek(int position)
 
 int32_t RemotePlayerController::FastForward(int delta)
 {
+    HiSysEventWriteWrap(__func__, {
+            {"BIZ_SCENE", static_cast<int32_t>(BIZSceneType::DUAL_POINTS_CONTROL)},
+            {"BIZ_STAGE", static_cast<int32_t>(BIZSceneStage::SOURCE_CONTROL)},
+            {"STAGE_RES", static_cast<int32_t>(StageResType::STAGE_RES_SUCCESS)},
+            {"ERROR_CODE", CAST_RADAR_SUCCESS}}, {
+            {"TO_CALL_PKG", DSOFTBUS_NAME},
+            {"LOCAL_SESS_NAME", ""},
+            {"PEER_SESS_NAME", ""},
+            {"PEER_UDID", ""}});
+
     CLOGI("FastForward with delta:%{public}d", delta);
     if (delta <= 0) {
         CLOGE("delta is invalid");
@@ -247,6 +345,16 @@ int32_t RemotePlayerController::FastForward(int delta)
 
 int32_t RemotePlayerController::FastRewind(int delta)
 {
+    HiSysEventWriteWrap(__func__, {
+            {"BIZ_SCENE", static_cast<int32_t>(BIZSceneType::DUAL_POINTS_CONTROL)},
+            {"BIZ_STAGE", static_cast<int32_t>(BIZSceneStage::SOURCE_CONTROL)},
+            {"STAGE_RES", static_cast<int32_t>(StageResType::STAGE_RES_SUCCESS)},
+            {"ERROR_CODE", CAST_RADAR_SUCCESS}}, {
+            {"TO_CALL_PKG", DSOFTBUS_NAME},
+            {"LOCAL_SESS_NAME", ""},
+            {"PEER_SESS_NAME", ""},
+            {"PEER_UDID", ""}});
+
     CLOGI("FastRewind with delta:%{public}d", delta);
     if (delta <= 0) {
         CLOGE("delta is invalid");
@@ -266,6 +374,16 @@ int32_t RemotePlayerController::FastRewind(int delta)
 
 int32_t RemotePlayerController::SetVolume(int volume)
 {
+    HiSysEventWriteWrap(__func__, {
+            {"BIZ_SCENE", static_cast<int32_t>(BIZSceneType::DUAL_POINTS_CONTROL)},
+            {"BIZ_STAGE", static_cast<int32_t>(BIZSceneStage::SOURCE_CONTROL)},
+            {"STAGE_RES", static_cast<int32_t>(StageResType::STAGE_RES_SUCCESS)},
+            {"ERROR_CODE", CAST_RADAR_SUCCESS}}, {
+            {"TO_CALL_PKG", DSOFTBUS_NAME},
+            {"LOCAL_SESS_NAME", ""},
+            {"PEER_SESS_NAME", ""},
+            {"PEER_UDID", ""}});
+
     CLOGI("SetVolume in volume:%{public}d", volume);
     if (volume < 0 || volume > CAST_STREAM_FULL_VOLUME) {
         CLOGE("volume is invalid");
@@ -283,10 +401,45 @@ int32_t RemotePlayerController::SetVolume(int volume)
     return CAST_ENGINE_SUCCESS;
 }
 
+int32_t RemotePlayerController::SetMute(bool mute)
+{
+    HiSysEventWriteWrap(__func__, {
+            {"BIZ_SCENE", static_cast<int32_t>(BIZSceneType::DUAL_POINTS_CONTROL)},
+            {"BIZ_STAGE", static_cast<int32_t>(BIZSceneStage::SOURCE_CONTROL)},
+            {"STAGE_RES", static_cast<int32_t>(StageResType::STAGE_RES_SUCCESS)},
+            {"ERROR_CODE", CAST_RADAR_SUCCESS}}, {
+            {"TO_CALL_PKG", DSOFTBUS_NAME},
+            {"LOCAL_SESS_NAME", ""},
+            {"PEER_SESS_NAME", ""},
+            {"PEER_UDID", ""}});
+
+    CLOGI("SetMute in: %{public}d", mute);
+    std::shared_ptr<ICastStreamManagerClient> targetCallback = callback_.lock();
+    if (!targetCallback) {
+        CLOGE("ICastStreamManagerClient is null");
+        return CAST_ENGINE_ERROR;
+    }
+    if (!targetCallback->NotifyPeerSetMute(mute)) {
+        CLOGE("NotifyPeerSetMute failed");
+        return CAST_ENGINE_ERROR;
+    }
+    return CAST_ENGINE_SUCCESS;
+}
+
 int32_t RemotePlayerController::SetLoopMode(const LoopMode mode)
 {
+    HiSysEventWriteWrap(__func__, {
+            {"BIZ_SCENE", static_cast<int32_t>(BIZSceneType::DUAL_POINTS_CONTROL)},
+            {"BIZ_STAGE", static_cast<int32_t>(BIZSceneStage::SOURCE_CONTROL)},
+            {"STAGE_RES", static_cast<int32_t>(StageResType::STAGE_RES_SUCCESS)},
+            {"ERROR_CODE", CAST_RADAR_SUCCESS}}, {
+            {"TO_CALL_PKG", DSOFTBUS_NAME},
+            {"LOCAL_SESS_NAME", ""},
+            {"PEER_SESS_NAME", ""},
+            {"PEER_UDID", ""}});
+
     auto loopMode = static_cast<int>(mode);
-    CLOGI("SetLoopMode in mode:%{public}d", mode);
+    CLOGI("SetLoopMode in mode:%{public}d", loopMode);
     std::shared_ptr<ICastStreamManagerClient> targetCallback = callback_.lock();
     if (!targetCallback) {
         CLOGE("ICastStreamManagerClient is null");
@@ -301,6 +454,16 @@ int32_t RemotePlayerController::SetLoopMode(const LoopMode mode)
 
 int32_t RemotePlayerController::SetSpeed(const PlaybackSpeed speed)
 {
+    HiSysEventWriteWrap(__func__, {
+            {"BIZ_SCENE", static_cast<int32_t>(BIZSceneType::DUAL_POINTS_CONTROL)},
+            {"BIZ_STAGE", static_cast<int32_t>(BIZSceneStage::SOURCE_CONTROL)},
+            {"STAGE_RES", static_cast<int32_t>(StageResType::STAGE_RES_SUCCESS)},
+            {"ERROR_CODE", CAST_RADAR_SUCCESS}}, {
+            {"TO_CALL_PKG", DSOFTBUS_NAME},
+            {"LOCAL_SESS_NAME", ""},
+            {"PEER_SESS_NAME", ""},
+            {"PEER_UDID", ""}});
+
     auto playbackSpeed = static_cast<int>(speed);
     CLOGI("SetSpeed in speed:%{public}d", playbackSpeed);
     std::shared_ptr<ICastStreamManagerClient> targetCallback = callback_.lock();
@@ -362,6 +525,18 @@ int32_t RemotePlayerController::GetVolume(int &volume, int &maxVolume)
     }
     volume = targetCallback->GetVolume();
     maxVolume = targetCallback->GetMaxVolume();
+    return CAST_ENGINE_SUCCESS;
+}
+
+int32_t RemotePlayerController::GetMute(bool &mute)
+{
+    CLOGI("GetMute in");
+    std::shared_ptr<ICastStreamManagerClient> targetCallback = callback_.lock();
+    if (!targetCallback) {
+        CLOGE("ICastStreamManagerClient is null");
+        return CAST_ENGINE_ERROR;
+    }
+    mute = targetCallback->GetMute();
     return CAST_ENGINE_SUCCESS;
 }
 

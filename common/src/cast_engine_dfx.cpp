@@ -1,11 +1,5 @@
 /*
- * Copyright (c) 2023 Huawei Device Co., Ltd.
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
+ * Copyright (c) Huawei Technologies Co., Ltd. 2023-2023. All rights reserved.
  * Description: cast engine dfx.
  * Author: wangxueshuang
  * Create: 2023-06-05
@@ -105,6 +99,60 @@ std::string CastEngineDfx::GetBizPackageName()
 {
     CLOGD("In.");
     return PACKAGE_NAME;
+}
+
+int GetBIZSceneType(int protocols)
+{
+    static std::map<ProtocolType, BIZSceneType> typeRelation {
+        {ProtocolType::CAST_PLUS_MIRROR, BIZSceneType::CAST_MIRROR},
+        {ProtocolType::CAST_PLUS_STREAM, BIZSceneType::CAST_STREAM},
+        {ProtocolType::DLNA, BIZSceneType::DLNA},
+        {ProtocolType::MIRACAST, BIZSceneType::MIRACAST},
+        {ProtocolType::COOPERATION, BIZSceneType::COOPERATION}
+    };
+
+    auto sceneType = BIZSceneType::CAST_MIRROR;
+    if (auto itr = typeRelation.find(static_cast<ProtocolType>(protocols)); itr != typeRelation.cend()) {
+        sceneType = itr->second;
+    }
+
+    return static_cast<int>(sceneType);
+}
+
+void HiSysEventWriteWrap(const std::string& funcName, const RadarParamInt& paramInt,
+    const RadarParamString& paramStr)
+{
+    int32_t bizState = -1;
+    if (auto it = paramInt.find("BIZ_STATE"); it != paramInt.cend()) {
+        bizState = it->second;
+    }
+
+    if (bizState == -1) {
+        HiSysEventWrite(
+            CAST_ENGINE_DFX_DOMAIN_NAME, EVENT_NAME, HiviewDFX::HiSysEvent::EventType::BEHAVIOR, "ORG_PKG", ORG_PKG,
+            "FUNC", funcName,
+            "BIZ_SCENE", paramInt.at("BIZ_SCENE"),
+            "BIZ_STAGE", paramInt.at("BIZ_STAGE"),
+            "STAGE_RES", paramInt.at("STAGE_RES"),
+            "ERROR_CODE", paramInt.at("ERROR_CODE"),
+            "TO_CALL_PKG", paramStr.at("TO_CALL_PKG"),
+            "LOCAL_SESS_NAME", paramStr.at("LOCAL_SESS_NAME"),
+            "PEER_SESS_NAME", paramStr.at("PEER_SESS_NAME"),
+            "PEER_UDID", paramStr.at("PEER_UDID"));
+    } else {
+        HiSysEventWrite(
+            CAST_ENGINE_DFX_DOMAIN_NAME, EVENT_NAME, HiviewDFX::HiSysEvent::EventType::BEHAVIOR, "ORG_PKG", ORG_PKG,
+            "FUNC", funcName,
+            "BIZ_SCENE", paramInt.at("BIZ_SCENE"),
+            "BIZ_STATE", paramInt.at("BIZ_STATE"),
+            "BIZ_STAGE", paramInt.at("BIZ_STAGE"),
+            "STAGE_RES", paramInt.at("STAGE_RES"),
+            "ERROR_CODE", paramInt.at("ERROR_CODE"),
+            "TO_CALL_PKG", paramStr.at("TO_CALL_PKG"),
+            "LOCAL_SESS_NAME", paramStr.at("LOCAL_SESS_NAME"),
+            "PEER_SESS_NAME", paramStr.at("PEER_SESS_NAME"),
+            "PEER_UDID", paramStr.at("PEER_UDID"));
+    }
 }
 } // namespace CastEngine
 } // namespace OHOS

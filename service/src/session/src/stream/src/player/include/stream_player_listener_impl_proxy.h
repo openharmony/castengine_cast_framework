@@ -1,11 +1,5 @@
 /*
- * Copyright (c) 2023 Huawei Device Co., Ltd.
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
+ * Copyright (c) Huawei Technologies Co., Ltd. 2023-2023. All rights reserved.
  * Description: supply stream player listener implement proxy class.
  * Author: huangchanggui
  * Create: 2023-01-13
@@ -16,6 +10,7 @@
 
 #include "i_stream_player_listener_impl.h"
 #include "iremote_proxy.h"
+#include "pixel_map.h"
 
 namespace OHOS {
 namespace CastEngine {
@@ -38,6 +33,8 @@ public:
     void OnSeekDone(int position) override;
     void OnEndOfStream(int isLooping) override;
     void OnPlayRequest(const MediaInfo &mediaInfo) override;
+    void OnImageChanged(std::shared_ptr<Media::PixelMap> pixelMap) override;
+    void OnAlbumCoverChanged(std::shared_ptr<Media::PixelMap> pixelMap) override;
 
 private:
     static inline BrokerDelegator<StreamPlayerListenerImplProxy> delegator_;

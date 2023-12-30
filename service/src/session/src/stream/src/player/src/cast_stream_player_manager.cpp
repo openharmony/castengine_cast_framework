@@ -1,11 +1,5 @@
 /*
- * Copyright (c) 2023 Huawei Device Co., Ltd.
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
+ * Copyright (c) Huawei Technologies Co., Ltd. 2023-2023. All rights reserved.
  * Description: supply cast stream player manager.
  * Author: zhangjingnan
  * Create: 2023-1-11
@@ -14,6 +8,7 @@
 #include "cast_engine_errors.h"
 #include "cast_engine_log.h"
 #include "cast_stream_player_manager.h"
+#include "cast_engine_dfx.h"
 
 namespace OHOS {
 namespace CastEngine {
@@ -80,6 +75,16 @@ int32_t CastStreamPlayerManager::UnregisterListener()
 
 int32_t CastStreamPlayerManager::SetSurface(sptr<IBufferProducer> producer)
 {
+    HiSysEventWriteWrap(__func__, {
+            {"BIZ_SCENE", static_cast<int32_t>(BIZSceneType::DUAL_POINTS_CONTROL)},
+            {"BIZ_STAGE", static_cast<int32_t>(BIZSceneStage::SINK_CONTROL)},
+            {"STAGE_RES", static_cast<int32_t>(StageResType::STAGE_RES_SUCCESS)},
+            {"ERROR_CODE", CAST_RADAR_SUCCESS}}, {
+            {"TO_CALL_PKG", DSOFTBUS_NAME},
+            {"LOCAL_SESS_NAME", ""},
+            {"PEER_SESS_NAME", ""},
+            {"PEER_UDID", ""}});
+
     CLOGD("SetSurface in");
     sptr<Surface> surface = Surface::CreateSurfaceAsProducer(producer);
     if (surface == nullptr) {
@@ -113,6 +118,16 @@ int32_t CastStreamPlayerManager::SetSurface(sptr<IBufferProducer> producer)
 
 int32_t CastStreamPlayerManager::Load(const MediaInfo &mediaInfo)
 {
+    HiSysEventWriteWrap(__func__, {
+        {"BIZ_SCENE", static_cast<int32_t>(BIZSceneType::DUAL_POINTS_CONTROL)},
+        {"BIZ_STAGE", static_cast<int32_t>(BIZSceneStage::SINK_CONTROL)},
+        {"STAGE_RES", static_cast<int32_t>(StageResType::STAGE_RES_SUCCESS)},
+        {"ERROR_CODE", CAST_RADAR_SUCCESS}}, {
+        {"TO_CALL_PKG", DSOFTBUS_NAME},
+        {"LOCAL_SESS_NAME", ""},
+        {"PEER_SESS_NAME", ""},
+        {"PEER_UDID", ""}});
+
     CLOGI("Load in");
     if (!player_) {
         CLOGE("player_ is null");
@@ -155,6 +170,17 @@ int32_t CastStreamPlayerManager::Play(int index)
 // Play request from sink.
 int32_t CastStreamPlayerManager::Play(const MediaInfo &mediaInfo)
 {
+    HiSysEventWriteWrap(__func__, {
+            {"BIZ_SCENE", static_cast<int32_t>(BIZSceneType::DUAL_POINTS_CONTROL)},
+            {"BIZ_STATE", static_cast<int32_t>(BIZStateType::BIZ_STATE_BEGIN)},
+            {"BIZ_STAGE", static_cast<int32_t>(BIZSceneStage::SINK_CONTROL)},
+            {"STAGE_RES", static_cast<int32_t>(StageResType::STAGE_RES_SUCCESS)},
+            {"ERROR_CODE", CAST_RADAR_SUCCESS}}, {
+            {"TO_CALL_PKG", DSOFTBUS_NAME},
+            {"LOCAL_SESS_NAME", ""},
+            {"PEER_SESS_NAME", ""},
+            {"PEER_UDID", ""}});
+
     CLOGD("Play in");
     if (!callback_) {
         CLOGE("callback_ is null");
@@ -179,6 +205,9 @@ bool CastStreamPlayerManager::InnerPlayLocked(bool isLoading)
     if (!player_->SetSource(mediaInfo_)) {
         CLOGE("StreamPlayer SetSource failed");
         return false;
+    }
+    if (mediaInfo_.mediaType == "IMAGE") {
+        return true;
     }
     if (!player_->SetVideoSurface(surface_)) {
         CLOGE("StreamPlayer SetVideoSurface failed");
@@ -246,6 +275,17 @@ PlaybackSpeed CastStreamPlayerManager::ConvertMediaSpeedToPlaybackSpeed(Media::P
 
 int32_t CastStreamPlayerManager::Pause()
 {
+    HiSysEventWriteWrap(__func__, {
+            {"BIZ_SCENE", static_cast<int32_t>(BIZSceneType::DUAL_POINTS_CONTROL)},
+            {"BIZ_STATE", static_cast<int32_t>(BIZStateType::BIZ_STATE_BEGIN)},
+            {"BIZ_STAGE", static_cast<int32_t>(BIZSceneStage::SINK_CONTROL)},
+            {"STAGE_RES", static_cast<int32_t>(StageResType::STAGE_RES_SUCCESS)},
+            {"ERROR_CODE", CAST_RADAR_SUCCESS}}, {
+            {"TO_CALL_PKG", DSOFTBUS_NAME},
+            {"LOCAL_SESS_NAME", ""},
+            {"PEER_SESS_NAME", ""},
+            {"PEER_UDID", ""}});
+
     CLOGD("Pause in");
     if (!player_) {
         CLOGE("player_ is null");
@@ -260,6 +300,17 @@ int32_t CastStreamPlayerManager::Pause()
 
 int32_t CastStreamPlayerManager::Play()
 {
+    HiSysEventWriteWrap(__func__, {
+            {"BIZ_SCENE", static_cast<int32_t>(BIZSceneType::DUAL_POINTS_CONTROL)},
+            {"BIZ_STATE", static_cast<int32_t>(BIZStateType::BIZ_STATE_BEGIN)},
+            {"BIZ_STAGE", static_cast<int32_t>(BIZSceneStage::SINK_CONTROL)},
+            {"STAGE_RES", static_cast<int32_t>(StageResType::STAGE_RES_SUCCESS)},
+            {"ERROR_CODE", CAST_RADAR_SUCCESS}}, {
+            {"TO_CALL_PKG", DSOFTBUS_NAME},
+            {"LOCAL_SESS_NAME", ""},
+            {"PEER_SESS_NAME", ""},
+            {"PEER_UDID", ""}});
+
     CLOGD("Play in");
     if (!player_) {
         CLOGE("player_ is null");
@@ -274,6 +325,16 @@ int32_t CastStreamPlayerManager::Play()
 
 int32_t CastStreamPlayerManager::Stop()
 {
+    HiSysEventWriteWrap(__func__, {
+            {"BIZ_SCENE", static_cast<int32_t>(BIZSceneType::DUAL_POINTS_CONTROL)},
+            {"BIZ_STAGE", static_cast<int32_t>(BIZSceneStage::SINK_CONTROL)},
+            {"STAGE_RES", static_cast<int32_t>(StageResType::STAGE_RES_SUCCESS)},
+            {"ERROR_CODE", CAST_RADAR_SUCCESS }}, {
+            {"TO_CALL_PKG", DSOFTBUS_NAME},
+            {"LOCAL_SESS_NAME", ""},
+            {"PEER_SESS_NAME", ""},
+            {"PEER_UDID", ""}});
+
     CLOGD("Stop in");
     if (!callback_) {
         CLOGE("callback_ is null");
@@ -314,6 +375,16 @@ bool CastStreamPlayerManager::StopLocked()
 
 int32_t CastStreamPlayerManager::Next()
 {
+    HiSysEventWriteWrap(__func__, {
+            {"BIZ_SCENE", static_cast<int32_t>(BIZSceneType::DUAL_POINTS_CONTROL)},
+            {"BIZ_STAGE", static_cast<int32_t>(BIZSceneStage::SINK_CONTROL)},
+            {"STAGE_RES", static_cast<int32_t>(StageResType::STAGE_RES_SUCCESS)},
+            {"ERROR_CODE", CAST_RADAR_SUCCESS}}, {
+            {"TO_CALL_PKG", DSOFTBUS_NAME},
+            {"LOCAL_SESS_NAME", ""},
+            {"PEER_SESS_NAME", ""},
+            {"PEER_UDID", ""}});
+
     CLOGD("Next in");
     if (!callback_) {
         CLOGE("callback_ is null");
@@ -326,6 +397,16 @@ int32_t CastStreamPlayerManager::Next()
 
 int32_t CastStreamPlayerManager::Previous()
 {
+    HiSysEventWriteWrap(__func__, {
+            {"BIZ_SCENE", static_cast<int32_t>(BIZSceneType::DUAL_POINTS_CONTROL)},
+            {"BIZ_STAGE", static_cast<int32_t>(BIZSceneStage::SINK_CONTROL)},
+            {"STAGE_RES", static_cast<int32_t>(StageResType::STAGE_RES_SUCCESS)},
+            {"ERROR_CODE", CAST_RADAR_SUCCESS}}, {
+            {"TO_CALL_PKG", DSOFTBUS_NAME},
+            {"LOCAL_SESS_NAME", ""},
+            {"PEER_SESS_NAME", ""},
+            {"PEER_UDID", ""}});
+
     CLOGD("Previous in");
     if (!callback_) {
         CLOGE("callback_ is null");
@@ -338,6 +419,16 @@ int32_t CastStreamPlayerManager::Previous()
 
 int32_t CastStreamPlayerManager::Seek(int position)
 {
+    HiSysEventWriteWrap(__func__, {
+            {"BIZ_SCENE", static_cast<int32_t>(BIZSceneType::DUAL_POINTS_CONTROL)},
+            {"BIZ_STAGE", static_cast<int32_t>(BIZSceneStage::SINK_CONTROL)},
+            {"STAGE_RES", static_cast<int32_t>(StageResType::STAGE_RES_SUCCESS)},
+            {"ERROR_CODE", CAST_RADAR_SUCCESS}}, {
+            {"TO_CALL_PKG", DSOFTBUS_NAME},
+            {"LOCAL_SESS_NAME", ""},
+            {"PEER_SESS_NAME", ""},
+            {"PEER_UDID", ""}});
+
     CLOGD("Seek in");
     if (!player_) {
         CLOGE("player_ is null");
@@ -353,6 +444,16 @@ int32_t CastStreamPlayerManager::Seek(int position)
 
 int32_t CastStreamPlayerManager::FastForward(int delta)
 {
+    HiSysEventWriteWrap(__func__, {
+            {"BIZ_SCENE", static_cast<int32_t>(BIZSceneType::DUAL_POINTS_CONTROL)},
+            {"BIZ_STAGE", static_cast<int32_t>(BIZSceneStage::SINK_CONTROL)},
+            {"STAGE_RES", static_cast<int32_t>(StageResType::STAGE_RES_SUCCESS)},
+            {"ERROR_CODE", CAST_RADAR_SUCCESS}}, {
+            {"TO_CALL_PKG", DSOFTBUS_NAME},
+            {"LOCAL_SESS_NAME", ""},
+            {"PEER_SESS_NAME", ""},
+            {"PEER_UDID", ""}});
+
     CLOGD("FastForWard in");
     if (!player_) {
         CLOGE("player_ is null");
@@ -374,6 +475,16 @@ int32_t CastStreamPlayerManager::FastForward(int delta)
 
 int32_t CastStreamPlayerManager::FastRewind(int delta)
 {
+    HiSysEventWriteWrap(__func__, {
+            {"BIZ_SCENE", static_cast<int32_t>(BIZSceneType::DUAL_POINTS_CONTROL)},
+            {"BIZ_STAGE", static_cast<int32_t>(BIZSceneStage::SINK_CONTROL)},
+            {"STAGE_RES", static_cast<int32_t>(StageResType::STAGE_RES_SUCCESS)},
+            {"ERROR_CODE", CAST_RADAR_SUCCESS}}, {
+            {"TO_CALL_PKG", DSOFTBUS_NAME},
+            {"LOCAL_SESS_NAME", ""},
+            {"PEER_SESS_NAME", ""},
+            {"PEER_UDID", ""}});
+
     CLOGD("FastForRewind in");
     if (!player_) {
         CLOGE("player_ is null");
@@ -395,6 +506,16 @@ int32_t CastStreamPlayerManager::FastRewind(int delta)
 
 int32_t CastStreamPlayerManager::SetVolume(int volume)
 {
+    HiSysEventWriteWrap(__func__, {
+            {"BIZ_SCENE", static_cast<int32_t>(BIZSceneType::DUAL_POINTS_CONTROL)},
+            {"BIZ_STAGE", static_cast<int32_t>(BIZSceneStage::SINK_CONTROL)},
+            {"STAGE_RES", static_cast<int32_t>(StageResType::STAGE_RES_SUCCESS)},
+            {"ERROR_CODE", CAST_RADAR_SUCCESS}}, {
+            {"TO_CALL_PKG", DSOFTBUS_NAME},
+            {"LOCAL_SESS_NAME", ""},
+            {"PEER_SESS_NAME", ""},
+            {"PEER_UDID", ""}});
+
     CLOGD("SetVolume in");
     if (!player_) {
         CLOGE("player_ is null");
@@ -408,8 +529,43 @@ int32_t CastStreamPlayerManager::SetVolume(int volume)
     return CAST_ENGINE_SUCCESS;
 }
 
+int32_t CastStreamPlayerManager::SetMute(bool mute)
+{
+    HiSysEventWriteWrap(__func__, {
+            {"BIZ_SCENE", static_cast<int32_t>(BIZSceneType::DUAL_POINTS_CONTROL)},
+            {"BIZ_STAGE", static_cast<int32_t>(BIZSceneStage::SINK_CONTROL)},
+            {"STAGE_RES", static_cast<int32_t>(StageResType::STAGE_RES_SUCCESS)},
+            {"ERROR_CODE", CAST_RADAR_SUCCESS}}, {
+            {"TO_CALL_PKG", DSOFTBUS_NAME},
+            {"LOCAL_SESS_NAME", ""},
+            {"PEER_SESS_NAME", ""},
+            {"PEER_UDID", ""}});
+
+    CLOGD("SetMute in");
+    if (!player_) {
+        CLOGE("player_ is null");
+        return CAST_ENGINE_ERROR;
+    }
+    if (!player_->SetMute(mute)) {
+        CLOGE("StreamPlayer SetMute failed");
+        return CAST_ENGINE_ERROR;
+    }
+    CLOGD("SetMute out");
+    return CAST_ENGINE_SUCCESS;
+}
+
 int32_t CastStreamPlayerManager::SetLoopMode(const LoopMode mode)
 {
+    HiSysEventWriteWrap(__func__, {
+            {"BIZ_SCENE", static_cast<int32_t>(BIZSceneType::DUAL_POINTS_CONTROL)},
+            {"BIZ_STAGE", static_cast<int32_t>(BIZSceneStage::SINK_CONTROL)},
+            {"STAGE_RES", static_cast<int32_t>(StageResType::STAGE_RES_SUCCESS)},
+            {"ERROR_CODE", CAST_RADAR_SUCCESS}}, {
+            {"TO_CALL_PKG", DSOFTBUS_NAME},
+            {"LOCAL_SESS_NAME", ""},
+            {"PEER_SESS_NAME", ""},
+            {"PEER_UDID", ""}});
+
     CLOGD("SetLoopMode in");
     if (!player_) {
         CLOGE("player_ is null");
@@ -425,6 +581,16 @@ int32_t CastStreamPlayerManager::SetLoopMode(const LoopMode mode)
 
 int32_t CastStreamPlayerManager::SetSpeed(const PlaybackSpeed speed)
 {
+    HiSysEventWriteWrap(__func__, {
+            {"BIZ_SCENE", static_cast<int32_t>(BIZSceneType::DUAL_POINTS_CONTROL)},
+            {"BIZ_STAGE", static_cast<int32_t>(BIZSceneStage::SINK_CONTROL)},
+            {"STAGE_RES", static_cast<int32_t>(StageResType::STAGE_RES_SUCCESS)},
+            {"ERROR_CODE", CAST_RADAR_SUCCESS}}, {
+            {"TO_CALL_PKG", DSOFTBUS_NAME},
+            {"LOCAL_SESS_NAME", ""},
+            {"PEER_SESS_NAME", ""},
+            {"PEER_UDID", ""}});
+
     CLOGD("SetSpeed in");
     auto iter = g_doubleToModeTypeMap.find(speed);
     if (iter == g_doubleToModeTypeMap.end()) {
@@ -498,6 +664,17 @@ int32_t CastStreamPlayerManager::GetVolume(int &volume, int &maxVolume)
     if (!player_->GetVolume(volume, maxVolume)) {
         return CAST_ENGINE_ERROR;
     }
+    return CAST_ENGINE_SUCCESS;
+}
+
+int32_t CastStreamPlayerManager::GetMute(bool &mute)
+{
+    CLOGD("GetMute in");
+    if (!player_) {
+        CLOGE("player_ is null");
+        return CAST_ENGINE_ERROR;
+    }
+    mute = player_->GetMute();
     return CAST_ENGINE_SUCCESS;
 }
 

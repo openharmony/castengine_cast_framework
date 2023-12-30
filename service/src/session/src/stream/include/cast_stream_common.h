@@ -1,11 +1,5 @@
 /*
- * Copyright (c) 2023 Huawei Device Co., Ltd.
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
+ * Copyright (c) Huawei Technologies Co., Ltd. 2023-2023. All rights reserved.
  * Description: supply cast stream common.
  * Author: zhangjingnan
  * Create: 2023-3-11
@@ -17,10 +11,17 @@
 namespace OHOS {
 namespace CastEngine {
 constexpr int32_t CAST_STREAM_FULL_VOLUME = 100;
+constexpr int32_t CAST_STREAM_INT_INIT = 0;
 constexpr int32_t CAST_STREAM_INT_INVALID = -1;
 constexpr int32_t CAST_STREAM_INT_IGNORE = -1;
+constexpr int32_t CAST_STREAM_MAX_TIMES = 40;
+constexpr int32_t CAST_STREAM_WAIT_TIME = 100;
 constexpr double CAST_STREAM_DOUBLE_INVALID = -1;
 constexpr int32_t ERR_CODE_PLAY_FAILED = 10003;
+constexpr int32_t AUTO_POSITION_UPDATE_INTERVAL = 100;
+constexpr int32_t AUTO_POSITION_SYNC_INTERVAL = 10000;
+constexpr int32_t POSITION_LAG_MINIMUM = 50;
+constexpr int32_t POSITION_LAG_MAXIMUM = 150;
 const std::string PLAYER_ERROR = "PLAYER_ERROR";
 
 #define RETURN_IF_PARSE_WRONG(value, data, key, ret, jsonType)            \

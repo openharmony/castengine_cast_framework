@@ -1,11 +1,5 @@
 /*
- * Copyright (c) 2023 Huawei Device Co., Ltd.
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
+ * Copyright (c) Huawei Technologies Co., Ltd. 2023-2023. All rights reserved.
  * Description: add permission utils
  * Author: zhangge
  * Create: 2023-05-11
@@ -42,16 +36,16 @@ std::string GetPermissionDescription(const std::string &permission)
 
 bool CheckPermission(const std::string &permission)
 {
-    CLOGE("%{public}s succ!", GetPermissionDescription(permission).c_str());
+    CLOGE("%{public}s succ", GetPermissionDescription(permission).c_str());
     return true;
 }
 } // namespace
 
 std::mutex Permission::pidLock_;
 std::vector<pid_t> Permission::pids_;
-int32_t Permission::appUid_{ INVALID_VALUE };
-uint32_t Permission::appTokenId_{ 0 };
-int32_t Permission::appPid_{ 0 };
+int32_t Permission::appUid_;
+uint32_t Permission::appTokenId_;
+int32_t Permission::appPid_;
 
 bool Permission::CheckMirrorPermission()
 {
@@ -106,11 +100,9 @@ bool Permission::CheckPidPermission()
     return true;
 }
 
-void Permission::SaveMirrorAppInfo()
+void Permission::SaveMirrorAppInfo(std::tuple<int32_t, uint32_t, int32_t> appInfo)
 {
-    appTokenId_ = IPCSkeleton::GetCallingTokenID();
-    appUid_ = IPCSkeleton::GetCallingUid();
-    appPid_ = IPCSkeleton::GetCallingPid();
+    std::tie(appUid_, appTokenId_, appPid_) = appInfo;
     CLOGD("appUid %{public}d, appTokenId %{public}u, appPid %{public}d", appUid_, appTokenId_, appPid_);
 }
 

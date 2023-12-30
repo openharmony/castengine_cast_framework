@@ -1,11 +1,5 @@
 /*
- * Copyright (c) 2023 Huawei Device Co., Ltd.
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
+ * Copyright (c) Huawei Technologies Co., Ltd. 2022-2022. All rights reserved.
  * Description: Cast session interface.
  * Author: zhangge
  * Create: 2022-06-15
@@ -32,6 +26,7 @@ public:
 
     virtual void OnDeviceState(const DeviceStateInfo &stateInfo) = 0;
     virtual void OnEvent(const EventId &eventId, const std::string &jsonParam) = 0;
+    virtual void OnRemoteCtrlEvent(int eventType, const uint8_t *data, uint32_t len) {}
 };
 
 class EXPORT ICastSession {

@@ -1,11 +1,5 @@
 /*
- * Copyright (c) 2023 Huawei Device Co., Ltd.
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
+ * Copyright (c) Huawei Technologies Co., Ltd. 2023-2023. All rights reserved.
  * Description: supply napi interface realization for stream player.
  * Author: huangchanggui
  * Create: 2023-1-11
@@ -43,7 +37,8 @@ std::map<std::string, std::pair<NapiStreamPlayer::OnEventHandlerType,
     { "nextRequest", { OnNextRequest, OffNextRequest } },
     { "previousRequest", { OnPreviousRequest, OffPreviousRequest } },
     { "seekDone", { OnSeekDone, OffSeekDone } },
-    { "endOfStream", { OnEndOfStream, OffEndOfStream } }
+    { "endOfStream", { OnEndOfStream, OffEndOfStream } },
+    { "imageChanged", { OnImageChanged, OffImageChanged } }
 };
 
 void NapiStreamPlayer::DefineStreamPlayerJSClass(napi_env env)
@@ -65,9 +60,11 @@ void NapiStreamPlayer::DefineStreamPlayerJSClass(napi_env env)
         DECLARE_NAPI_FUNCTION("setVolume", SetVolume),
         DECLARE_NAPI_FUNCTION("setLoopMode", SetLoopMode),
         DECLARE_NAPI_FUNCTION("setSpeed", SetSpeed),
+        DECLARE_NAPI_FUNCTION("setMute", SetMute),
         DECLARE_NAPI_FUNCTION("getPlayerStatus", GetPlayerStatus),
         DECLARE_NAPI_FUNCTION("getPosition", GetPosition),
         DECLARE_NAPI_FUNCTION("getVolume", GetVolume),
+        DECLARE_NAPI_FUNCTION("getMute", GetMute),
         DECLARE_NAPI_FUNCTION("getLoopMode", GetLoopMode),
         DECLARE_NAPI_FUNCTION("getPlaySpeed", GetPlaySpeed),
         DECLARE_NAPI_FUNCTION("getMediaInfoHolder", GetMediaInfoHolder),
@@ -421,6 +418,24 @@ napi_status NapiStreamPlayer::OnEndOfStream(napi_env env, napi_value callback, N
     return napi_ok;
 }
 
+napi_status NapiStreamPlayer::OnImageChanged(napi_env env, napi_value callback, NapiStreamPlayer *napiStreamPlayer)
+{
+    if (napiStreamPlayer == nullptr) {
+        CLOGE("napiStreamPlayer is null");
+        return napi_generic_failure;
+    }
+    auto napiListener = napiStreamPlayer->NapiListenerGetter();
+    if (!napiListener) {
+        CLOGE("napi stream player callback is null");
+        return napi_generic_failure;
+    }
+    if (napiListener->AddCallback(env, NapiStreamPlayerListener::EVENT_IMAGE_CHANGED,
+        callback) != napi_ok) {
+        return napi_generic_failure;
+    }
+    return napi_ok;
+}
+
 napi_status NapiStreamPlayer::OffStateChanged(napi_env env, napi_value callback, NapiStreamPlayer *napiStreamPlayer)
 {
     if (napiStreamPlayer == nullptr) {
@@ -619,6 +634,24 @@ napi_status NapiStreamPlayer::OffEndOfStream(napi_env env, napi_value callback, 
         return napi_generic_failure;
     }
     if (napiStreamPlayer->NapiListenerGetter()->RemoveCallback(env, NapiStreamPlayerListener::EVENT_END_OF_STREAM,
+        callback) != napi_ok) {
+        return napi_generic_failure;
+    }
+    return napi_ok;
+}
+
+napi_status NapiStreamPlayer::OffImageChanged(napi_env env, napi_value callback, NapiStreamPlayer *napiStreamPlayer)
+{
+    if (napiStreamPlayer == nullptr) {
+        CLOGE("napiStreamPlayer is null");
+        return napi_generic_failure;
+    }
+    auto napiListener = napiStreamPlayer->NapiListenerGetter();
+    if (!napiListener) {
+        CLOGE("napi stream player callback is null");
+        return napi_generic_failure;
+    }
+    if (napiListener->RemoveCallback(env, NapiStreamPlayerListener::EVENT_IMAGE_CHANGED,
         callback) != napi_ok) {
         return napi_generic_failure;
     }
@@ -1269,6 +1302,52 @@ napi_value NapiStreamPlayer::SetSpeed(napi_env env, napi_callback_info info)
     return NapiAsyncWork::Enqueue(env, napiAsyntask, "SetSpeed", executor, complete);
 }
 
+napi_value NapiStreamPlayer::SetMute(napi_env env, napi_callback_info info)
+{
+    CLOGD("Start to set mute in");
+    struct ConcreteTask : public NapiAsyncTask {
+        bool setMute_;
+    };
+    auto napiAsyntask = std::make_shared<ConcreteTask>();
+    if (napiAsyntask == nullptr) {
+        CLOGE("Create NapiAsyncTask failed");
+        return GetUndefinedValue(env);
+    }
+
+    auto inputParser = [env, napiAsyntask](size_t argc, napi_value *argv) {
+        constexpr size_t expectedArgc = 1;
+        CHECK_ARGS_RETURN_VOID(napiAsyntask, argc == expectedArgc, "invalid arguments",
+            NapiErrors::errcode_[ERR_INVALID_PARAM]);
+        napi_valuetype expectedTypes[expectedArgc] = { napi_boolean };
+        bool isParamsTypeValid = CheckJSParamsType(env, argv, expectedArgc, expectedTypes);
+        CHECK_ARGS_RETURN_VOID(napiAsyntask, isParamsTypeValid, "invalid arguments",
+            NapiErrors::errcode_[ERR_INVALID_PARAM]);
+        napiAsyntask->setMute_ = ParseBool(env, argv[0]);
+    };
+    napiAsyntask->GetJSInfo(env, info, inputParser);
+    auto executor = [napiAsyntask]() {
+        auto *napiStreamPlayer = reinterpret_cast<NapiStreamPlayer *>(napiAsyntask->native);
+        CHECK_ARGS_RETURN_VOID(napiAsyntask, napiStreamPlayer != nullptr, "napiStreamPlayer is null",
+            NapiErrors::errcode_[CAST_ENGINE_ERROR]);
+        std::shared_ptr<IStreamPlayer> streamPlayer = napiStreamPlayer->GetStreamPlayer();
+        CHECK_ARGS_RETURN_VOID(napiAsyntask, streamPlayer, "IStreamPlayer is null",
+            NapiErrors::errcode_[CAST_ENGINE_ERROR]);
+        int32_t ret = streamPlayer->SetMute(napiAsyntask->setMute_);
+        if (ret != CAST_ENGINE_SUCCESS) {
+            if (ret == ERR_NO_PERMISSION) {
+                napiAsyntask->errMessage = "SetMute failed : no permission";
+            } else {
+                napiAsyntask->errMessage = "SetMute failed : native server exception";
+            }
+            napiAsyntask->status = napi_generic_failure;
+            napiAsyntask->errCode = NapiErrors::errcode_[ret];
+        }
+    };
+
+    auto complete = [env](napi_value &output) { output = GetUndefinedValue(env); };
+    return NapiAsyncWork::Enqueue(env, napiAsyntask, "SetSpeed", executor, complete);
+}
+
 napi_value NapiStreamPlayer::GetPlayerStatus(napi_env env, napi_callback_info info)
 {
     CLOGD("Start to get player status in");
@@ -1385,6 +1464,45 @@ napi_value NapiStreamPlayer::GetVolume(napi_env env, napi_callback_info info)
         CHECK_STATUS_RETURN_VOID(napiAsyntask, "napi_create_int32 failed", NapiErrors::errcode_[CAST_ENGINE_ERROR]);
     };
     return NapiAsyncWork::Enqueue(env, napiAsyntask, "GetVolume", executor, complete);
+}
+
+napi_value NapiStreamPlayer::GetMute(napi_env env, napi_callback_info info)
+{
+    CLOGD("Start to get mute in");
+    struct ConcreteTask : public NapiAsyncTask {
+        bool isMute_;
+    };
+    auto napiAsyntask = std::make_shared<ConcreteTask>();
+    if (napiAsyntask == nullptr) {
+        CLOGE("Create NapiAsyncTask failed");
+        return GetUndefinedValue(env);
+    }
+
+    napiAsyntask->GetJSInfo(env, info);
+    auto executor = [napiAsyntask]() {
+        auto *napiStreamPlayer = reinterpret_cast<NapiStreamPlayer *>(napiAsyntask->native);
+        CHECK_ARGS_RETURN_VOID(napiAsyntask, napiStreamPlayer != nullptr, "napiStreamPlayer is null",
+            NapiErrors::errcode_[CAST_ENGINE_ERROR]);
+        std::shared_ptr<IStreamPlayer> streamPlayer = napiStreamPlayer->GetStreamPlayer();
+        CHECK_ARGS_RETURN_VOID(napiAsyntask, streamPlayer, "IStreamPlayer is null",
+            NapiErrors::errcode_[CAST_ENGINE_ERROR]);
+        int32_t ret = streamPlayer->GetMute(napiAsyntask->isMute_);
+        if (ret != CAST_ENGINE_SUCCESS) {
+            if (ret == ERR_NO_PERMISSION) {
+                napiAsyntask->errMessage = "GetMute failed : no permission";
+            } else {
+                napiAsyntask->errMessage = "GetMute failed : native server exception";
+            }
+            napiAsyntask->status = napi_generic_failure;
+            napiAsyntask->errCode = NapiErrors::errcode_[ret];
+        }
+    };
+
+    auto complete = [env, napiAsyntask](napi_value &output) {
+        napiAsyntask->status = napi_create_int32(env, napiAsyntask->isMute_, &output);
+        CHECK_STATUS_RETURN_VOID(napiAsyntask, "napi_create_int32 failed", NapiErrors::errcode_[CAST_ENGINE_ERROR]);
+    };
+    return NapiAsyncWork::Enqueue(env, napiAsyntask, "GetMute", executor, complete);
 }
 
 napi_value NapiStreamPlayer::GetLoopMode(napi_env env, napi_callback_info info)

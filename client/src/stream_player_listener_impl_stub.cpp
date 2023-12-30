@@ -1,11 +1,5 @@
 /*
- * Copyright (c) 2023 Huawei Device Co., Ltd.
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
+ * Copyright (c) Huawei Technologies Co., Ltd. 2023-2023. All rights reserved.
  * Description: supply stream player listener implement stub realization.
  * Author: huangchanggui
  * Create: 2023-01-12
@@ -47,6 +41,8 @@ StreamPlayerListenerImplStub::StreamPlayerListenerImplStub(std::shared_ptr<IStre
     FILL_SINGLE_STUB_TASK(ON_SEEK_DONE, &StreamPlayerListenerImplStub::DoOnSeekDoneTask);
     FILL_SINGLE_STUB_TASK(ON_END_OF_STREAM, &StreamPlayerListenerImplStub::DoOnEndOfStreamTask);
     FILL_SINGLE_STUB_TASK(ON_PLAY_REQUEST, &StreamPlayerListenerImplStub::DoOnPlayRequestTask);
+    FILL_SINGLE_STUB_TASK(ON_IMAGE_CHANGED, &StreamPlayerListenerImplStub::DoOnImageChangedTask);
+    FILL_SINGLE_STUB_TASK(ON_ALBUM_COVER_CHANGED, &StreamPlayerListenerImplStub::DoOnAlbumCoverChangedTask);
 }
 
 StreamPlayerListenerImplStub::~StreamPlayerListenerImplStub()
@@ -188,6 +184,34 @@ int32_t StreamPlayerListenerImplStub::DoOnPlayRequestTask(MessageParcel &data, M
     return ERR_NONE;
 }
 
+int32_t StreamPlayerListenerImplStub::DoOnImageChangedTask(MessageParcel &data, MessageParcel &reply)
+{
+    static_cast<void>(reply);
+    Media::PixelMap *pixelMap = Media::PixelMap::Unmarshalling(data);
+    if (pixelMap == nullptr) {
+        CLOGE("DoOnImageChangedTask, pixelMap is null");
+        return ERR_NULL_OBJECT;
+    }
+    std::shared_ptr<Media::PixelMap> pixelMapShared(pixelMap);
+    userListener_->OnImageChanged(pixelMapShared);
+ 
+    return ERR_NONE;
+}
+
+int32_t StreamPlayerListenerImplStub::DoOnAlbumCoverChangedTask(MessageParcel &data, MessageParcel &reply)
+{
+    static_cast<void>(reply);
+    Media::PixelMap *pixelMap = Media::PixelMap::Unmarshalling(data);
+    if (pixelMap == nullptr) {
+        CLOGE("DoOnAlbumCoverChangedTask, pixelMap is null");
+        return ERR_NULL_OBJECT;
+    }
+    std::shared_ptr<Media::PixelMap> pixelMapShared(pixelMap);
+    userListener_->OnAlbumCoverChanged(pixelMapShared);
+ 
+    return ERR_NONE;
+}
+
 void StreamPlayerListenerImplStub::OnStateChanged(const PlayerStates playbackState, bool isPlayWhenReady)
 {
     static_cast<void>(playbackState);
@@ -255,6 +279,16 @@ void StreamPlayerListenerImplStub::OnEndOfStream(int isLooping)
 void StreamPlayerListenerImplStub::OnPlayRequest(const MediaInfo &mediaInfo)
 {
     static_cast<void>(mediaInfo);
+}
+
+void StreamPlayerListenerImplStub::OnImageChanged(std::shared_ptr<Media::PixelMap> pixelMap)
+{
+    static_cast<void>(pixelMap);
+}
+
+void StreamPlayerListenerImplStub::OnAlbumCoverChanged(std::shared_ptr<Media::PixelMap> pixelMap)
+{
+    static_cast<void>(pixelMap);
 }
 } // namespace CastEngineClient
 } // namespace CastEngine

@@ -1,11 +1,5 @@
 /*
- * Copyright (c) 2023 Huawei Device Co., Ltd.
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
+ * Copyright (c) Huawei Technologies Co., Ltd. 2022-2023. All rights reserved.
  * Description: supply utils for napi interface.
  * Author: zhangjingnan
  * Create: 2022-7-11
@@ -64,6 +58,7 @@ constexpr int32_t CALLBACK_ARGC_FOUR = 4;
 
 std::string ParseString(napi_env env, napi_value args);
 int32_t ParseInt32(napi_env env, napi_value args);
+uint32_t ParseUint32(napi_env env, napi_value args);
 bool ParseBool(napi_env env, napi_value args);
 std::string JsObjectToString(napi_env env, napi_value &object, const char *fieldStr);
 int32_t JsObjectToInt32(napi_env env, napi_value &object, const char *fieldStr);

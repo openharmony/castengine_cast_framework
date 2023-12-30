@@ -1,0 +1,60 @@
+# Copyright (c) Huawei Technologies Co., Ltd. 2022-2023. All rights reserved.
+
+import("//foundation/CastEngine/castengine_cast_framework/cast_engine.gni")
+
+config("cast_session_mirror_config") {
+  include_dirs = [
+    "include",
+    "${cast_engine_service}/src/session/src/mirror/include",
+    "${cast_engine_service}/src/session/include",
+  ]
+}
+
+ohos_static_library("cast_session_mirror") {
+  sources = [
+    "src/mirror_player_impl.cpp",
+    "src/mirror_player_impl_stub.cpp",
+  ]
+
+  configs = [
+    ":cast_session_mirror_config",
+    "${cast_engine_root}:cast_engine_default_config",
+  ]
+
+  public_configs = [ ":cast_session_mirror_config" ]
+
+  deps = [
+    "${cast_engine_common}:cast_engine_common_sources",
+    "${cast_engine_service}/src/session/src/channel:cast_session_channel",
+    "${cast_engine_service}/src/session/src/rtsp:cast_session_rtsp",
+    "${cast_engine_service}/src/session/src/utils:cast_session_utils",
+    "${cast_engine_service}/src/session/src/stream:cast_session_stream",
+  ]
+
+  external_deps = [
+    "audio_framework:audio_capturer",
+    "audio_framework:audio_client",
+    "audio_framework:audio_renderer",
+    "av_codec:av_codec_client",
+    "c_utils:utils",
+    "graphic_2d:surface",
+    "graphic_2d:librender_service_client",
+    "window_manager:libdm",
+    "window_manager:libwm",
+    "hitrace:hitrace_meter",
+    "hilog:libhilog",
+    "ipc:ipc_core",
+    "init:libbegetutil",
+    "input:libmmi-client",
+    "ability_runtime:extension_manager",
+    "ability_base:want",
+    "bundle_framework:appexecfwk_base",
+    "bundle_framework:appexecfwk_core",
+    "safwk:system_ability_fwk",
+    "samgr:samgr_proxy",
+    "ability_runtime:app_manager",
+  ]
+
+  subsystem_name = "castplus"
+  part_name = "cast_engine"
+}

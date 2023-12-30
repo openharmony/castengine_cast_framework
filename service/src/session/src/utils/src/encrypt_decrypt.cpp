@@ -1,11 +1,5 @@
 /*
- * Copyright (c) 2023 Huawei Device Co., Ltd.
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
+ * Copyright (c) Huawei Technologies Co., Ltd. 2022-2023. All rights reserved.
  * Description: encrypt and decrypt data module
  * Author: lijianzhao
  * Create: 2022-01-19
@@ -401,7 +395,6 @@ bool EncryptDecrypt::EncryptData(int algCode, const uint8_t *key, int keyLen, Co
         CLOGE("encrypt not CTR for extension");
         return false;
     }
-
     GetAESIv(sessionIV, AES_KEY_SIZE);
 
     int encryptDataLen = inputData.length + AES_KEY_SIZE;
@@ -413,12 +406,11 @@ bool EncryptDecrypt::EncryptData(int algCode, const uint8_t *key, int keyLen, Co
     if (ret != 0) {
         return false;
     }
-    int enLen = 0;
-    PacketData output = { encryptData.get(), enLen };
+    PacketData output = { encryptData.get(), encryptDataLen };
     ConstPacketData sessionKey = { key, keyLen };
     ConstPacketData iv = { sessionIV, AES_IV_LEN };
     ret = AES128Encry(inputData, output, sessionKey, iv);
-    if (ret != 0 || output.length > enLen) {
+    if (ret != 0 || output.length > inputData.length) {
         CLOGE("encrypt error enLen [%u][%u]", ret, output.length);
         return false;
     }
@@ -449,8 +441,7 @@ bool EncryptDecrypt::DecryptData(int algCode, const uint8_t *key, int keyLen, Co
         CLOGE("decrypt para error");
         return false;
     }
-
-    int32_t ret = memcpy_s(sessionIV, AES_KEY_SIZE, inputData.data, inputData.length);
+    int32_t ret = memcpy_s(sessionIV, AES_KEY_SIZE, inputData.data, AES_KEY_SIZE);
     if (ret != 0) {
         CLOGE("memcpy_s failed");
         delete[] inputData.data;
@@ -467,12 +458,13 @@ bool EncryptDecrypt::DecryptData(int algCode, const uint8_t *key, int keyLen, Co
         CLOGE("memset_s failed");
         return false;
     }
-    PacketData output = { decryptData.get(), 0 };
+    PacketData output = { decryptData.get(), deLen };
     ConstPacketData sessionKey = { key, keyLen };
     ConstPacketData iv = { sessionIV, AES_IV_LEN };
-    ret = AES128Decrypt(inputData, output, sessionKey, iv);
+    ConstPacketData input = { inputData.data + AES_KEY_SIZE, deLen };
+    ret = AES128Decrypt(input, output, sessionKey, iv);
     if (ret != 0 || output.length != deLen) {
-        CLOGE("decrypt error and Len [%u]", output.length);
+        CLOGE("decrypt error and ret[%{public}d] Len[%u] delen[%{public}d]", ret, output.length, deLen);
         return false;
     }
     ret = memcpy_s(outputData.data, output.length, output.data, output.length);

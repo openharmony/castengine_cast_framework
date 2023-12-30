@@ -1,15 +1,9 @@
-# Copyright (c) 2023 Huawei Device Co., Ltd.
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#    http://www.apache.org/licenses/LICENSE-2.0
-#
+# Copyright (c) Huawei Technologies Co., Ltd. 2022-2023. All rights reserved.
 
 import("//foundation/CastEngine/castengine_cast_framework/cast_engine.gni")
 
 config("cast_session_channel_config") {
-  include_dirs = [ "include" ]
+  include_dirs = [ "include", "src/softbus" ]
 }
 
 ohos_static_library("cast_session_channel") {
@@ -17,10 +11,14 @@ ohos_static_library("cast_session_channel") {
     "src/channel_manager.cpp",
     "src/softbus/softbus_connection.cpp",
     "src/softbus/softbus_wrapper.cpp",
+    "src/tcp/tcp_connection.cpp",
+    "src/tcp/tcp_socket.cpp",
   ]
 
   include_dirs = [
     "src/softbus",
+    "src/tcp",
+    "${cast_engine_service}/src/session/src/utils/include",
     "//foundation/communication/dsoftbus/sdk/transmission/trans_channel/udp/file/include",
     "//foundation/communication/dsoftbus/interfaces/inner_kits/transport/",
     "//foundation/communication/dsoftbus/sdk/transmission/trans_channel/udp/file/include",

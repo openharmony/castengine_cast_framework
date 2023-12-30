@@ -1,11 +1,5 @@
 /*
- * Copyright (c) 2023 Huawei Device Co., Ltd.
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
+ * Copyright (c) Huawei Technologies Co., Ltd. 2022-2023. All rights reserved.
  * Description: common method for cast session
  * Author: lijianzhao
  * Create: 2022-01-19
@@ -58,6 +52,8 @@ public:
     static int IntToByteArray(int num, int length, uint8_t *output);
     static uint32_t ByteArrayToInt(const uint8_t *input, unsigned int length);
     static int32_t StringToInt(const std::string &str);
+    static std::string GetWifiIp();
+    static bool IsArrayAllZero(const uint8_t *input, int length);
 
     static bool Base64Encode(const std::string &source, std::string &encoded);
     static bool Base64Decode(const std::string &encoded, std::string &decoded);
@@ -68,10 +64,14 @@ private:
     static const std::string BASE64_CHARS;
     static inline bool IsBase64(unsigned char c);
     static const int DECIMALISM = 10;
+    static std::string ConvertIpv4Address(unsigned int addressIpv4);
 };
 
 inline constexpr char SANDBOX_PATH[] = "/data/service/el1/public/cast_engine_service";
 inline constexpr char PARAM_MEDIA_DUMP[] = "debug.cast.media.dump";
+inline constexpr char PARAM_VIDEO_CACHE[] = "debug.cast.video.cache";
+inline constexpr char UNIQUE_SCREEN[] = "debug.cast.unique.screen";
+inline constexpr char NOTIFY_DEVICE_FOUND[] = "debug.cast.device.found";
 } // namespace CastEngineService
 } // namespace CastEngine
 } // namespace OHOS

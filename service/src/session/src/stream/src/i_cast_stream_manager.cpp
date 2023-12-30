@@ -1,11 +1,5 @@
 /*
- * Copyright (c) 2023 Huawei Device Co., Ltd.
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
+ * Copyright (c) Huawei Technologies Co., Ltd. 2023-2023. All rights reserved.
  * Description: I Cast stream manager definition, which send instructions to the peer and
  * recv instructions from peer, bridges the session and player client.
  * Author: zhangjingnan
@@ -137,7 +131,7 @@ void ICastStreamManager::RemoveChannel(std::shared_ptr<Channel> channel)
     localFileChannel_->RemoveChannel(channel);
 }
 
-void ICastStreamManager::EncapMediaInfo(const MediaInfo &mediaInfo, json &data)
+void ICastStreamManager::EncapMediaInfo(const MediaInfo &mediaInfo, json &data, bool isDoubleFrame)
 {
     data[KEY_MEDIA_ID] = mediaInfo.mediaId;
     data[KEY_MEDIA_NAME] = mediaInfo.mediaName;
@@ -147,32 +141,39 @@ void ICastStreamManager::EncapMediaInfo(const MediaInfo &mediaInfo, json &data)
     data[KEY_START_POSITION] = mediaInfo.startPosition;
     data[KEY_DURATION] = mediaInfo.duration;
     data[KEY_CLOSING_CREDITS_POSITION] = mediaInfo.closingCreditsPosition;
-    data[KEY_ALBUM_COVER_URL] = mediaInfo.albumCoverUrl;
     data[KEY_ALBUM_TITLE] = mediaInfo.albumTitle;
     data[KEY_MEDIA_ARTIST] = mediaInfo.mediaArtist;
-    data[KEY_LRC_URL] = mediaInfo.lrcUrl;
-    data[KEY_LRC_CONTENT] = mediaInfo.lrcContent;
-    data[KEY_APP_ICON_URL] = mediaInfo.appIconUrl;
     data[KEY_APP_NAME] = mediaInfo.appName;
+    if (!isDoubleFrame) {
+        data[KEY_ALBUM_COVER_URL] = mediaInfo.albumCoverUrl;
+        data[KEY_LRC_URL] = mediaInfo.lrcUrl;
+        data[KEY_LRC_CONTENT] = mediaInfo.lrcContent;
+        data[KEY_APP_ICON_URL] = mediaInfo.appIconUrl;
+    }
 }
 
-bool ICastStreamManager::ParseMediaInfo(const json &data, MediaInfo &mediaInfo)
+bool ICastStreamManager::ParseMediaInfo(const json &data, MediaInfo &mediaInfo, bool isDoubleFrame)
 {
     RETURN_FALSE_IF_PARSE_STRING_WRONG(mediaInfo.mediaId, data, KEY_MEDIA_ID);
     RETURN_FALSE_IF_PARSE_STRING_WRONG(mediaInfo.mediaName, data, KEY_MEDIA_NAME);
-    RETURN_FALSE_IF_PARSE_STRING_WRONG(mediaInfo.mediaUrl, data, KEY_MEDIA_URL);
     RETURN_FALSE_IF_PARSE_STRING_WRONG(mediaInfo.mediaType, data, KEY_MEDIA_TYPE);
-    RETURN_FALSE_IF_PARSE_NUMBER_WRONG(mediaInfo.mediaSize, data, KEY_MEDIA_SIZE);
-    RETURN_FALSE_IF_PARSE_NUMBER_WRONG(mediaInfo.startPosition, data, KEY_START_POSITION);
-    RETURN_FALSE_IF_PARSE_NUMBER_WRONG(mediaInfo.duration, data, KEY_DURATION);
-    RETURN_FALSE_IF_PARSE_NUMBER_WRONG(mediaInfo.closingCreditsPosition, data, KEY_CLOSING_CREDITS_POSITION);
-    RETURN_FALSE_IF_PARSE_STRING_WRONG(mediaInfo.albumCoverUrl, data, KEY_ALBUM_COVER_URL);
     RETURN_FALSE_IF_PARSE_STRING_WRONG(mediaInfo.albumTitle, data, KEY_ALBUM_TITLE);
     RETURN_FALSE_IF_PARSE_STRING_WRONG(mediaInfo.mediaArtist, data, KEY_MEDIA_ARTIST);
-    RETURN_FALSE_IF_PARSE_STRING_WRONG(mediaInfo.lrcUrl, data, KEY_LRC_URL);
-    RETURN_FALSE_IF_PARSE_STRING_WRONG(mediaInfo.lrcContent, data, KEY_LRC_CONTENT);
-    RETURN_FALSE_IF_PARSE_STRING_WRONG(mediaInfo.appIconUrl, data, KEY_APP_ICON_URL);
     RETURN_FALSE_IF_PARSE_STRING_WRONG(mediaInfo.appName, data, KEY_APP_NAME);
+
+    if (!isDoubleFrame) {
+        RETURN_FALSE_IF_PARSE_STRING_WRONG(mediaInfo.mediaUrl, data, KEY_MEDIA_URL);
+        RETURN_FALSE_IF_PARSE_NUMBER_WRONG(mediaInfo.mediaSize, data, KEY_MEDIA_SIZE);
+        RETURN_FALSE_IF_PARSE_NUMBER_WRONG(mediaInfo.startPosition, data, KEY_START_POSITION);
+        RETURN_FALSE_IF_PARSE_NUMBER_WRONG(mediaInfo.duration, data, KEY_DURATION);
+        RETURN_FALSE_IF_PARSE_NUMBER_WRONG(mediaInfo.closingCreditsPosition, data, KEY_CLOSING_CREDITS_POSITION);
+        RETURN_FALSE_IF_PARSE_STRING_WRONG(mediaInfo.albumCoverUrl, data, KEY_ALBUM_COVER_URL);
+        RETURN_FALSE_IF_PARSE_STRING_WRONG(mediaInfo.lrcContent, data, KEY_LRC_CONTENT);
+        RETURN_FALSE_IF_PARSE_STRING_WRONG(mediaInfo.appIconUrl, data, KEY_APP_ICON_URL);
+        RETURN_FALSE_IF_PARSE_STRING_WRONG(mediaInfo.lrcUrl, data, KEY_LRC_URL);
+    } else {
+        mediaInfo.mediaUrl = "DOUBLE_FRAME";
+    }
     return true;
 }
 

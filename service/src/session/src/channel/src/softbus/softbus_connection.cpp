@@ -1,11 +1,5 @@
 /*
- * Copyright (c) 2023 Huawei Device Co., Ltd.
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
+ * Copyright (c) Huawei Technologies Co., Ltd. 2022-2023. All rights reserved.
  * Description: softbus connection.
  * Author: sunhong
  * Create: 2022-01-22
@@ -36,7 +30,9 @@ const std::string SoftBusConnection::RTCP_SESSION_NAME_FACTOR = "RTCP";
 const std::string SoftBusConnection::VIDEO_SESSION_NAME_FACTOR = "VIDEO";
 const std::string SoftBusConnection::AUDIO_SESSION_NAME_FACTOR = "AUDIO";
 const std::string SoftBusConnection::CONTROL_SESSION_NAME_FACTOR = "CONTROL";
-const std::string SoftBusConnection::STREAM_SESSION_NAME_FACTOR = "STREAM";
+const std::string SoftBusConnection::FILES_SESSION_NAME_FACTOR = "FILES";
+const std::string SoftBusConnection::BYTES_SESSION_NAME_FACTOR = "BYTES";
+const std::string SoftBusConnection::STREAM_SESSION_NAME_FACTOR = "CAST_STREAM";
 const std::string SoftBusConnection::SESSION_NAME_PREFIX = "CastPlusNetSession";
 
 IFileSendListener SoftBusConnection::fileSendListener_ {
@@ -352,13 +348,15 @@ int SoftBusConnection::SetupSession(std::shared_ptr<IChannelListener> channelLis
     }
 
     // server/source
+    int sessionId = -1;
+
     auto networkId = CastDeviceDataManager::GetInstance().GetDeviceNetworkId(channelRequest_.remoteDeviceInfo.deviceId);
     if (networkId == std::nullopt) {
         CLOGE("networkId is null");
         listener_->OnConnectionConnectFailed(channelRequest_, RET_ERR);
         return RET_ERR;
     }
-    int sessionId = softbus_.OpenSoftBusSession(networkId.value(), softbus_.GetSpecGroupId());
+    sessionId = softbus_.OpenSoftBusSession(networkId.value(), softbus_.GetSpecGroupId());
     CLOGD("SetupSession In, mySessionName = %{public}s, sessionId = %{public}d, remoteNetworkId = %{public}s.",
         mySessionName.c_str(), sessionId, networkId.value().c_str());
     if (sessionId <= 0) {
@@ -406,6 +404,12 @@ int SoftBusConnection::GetSessionType(ModuleType moduleType) const
         case ModuleType::VIDEO:
             CLOGD("GetSessionType TYPE_STREAM, ModuleType = %{public}d.", moduleType);
             return TYPE_STREAM;
+        case ModuleType::UI_FILES:
+            CLOGD("GetSessionType TYPE_FILE, ModuleType = %{public}d.", moduleType);
+            return TYPE_FILE;
+        case ModuleType::UI_BYTES:
+            CLOGD("GetSessionType TYPE_BYTES, ModuleType = %{public}d.", moduleType);
+            return TYPE_BYTES;
         default:
             CLOGE("GetSessionType failed, ModuleType = %{public}d.", moduleType);
             return TYPE_BYTES;
@@ -438,6 +442,12 @@ std::string SoftBusConnection::CreateSessionName(ModuleType moduleType, int sess
             break;
         case ModuleType::STREAM:
             factor = STREAM_SESSION_NAME_FACTOR;
+            break;
+        case ModuleType::UI_FILES:
+            factor = FILES_SESSION_NAME_FACTOR;
+            break;
+        case ModuleType::UI_BYTES:
+            factor = BYTES_SESSION_NAME_FACTOR;
             break;
         default:
             CLOGE("CreateSessionName failed, ModuleTyp = %{public}d.", moduleType);
