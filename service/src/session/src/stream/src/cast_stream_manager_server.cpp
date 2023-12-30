@@ -1,11 +1,5 @@
 /*
- * Copyright (c) 2023 Huawei Device Co., Ltd.
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
+ * Copyright (c) Huawei Technologies Co., Ltd. 2023-2023. All rights reserved.
  * Description: Cast stream manager server definition, which processes and sends server's instructions.
  * Author: zhangjingnan
  * Create: 2023-08-31
@@ -126,7 +120,7 @@ bool CastStreamManagerServer::NotifyPeerMediaItemChanged(const MediaInfo &mediaI
 {
     CLOGD("NotifyPeerMediaItemChanged in");
     json body;
-    EncapMediaInfo(mediaInfo, body);
+    EncapMediaInfo(mediaInfo, body, false);
     return SendCallbackAction(ACTION_MEDIA_ITEM_CHANGED, body);
 }
 
@@ -143,7 +137,7 @@ bool CastStreamManagerServer::NotifyPeerRepeatModeChanged(const LoopMode mode)
 {
     CLOGD("NotifyPeerRepeatModeChanged in");
     json body;
-    body[KEY_MODE] = mode;
+    body[KEY_REPEAT_MODE] = mode;
     return SendCallbackAction(ACTION_REPEAT_MODE_CHANGED, body);
 }
 
@@ -174,7 +168,7 @@ bool CastStreamManagerServer::NotifyPeerPlayRequest(const MediaInfo &mediaInfo)
     size_t mediaInfoListSize = 1;
     for (size_t i = 0; i < mediaInfoListSize; i++) {
         json info;
-        EncapMediaInfo(mediaInfo, info);
+        EncapMediaInfo(mediaInfo, info, false);
         list[i] = info;
     }
     body[KEY_LIST] = list;
@@ -230,7 +224,7 @@ bool CastStreamManagerServer::ParseMediaInfoHolder(const json &data, MediaInfoHo
     for (size_t i = 0; i < list.size(); i++) {
         MediaInfo mediaInfo = MediaInfo();
         json info = list[i];
-        if (!ParseMediaInfo(info, mediaInfo)) {
+        if (!ParseMediaInfo(info, mediaInfo, false)) {
             return false;
         }
         mediaInfoHolder.mediaInfoList.push_back(mediaInfo);
@@ -380,6 +374,19 @@ bool CastStreamManagerServer::ProcessActionSetVolume(const json &data)
     RETURN_FALSE_IF_PARSE_NUMBER_WRONG(volume, data, KEY_VOLUME);
     CLOGI("volume:%{public}d", volume);
     return player->SetVolume(volume);
+}
+
+bool CastStreamManagerServer::ProcessActionSetMute(const json &data)
+{
+    auto player = PlayerGetter();
+    if (!player) {
+        CLOGE("player is nullptr");
+        return false;
+    }
+    bool mute = false;
+    RETURN_FALSE_IF_PARSE_BOOL_WRONG(mute, data, KEY_MUTE);
+    CLOGI("mute:%{public}d", mute);
+    return player->SetMute(mute);
 }
 
 bool CastStreamManagerServer::ProcessActionSetRepeatMode(const json &data)

@@ -1,11 +1,5 @@
 /*
- * Copyright (c) 2023 Huawei Device Co., Ltd.
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
+ * Copyright (c) Huawei Technologies Co., Ltd. 2023-2023. All rights reserved.
  * Description: supply local data source cache implement class
  * Author: huangchanggui
  * Create: 2023-04-20
@@ -77,6 +71,7 @@ public:
     int32_t ReadAt(uint32_t length, const std::shared_ptr<Media::AVSharedMemory> &mem) override;
     int32_t GetSize(int64_t &size) override;
     bool OnBytesReceived(const std::string &fileId, const uint8_t *bytes, int64_t offset, int64_t length) override;
+    int32_t ReadBuffer(uint8_t *data, uint32_t length, int64_t pos);
     bool Start();
     bool Stop();
 

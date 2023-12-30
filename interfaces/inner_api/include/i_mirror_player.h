@@ -1,11 +1,5 @@
 /*
- * Copyright (c) 2023 Huawei Device Co., Ltd.
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
+ * Copyright (c) Huawei Technologies Co., Ltd. 2023-2023. All rights reserved.
  * Description: Cast mirror player interface.
  * Author: zhangjingnan
  * Create: 2023-05-27
@@ -30,9 +24,13 @@ public:
 
     virtual int32_t Play(const std::string &deviceId) = 0;
     virtual int32_t Pause(const std::string &deviceId) = 0;
+    virtual int32_t SetAppInfo(const AppInfo &appInfo) = 0;
     virtual int32_t SetSurface(const std::string &surfaceId) = 0;
     virtual int32_t DeliverInputEvent(OHRemoteControlEvent event) = 0;
+    virtual int32_t InjectEvent(const OHRemoteControlEvent &event) = 0;
     virtual int32_t Release() = 0;
+    virtual int32_t GetDisplayId(std::string &displayId) = 0;
+    virtual int32_t ResizeVirtualScreen(uint32_t width, uint32_t height) = 0;
 };
 } // namespace CastEngine
 } // namespace OHOS

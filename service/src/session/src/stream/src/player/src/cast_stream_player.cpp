@@ -1,11 +1,5 @@
 /*
- * Copyright (c) 2023 Huawei Device Co., Ltd.
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
+ * Copyright (c) Huawei Technologies Co., Ltd. 2023-2023. All rights reserved.
  * Description: supply cast stream player.
  * Author: zhangjingnan
  * Create: 2023-1-11
@@ -13,6 +7,7 @@
 
 #include <chrono>
 #include <unistd.h>
+#include "image_source.h"
 #include "cast_engine_dfx.h"
 #include "cast_engine_log.h"
 #include "cast_stream_player.h"
@@ -25,9 +20,47 @@ namespace CastEngine {
 namespace CastEngineService {
 DEFINE_CAST_ENGINE_LABEL("Cast-Stream-Player");
 
+namespace {
+
+void OnInfoWriteWrap(const std::string& funcName, int32_t extra)
+{
+    if (static_cast<PlayerStates>(extra) == PlayerStates::PLAYER_STARTED) {
+        HiSysEventWriteWrap(funcName, {
+                {"BIZ_SCENE", static_cast<int32_t>(BIZSceneType::ONLINE_CAST_STREAM)},
+                {"BIZ_STATE", static_cast<int32_t>(BIZStateType::BIZ_STATE_END)},
+                {"BIZ_STAGE", static_cast<int32_t>(BIZSceneStage::ONLINE_STREAM_PLAY_RESOURCE_SUCCESS)},
+                {"STAGE_RES", static_cast<int32_t>(StageResType::STAGE_RES_SUCCESS)},
+                {"ERROR_CODE", CAST_RADAR_SUCCESS}}, {
+                {"TO_CALL_PKG", DSOFTBUS_NAME},
+                {"LOCAL_SESS_NAME", ""},
+                {"PEER_SESS_NAME", ""},
+                {"PEER_UDID", ""}});
+    } else {
+        HiSysEventWriteWrap(funcName, {
+                {"BIZ_SCENE", static_cast<int32_t>(BIZSceneType::DUAL_POINTS_CONTROL)},
+                {"BIZ_STATE", static_cast<int32_t>(BIZStateType::BIZ_STATE_END)},
+                {"BIZ_STAGE", static_cast<int32_t>(BIZSceneStage::SINK_RESPONSE)},
+                {"STAGE_RES", static_cast<int32_t>(StageResType::STAGE_RES_SUCCESS)},
+                {"ERROR_CODE", CAST_RADAR_SUCCESS}}, {
+                {"TO_CALL_PKG", DSOFTBUS_NAME},
+                {"LOCAL_SESS_NAME", ""},
+                {"PEER_SESS_NAME", ""},
+                {"PEER_UDID", ""}});
+    }
+}
+}
+
+CastStreamPlayerCallback::CastStreamPlayerCallback(std::shared_ptr<ICastStreamManagerServer> callback)
+{
+    CLOGD("CastStreamPlayerCallback in");
+    callback_ = callback;
+    timer_ = std::make_shared<CastTimer>();
+}
+
 CastStreamPlayerCallback::~CastStreamPlayerCallback()
 {
     CLOGD("~CastStreamPlayerCallback in");
+    timer_ = nullptr;
 }
 
 bool CastStreamPlayerCallback::RegisterListener(sptr<IStreamPlayerListenerImpl> listener)
@@ -115,6 +148,28 @@ bool CastStreamPlayerCallback::IsNeededToReset()
         state_ == PlayerStates::PLAYER_RELEASED;
 }
 
+void CastStreamPlayerCallback::SetPosInfo(int startPos, int endPos)
+{
+    CLOGD("SetInitPosInfo in, startPos: %{public}d, endPos: %{public}d", startPos, endPos);
+    std::lock_guard<std::mutex> lock(posMutex_);
+    isRequestingResource_ = false;
+    if (endPos > startPos) {
+        endPosition_ = endPos;
+    } else {
+        endPosition_ = INT_MAX;
+    }
+}
+
+void CastStreamPlayerCallback::CheckPosInfo(int curPos)
+{
+    std::lock_guard<std::mutex> lock(posMutex_);
+    if (!isRequestingResource_ && curPos >= endPosition_) {
+        CLOGD("Reach endPos, curPos: %{public}d", curPos);
+        isRequestingResource_ = true;
+        OnNextRequest();
+    }
+}
+
 void CastStreamPlayerCallback::HandleInterruptEvent(const Media::Format &infoBody)
 {
     int32_t hintTypeInt32 = 0;
@@ -164,6 +219,7 @@ void CastStreamPlayerCallback::OnInfo(Media::PlayerOnInfoType type, int32_t extr
             break;
         }
         case Media::INFO_TYPE_STATE_CHANGE: {
+            OnInfoWriteWrap(__func__, extra);
             SetState(static_cast<PlayerStates>(extra));
             OnStateChanged(static_cast<PlayerStates>(extra), true);
             break;
@@ -234,6 +290,12 @@ void CastStreamPlayerCallback::OnStateChanged(const PlayerStates playbackState, 
         return;
     }
     targetCallback->NotifyPeerPlayerStatusChanged(playbackState, isPlayWhenReady);
+
+    if (playbackState != PlayerStates::PLAYER_STARTED) {
+        if (timer_ && !timer_->IsStopped()) {
+            timer_ ->Stop();
+        }
+    }
     CLOGD("OnStateChanged out");
 }
 
@@ -251,6 +313,7 @@ void CastStreamPlayerCallback::OnPositionChanged(int position, int bufferPositio
         CLOGE("GetDuration failed");
         return;
     }
+    CheckPosInfo(position);
     auto listener = ListenerGetter();
     if (!listener) {
         CLOGE("StreamPlayerListener is null");
@@ -263,6 +326,18 @@ void CastStreamPlayerCallback::OnPositionChanged(int position, int bufferPositio
         CLOGE("ICastStreamManagerServer is null");
         return;
     }
+    if (position != CAST_STREAM_INT_IGNORE && GetPlayerStatus() == PlayerStates::PLAYER_STARTED) {
+        if (timer_ && timer_->IsStopped()) {
+            targetCallback->NotifyPeerPositionChanged(position, CAST_STREAM_INT_IGNORE, duration);
+            timer_->Start([this]() { AutoSyncPosition();}, AUTO_POSITION_SYNC_INTERVAL);
+            std::lock_guard<std::mutex> lock(posMutex_);
+            curPosition_ = position;
+            return;
+        }
+        if (!IsNeedToSyncPos(position)) {
+            return;
+        }
+    }
     targetCallback->NotifyPeerPositionChanged(position, bufferPosition, duration);
     CLOGD("OnPositionChanged out");
 }
@@ -270,11 +345,19 @@ void CastStreamPlayerCallback::OnPositionChanged(int position, int bufferPositio
 void CastStreamPlayerCallback::OnBufferChanged(const Media::Format &infoBody)
 {
     CLOGD("OnBufferChanged in");
-    int bufferPosition = CAST_STREAM_INT_INVALID;
-    infoBody.GetIntValue(std::string(Media::PlayerKeys::PLAYER_BUFFERING_PERCENT), bufferPosition);
-    CLOGI("OnBufferChanged in PLAYER_BUFFERING_PERCENT: %{public}d", bufferPosition);
-    if (bufferPosition != CAST_STREAM_INT_INVALID) {
-        OnPositionChanged(CAST_STREAM_INT_IGNORE, bufferPosition, CAST_STREAM_INT_IGNORE);
+    if (infoBody.ContainKey(std::string(Media::PlayerKeys::PLAYER_BUFFERING_START))) {
+        CLOGI("PLAYER_BUFFERING_START");
+        OnStateChanged(PlayerStates::PLAYER_BUFFERING, true);
+    } else if (infoBody.ContainKey(std::string(Media::PlayerKeys::PLAYER_BUFFERING_END))) {
+        CLOGI("PLAYER_BUFFERING_END");
+        OnStateChanged(GetPlayerStatus(), true);
+    } else if (infoBody.ContainKey(std::string(Media::PlayerKeys::PLAYER_CACHED_DURATION))) {
+        int bufferCachedDuration = CAST_STREAM_INT_INVALID;
+        infoBody.GetIntValue(std::string(Media::PlayerKeys::PLAYER_CACHED_DURATION), bufferCachedDuration);
+        CLOGI("PLAYER_CACHED_DURATION: %{public}d", bufferCachedDuration);
+        if (bufferCachedDuration != CAST_STREAM_INT_INVALID) {
+            OnPositionChanged(CAST_STREAM_INT_IGNORE, bufferCachedDuration, CAST_STREAM_INT_IGNORE);
+        }
     }
     CLOGD("OnBufferChanged out");
 }
@@ -361,6 +444,18 @@ void CastStreamPlayerCallback::OnRenderReady(bool isReady)
     CLOGD("OnRenderReady out");
 }
 
+void CastStreamPlayerCallback::OnImageChanged(std::shared_ptr<Media::PixelMap> pixelMap)
+{
+    CLOGD("OnImageChanged in");
+    auto listener = ListenerGetter();
+    if (!listener) {
+        CLOGE("StreamPlayerListener is null");
+        return;
+    }
+    listener->OnImageChanged(pixelMap);
+    CLOGD("OnImageChanged out");
+}
+
 void CastStreamPlayerCallback::OnPlayerError(int errorCode, const std::string &errorMsg)
 {
     CLOGD("OnPlayerError in");
@@ -409,6 +504,22 @@ void CastStreamPlayerCallback::OnPlayRequest(const MediaInfo &mediaInfo)
     }
     targetCallback->NotifyPeerPlayRequest(mediaInfo);
     CLOGD("OnPlayRequest out");
+}
+
+void CastStreamPlayerCallback::OnAlbumCoverChanged(std::shared_ptr<Media::PixelMap> pixelMap)
+{
+    CLOGD("OnAlbumCoverChanged in");
+    if (!pixelMap) {
+        CLOGE("pixelMap is null");
+        return;
+    }
+    auto listener = ListenerGetter();
+    if (!listener) {
+        CLOGE("StreamPlayerListener is null");
+        return;
+    }
+    listener->OnAlbumCoverChanged(pixelMap);
+    CLOGD("OnAlbumCoverChanged out");
 }
 
 void CastStreamPlayerCallback::OnPlaySpeedChanged()
@@ -503,6 +614,37 @@ PlaybackSpeed CastStreamPlayerCallback::ConvertMediaSpeedToPlaybackSpeed(Media::
     return iter->second;
 }
 
+bool CastStreamPlayerCallback::IsNeedToSyncPos(int position)
+{
+    CLOGD("IsNeedToSyncPos in");
+    std::lock_guard<std::mutex> lock(posMutex_);
+    int timeLag = position - curPosition_;
+    curPosition_ = position;
+    if (timeLag >= POSITION_LAG_MINIMUM && timeLag <= POSITION_LAG_MAXIMUM) {
+        return false;
+    } else if (timeLag == 0) {
+        return false;
+    }
+    return true;
+}
+
+bool CastStreamPlayerCallback::AutoSyncPosition()
+{
+    CLOGD("AutoSyncPosition in");
+    int position;
+    {
+        std::lock_guard<std::mutex> lock(posMutex_);
+        position = curPosition_;
+    }
+    auto targetCallback = callback_.lock();
+    if (!targetCallback) {
+        CLOGE("ICastStreamManagerServer is null");
+        return false;
+    }
+    targetCallback->NotifyPeerPositionChanged(position, CAST_STREAM_INT_IGNORE, CAST_STREAM_INT_IGNORE);
+    return true;
+}
+
 CastStreamPlayer::CastStreamPlayer(std::shared_ptr<CastStreamPlayerCallback> callback,
     std::shared_ptr<CastLocalFileChannelClient> fileChannel)
 {
@@ -547,6 +689,10 @@ CastStreamPlayer::CastStreamPlayer(std::shared_ptr<CastStreamPlayerCallback> cal
         CLOGE("Media player SetPlayerCallback failed");
         Release();
         return;
+    }
+    avMetadataHelper_ = Media::AVMetadataHelperFactory::CreateAVMetadataHelper();
+    if (!avMetadataHelper_) {
+        CLOGE("CreateAVMetadataHelper failed");
     }
     CLOGD("CastStreamPlayer out");
 }
@@ -612,13 +758,114 @@ bool CastStreamPlayer::SetSource(const MediaInfo &mediaInfo)
         fileChannelClient_->NotifyCreateChannel();
         dataSource_ = std::make_shared<LocalDataSource>(mediaInfo.mediaUrl, mediaInfo.mediaSize, fileChannelClient_);
         dataSource_->Start();
-        ret = player_->SetSource(dataSource_);
         fileChannelClient_->WaitCreateChannel();
+        if (mediaInfo.mediaType == "IMAGE") {
+            CLOGI("Start to get image resource");
+            if (!GetImageResource()) {
+                return false;
+            }
+            CLOGI("Get image resource successfully");
+            return true;
+        } else if (mediaInfo.mediaType == "AUDIO" && avMetadataHelper_) {
+            CLOGD("Start to get album cover");
+            avMetadataHelper_->SetSource(dataSource_);
+            auto albumCoverMem = avMetadataHelper_->FetchArtPicture();
+            ProcessAlbumCover(albumCoverMem);
+        }
+        ret = player_->SetSource(dataSource_);
     }
     if (ret != MSERR_OK) {
         CLOGE("Media player setSource failed");
         return false;
     }
+    if (!callback_) {
+        CLOGE("callback_ is null");
+        return false;
+    }
+    callback_->SetPosInfo(mediaInfo.startPosition, mediaInfo.closingCreditsPosition);
+    return true;
+}
+
+bool CastStreamPlayer::GetImageResource()
+{
+    int64_t imageSize;
+    if (!dataSource_) {
+        return false;
+    }
+    dataSource_->GetSize(imageSize);
+    std::unique_ptr<uint8_t[]> buffer = std::make_unique<uint8_t[]>(imageSize);
+    if (!buffer) {
+        return false;
+    }
+    uint8_t *currDstPos = buffer.get();
+    int32_t sumReadBytes = CAST_STREAM_INT_INIT;
+    int32_t readSize = imageSize;
+    int32_t tryTimes = CAST_STREAM_INT_INIT;
+    while (tryTimes < CAST_STREAM_MAX_TIMES && sumReadBytes < imageSize) {
+        int32_t curReadBytes = dataSource_->ReadBuffer(currDstPos, readSize, sumReadBytes);
+        currDstPos += curReadBytes;
+        sumReadBytes += curReadBytes;
+        readSize -= curReadBytes;
+        if (curReadBytes <= 0) {
+            tryTimes++;
+            std::this_thread::sleep_for(std::chrono::milliseconds(CAST_STREAM_WAIT_TIME));
+        }
+    }
+    if (sumReadBytes != imageSize) {
+        CLOGE("read image bytes failed");
+        return false;
+    }
+
+    Media::SourceOptions options;
+    uint32_t errCode;
+    std::unique_ptr<Media::ImageSource> imageSource
+        = Media::ImageSource::CreateImageSource(buffer.get(), imageSize, options, errCode);
+    if (imageSource == nullptr) {
+        CLOGE("imageSource is null, errCode = %{public}d", errCode);
+        return false;
+    }
+    Media::DecodeOptions decodeParam;
+    auto pixelMap = imageSource->CreatePixelMap(0, decodeParam, errCode);
+    if (pixelMap == nullptr || errCode != 0) {
+        CLOGE("pixelMap is null, errCode = %{public}d", errCode);
+        return false;
+    }
+    std::shared_ptr<Media::PixelMap> sharedImg = std::move(pixelMap);
+    if (!callback_) {
+        CLOGE("callback_ is null");
+        return false;
+    }
+    callback_->OnImageChanged(sharedImg);
+    return true;
+}
+
+bool CastStreamPlayer::ProcessAlbumCover(std::shared_ptr<Media::AVSharedMemory> albumCoverMem)
+{
+    if (!albumCoverMem) {
+        CLOGE("albumCoverMem is null");
+        return false;
+    }
+    CLOGI("Get album cover successfully, album size: %d", albumCoverMem->GetSize());
+    Media::SourceOptions options;
+    uint32_t errCode;
+    std::unique_ptr<Media::ImageSource> imageSource
+        = Media::ImageSource::CreateImageSource(albumCoverMem->GetBase(), albumCoverMem->GetSize(), options, errCode);
+    if (imageSource == nullptr) {
+        CLOGE("imageSource is null, errCode = %{public}d", errCode);
+        return false;
+    }
+    Media::DecodeOptions decodeParam;
+    auto pixelMap = imageSource->CreatePixelMap(0, decodeParam, errCode);
+    if (pixelMap == nullptr || errCode != 0) {
+        CLOGE("pixelMap is null, errCode = %{public}d", errCode);
+        return false;
+    }
+    std::shared_ptr<Media::PixelMap> sharedAlbumCover = std::move(pixelMap);
+    if (!callback_) {
+        CLOGE("callback_ is null");
+        return false;
+    }
+    callback_->OnAlbumCoverChanged(sharedAlbumCover);
     return true;
 }
 
@@ -824,6 +1071,23 @@ bool CastStreamPlayer::GetVolume(int &volume, int &curMaxVolume)
     return true;
 }
 
+bool CastStreamPlayer::SetMute(bool mute)
+{
+    CLOGD("SetMute in");
+    if (!audioSystemMgr_) {
+        CLOGE("Audio manager is null");
+        return false;
+    }
+    // In current audioStandard structure, all type will be converted into STREAM_MUSIC.
+    auto streamType = AudioStandard::AudioVolumeType::STREAM_MUSIC;
+    int ret = audioSystemMgr_->SetMute(streamType, mute);
+    if (ret != MSERR_OK) {
+        CLOGE("Media player SetMute failed");
+        return false;
+    }
+    return true;
+}
+
 bool CastStreamPlayer::SetLooping(bool loop)
 {
     CLOGD("SetLooping in");
@@ -928,6 +1192,17 @@ int32_t CastStreamPlayer::GetDuration()
         return CAST_STREAM_INT_INVALID;
     }
     return duration;
+}
+
+bool CastStreamPlayer::GetMute()
+{
+    // In current audioStandard structure, all type will be converted into STREAM_MUSIC.
+    auto streamType = AudioStandard::AudioVolumeType::STREAM_MUSIC;
+    if (audioSystemMgr_ == nullptr) {
+        CLOGE("Audio manager is null");
+        return false;
+    }
+    return audioSystemMgr_->IsStreamMute(streamType);
 }
 
 bool CastStreamPlayer::SetLoopMode(const LoopMode mode)
@@ -1094,6 +1369,10 @@ void CastStreamVolumeCallback::SetMaxVolume(int maxVolume)
 
 void CastStreamVolumeCallback::OnVolumeKeyEvent(AudioStandard::VolumeEvent volumeEvent)
 {
+    if (volumeEvent.volumeType != AudioStandard::AudioStreamType::STREAM_MUSIC) {
+        CLOGD("OnVolumeKeyEvent is filtered, when it's not STREAM_MUSIC type");
+        return;
+    }
     CLOGI("OnVolumeKeyEvent input %{public}d", volumeEvent.volume);
     if (!callback_) {
         CLOGE("StreamPlayerCallback is null");

@@ -1,11 +1,5 @@
 /*
- * Copyright (c) 2023 Huawei Device Co., Ltd.
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
+ * Copyright (c) Huawei Technologies Co., Ltd. 2023-2023. All rights reserved.
  * Description: Cast stream manager client class.
  * Author: zhangjingnan
  * Create: 2023-08-30
@@ -21,6 +15,7 @@
 #include "i_cast_stream_manager.h"
 #include "i_cast_stream_manager_client.h"
 #include "remote_player_controller.h"
+#include "cast_timer.h"
 
 namespace OHOS {
 namespace CastEngine {
@@ -31,7 +26,7 @@ class CastStreamManagerClient : public ICastStreamManager,
     public ICastStreamManagerClient,
     public std::enable_shared_from_this<CastStreamManagerClient> {
 public:
-    explicit CastStreamManagerClient(std::shared_ptr<ICastStreamListener> listener);
+    explicit CastStreamManagerClient(std::shared_ptr<ICastStreamListener> listener, bool isDoubleFrame);
     ~CastStreamManagerClient() override;
 
     sptr<IStreamPlayerIpc> CreateStreamPlayer(const std::function<void(void)> &releaseCallback) override;
@@ -50,6 +45,7 @@ public:
     bool NotifyPeerFastForward(int delta) override;
     bool NotifyPeerFastRewind(int delta) override;
     bool NotifyPeerSetVolume(int volume) override;
+    bool NotifyPeerSetMute(bool mute) override;
     bool NotifyPeerSetRepeatMode(int mode) override;
     bool NotifyPeerSetSpeed(int speed) override;
     PlayerStates GetPlayerStatus() override;
@@ -57,8 +53,10 @@ public:
     int GetDuration() override;
     int GetVolume() override;
     int GetMaxVolume() override;
+    bool GetMute() override;
     LoopMode GetLoopMode() override;
     PlaybackSpeed GetPlaySpeed() override;
+    bool IsDoubleFrame() override;
 
 private:
     bool ProcessActionPlayerStatusChanged(const json &data);
@@ -75,14 +73,31 @@ private:
     bool ProcessActionPlayRequest(const json &data);
 
     sptr<IStreamPlayerListenerImpl> PlayerListenerGetter();
+    bool AutoUpdateCurPosition();
+    PlayerStates ProcessHmosPlayerStatus(HmosPlayerStates hmosPlaybackState, bool isPlayWhenReady);
+    void ProcessHmosPlayerPosition(int position);
+
+    std::map<HmosPlayerStates, PlayerStates> hmosStreamStateConvertor_{
+        {HmosPlayerStates::STATE_IDLE, PlayerStates::PLAYER_IDLE},
+        {HmosPlayerStates::STATE_BUFFERING, PlayerStates::PLAYER_BUFFERING},
+        {HmosPlayerStates::STATE_READY, PlayerStates::PLAYER_PREPARED},
+        {HmosPlayerStates::STATE_ENDED, PlayerStates::PLAYER_PLAYBACK_COMPLETE},
+    };
 
     std::shared_ptr<RemotePlayerController> player_;
     std::mutex eventMutex_;
+    std::shared_ptr<CastTimer> timer_;
     PlayerStates currentState_ = PlayerStates::PLAYER_IDLE;
     int currentPosition_{ CAST_STREAM_INT_INVALID };
     int currentDuration_{ CAST_STREAM_INT_INVALID };
+    int currentBuffer_{ CAST_STREAM_INT_INVALID };
     LoopMode currentMode_ = LoopMode::LOOP_MODE_LIST;
     PlaybackSpeed currentSpeed_ = PlaybackSpeed::SPEED_FORWARD_1_00_X;
+    int seekPosition_ = CAST_STREAM_INT_INIT;
+    int startPosition_ = CAST_STREAM_INT_INIT;
+    std::atomic<bool> isSeeking_{ false };
+    std::atomic<bool> isNewResourceLoaded_{ false };
+    std::atomic<bool> isDoubleFrame_{ false };
 };
 } // namespace CastEngineService
 } // namespace CastEngine

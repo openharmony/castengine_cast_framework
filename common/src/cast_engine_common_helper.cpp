@@ -1,11 +1,5 @@
 /*
- * Copyright (c) 2023 Huawei Device Co., Ltd.
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
+ * Copyright (c) Huawei Technologies Co., Ltd. 2022-2022. All rights reserved.
  * Description: supply a helper to write/read common cast engine structures through ipc
  * Author: zhangge
  * Create: 2022-06-15
@@ -22,6 +16,7 @@ namespace CastEngine {
 DEFINE_CAST_ENGINE_LABEL("Cast-Engine-helper");
 
 namespace {
+constexpr int SESSION_KEY_LENGTH = 16;
 bool WriteVideoSize(Parcel &parcel, const VideoSize &videoSize)
 {
     return parcel.WriteInt32(videoSize.width) && parcel.WriteInt32(videoSize.height);
@@ -128,10 +123,18 @@ int GetLocalFd(const std::string &url)
 
 bool WriteCastRemoteDevice(Parcel &parcel, const CastRemoteDevice &device)
 {
-    return parcel.WriteInt32(static_cast<int32_t>(device.deviceType)) &&
+    bool res = parcel.WriteInt32(static_cast<int32_t>(device.deviceType)) &&
         parcel.WriteInt32(static_cast<int32_t>(device.subDeviceType)) &&
         parcel.WriteInt32(static_cast<int32_t>(device.channelType)) && parcel.WriteString(device.deviceId) &&
-        parcel.WriteString(device.deviceName) && parcel.WriteString(device.ipAddress);
+        parcel.WriteString(device.deviceName) && parcel.WriteString(device.ipAddress) &&
+        parcel.WriteString(device.networkId) && parcel.WriteString(device.localIpAddress);
+    if (device.sessionKeyLength == SESSION_KEY_LENGTH && device.sessionKey) {
+        res = res && parcel.WriteUint32(device.sessionKeyLength);
+        res = res && parcel.WriteBuffer(device.sessionKey, device.sessionKeyLength);
+    } else {
+        parcel.WriteUint32(0);
+    }
+    return res;
 }
 
 bool ReadCastRemoteDevice(Parcel &parcel, CastRemoteDevice &device)
@@ -158,6 +161,15 @@ std::unique_ptr<CastRemoteDevice> ReadCastRemoteDevice(Parcel &parcel)
     device->deviceId = parcel.ReadString();
     device->deviceName = parcel.ReadString();
     device->ipAddress = parcel.ReadString();
+    device->networkId = parcel.ReadString();
+    device->localIpAddress = parcel.ReadString();
+    device->sessionKeyLength = parcel.ReadUint32();
+    if (device->sessionKeyLength == SESSION_KEY_LENGTH) {
+        device->sessionKey = parcel.ReadBuffer(static_cast<size_t>(device->sessionKeyLength));
+    } else {
+        device->sessionKeyLength = 0;
+        device->sessionKey = nullptr;
+    }
     if (!IsDeviceType(deviceType) || !IsSubDeviceType(subDeviceType) || !IsChannelType(channelType)) {
         CLOGE("ReadCastRemoteDevice error");
         return nullptr;
@@ -593,23 +605,34 @@ std::unique_ptr<OHRemoteControlEvent> ReadRemoteControlEvent(Parcel &parcel)
 
 bool WriteDeviceStateInfo(Parcel &parcel, const DeviceStateInfo &stateInfo)
 {
-    return parcel.WriteInt32(static_cast<int32_t>(stateInfo.deviceState)) && parcel.WriteString(stateInfo.deviceId);
+    return parcel.WriteInt32(static_cast<int32_t>(stateInfo.deviceState)) &&
+           parcel.WriteString(stateInfo.deviceId) &&
+           parcel.WriteInt32(static_cast<int32_t>(stateInfo.eventCode));
 }
 
 std::unique_ptr<DeviceStateInfo> ReadDeviceStateInfo(Parcel &parcel)
 {
     auto stateInfo = std::make_unique<DeviceStateInfo>();
+
+    // Parse device state
     int32_t state = parcel.ReadInt32();
     if (!IsDeviceState(state)) {
         CLOGE("incorrect device state");
         return nullptr;
     }
     stateInfo->deviceState = static_cast<DeviceState>(state);
-    stateInfo->deviceId = parcel.ReadString();
-    if (stateInfo->deviceId.empty()) {
+
+    // Parse deviceId
+    std::string deviceId = parcel.ReadString();
+    if (deviceId.empty()) {
         CLOGE("device id is empty");
         return nullptr;
     }
+    stateInfo->deviceId = deviceId;
+
+    // Parse event code
+    int32_t eventCode = parcel.ReadInt32();
+    stateInfo->eventCode = static_cast<EventCode>(eventCode);
 
     return stateInfo;
 }

@@ -1,11 +1,5 @@
 /*
- * Copyright (c) 2023 Huawei Device Co., Ltd.
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
+ * Copyright (c) Huawei Technologies Co., Ltd. 2022-2023. All rights reserved.
  * Description: supply napi interface realization for cast session manager.
  * Author: zhangjingnan
  * Create: 2022-7-11
@@ -38,7 +32,8 @@ std::map<std::string, std::pair<NapiCastSessionManager::OnEventHandlerType,
     NapiCastSessionManager::eventHandlers_ = {
     { "serviceDie", { OnServiceDied, OffServiceDie } },
     { "deviceFound", { OnDeviceFound, OffDeviceFound } },
-    { "sessionCreate", { OnSessionCreated, OffSessionCreated } }
+    { "sessionCreate", { OnSessionCreated, OffSessionCreated } },
+    { "deviceOffline", { OnDeviceOffline, OffDeviceOffline } }
 };
 
 napi_value NapiCastSessionManager::Init(napi_env env, napi_value exports)
@@ -333,6 +328,18 @@ napi_status NapiCastSessionManager::OnSessionCreated(napi_env env, napi_value ca
     return napi_ok;
 }
 
+napi_status NapiCastSessionManager::OnDeviceOffline(napi_env env, napi_value callback)
+{
+    if (!listener_) {
+        CLOGE("cast session manager callback is null");
+        return napi_generic_failure;
+    }
+    if (listener_->AddCallback(env, NapiCastSessionManagerListener::EVENT_DEVICE_OFFLINE, callback) != napi_ok) {
+        return napi_generic_failure;
+    }
+    return napi_ok;
+}
+
 napi_status NapiCastSessionManager::OffServiceDie(napi_env env, napi_value callback)
 {
     if (!listener_) {
@@ -364,6 +371,18 @@ napi_status NapiCastSessionManager::OffSessionCreated(napi_env env, napi_value c
         return napi_generic_failure;
     }
     if (listener_->RemoveCallback(env, NapiCastSessionManagerListener::EVENT_SESSION_CREATE, callback) != napi_ok) {
+        return napi_generic_failure;
+    }
+    return napi_ok;
+}
+
+napi_status NapiCastSessionManager::OffDeviceOffline(napi_env env, napi_value callback)
+{
+    if (!listener_) {
+        CLOGE("cast session manager callback is null");
+        return napi_generic_failure;
+    }
+    if (listener_->RemoveCallback(env, NapiCastSessionManagerListener::EVENT_DEVICE_OFFLINE, callback) != napi_ok) {
         return napi_generic_failure;
     }
     return napi_ok;

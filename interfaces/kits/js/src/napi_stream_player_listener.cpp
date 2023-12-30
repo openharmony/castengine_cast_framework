@@ -1,11 +1,5 @@
 /*
- * Copyright (c) 2023 Huawei Device Co., Ltd.
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
+ * Copyright (c) Huawei Technologies Co., Ltd. 2023-2023. All rights reserved.
  * Description: supply stream player listener realization for napi interface.
  * Author: huangchanggui
  * Create: 2023-1-11
@@ -18,6 +12,7 @@
 #include "cast_engine_log.h"
 #include "cast_engine_common.h"
 #include "napi_castengine_utils.h"
+#include "pixel_map_napi.h"
 
 namespace OHOS {
 namespace CastEngine {
@@ -202,6 +197,23 @@ void NapiStreamPlayerListener::OnPlayRequest(const MediaInfo &mediaInfo)
     };
     HandleEvent(EVENT_PLAY_REQUEST, napiArgsGetter);
     CLOGD("OnPlayRequest finish");
+}
+
+void NapiStreamPlayerListener::OnImageChanged(std::shared_ptr<Media::PixelMap> pixelMap)
+{
+    CLOGD("OnImageChanged start");
+    NapiArgsGetter napiArgsGetter = [pixelMap](napi_env env, int &argc, napi_value *argv) {
+        argc = CALLBACK_ARGC_ONE;
+        std::shared_ptr<Media::PixelMap> imagePixel(pixelMap);
+        argv[0] = Media::PixelMapNapi::CreatePixelMap(env, imagePixel);
+    };
+    HandleEvent(EVENT_IMAGE_CHANGED, napiArgsGetter);
+    CLOGD("OnImageChanged finish");
+}
+
+void NapiStreamPlayerListener::OnAlbumCoverChanged(std::shared_ptr<Media::PixelMap> pixelMap)
+{
+    CLOGD("OnAlbumCoverChanged start");
 }
 
 napi_status NapiStreamPlayerListener::AddCallback(napi_env env, int32_t event, napi_value callback)

@@ -1,11 +1,5 @@
 /*
- * Copyright (c) 2023 Huawei Device Co., Ltd.
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
+ * Copyright (c) Huawei Technologies Co., Ltd. 2022-2022. All rights reserved.
  * Description: cast device data management
  * Author: zhangge
  * Create: 2022-10-15
@@ -15,13 +9,20 @@
 
 #include "cast_engine_log.h"
 #include "cast_service_common.h"
+#include "dm_constants.h"
 #include "securec.h"
+#include "json.hpp"
+
+using nlohmann::json;
 
 namespace OHOS {
 namespace CastEngine {
 namespace CastEngineService {
 DEFINE_CAST_ENGINE_LABEL("Cast-DeviceDataManager");
-
+namespace {
+using namespace OHOS::DistributedHardware;
+constexpr int SESSION_KEY_LENGTH = 16;
+}
 CastDeviceDataManager &CastDeviceDataManager::GetInstance()
 {
     static CastDeviceDataManager manager{};
@@ -34,22 +35,37 @@ bool CastDeviceDataManager::AddDevice(const CastInnerRemoteDevice &device, const
         CLOGE("Invalid device id<%s-%s>", device.deviceId.c_str(), dmDeviceInfo.deviceId);
         return false;
     }
-
-    DeviceInfoCollection data = {
-        .device = device,
-        .dmDeviceInfo = dmDeviceInfo,
-        .state = RemoteDeviceState::FOUND,
-        .networkId = dmDeviceInfo.networkId,
-    };
-
     std::lock_guard<std::mutex> lock(mutex_);
-    if (HasDeviceLocked(device.deviceId)) {
-        CLOGW("Has a device with the same device id(%s)!", device.deviceId.c_str());
-        data.state = GetDeviceStateLocked(device.deviceId);
-        RemoveDeivceLocked(device.deviceId);
+    DeviceInfoCollection data{};
+    for (auto it : devices_) {
+        if (device.deviceId == it.device.deviceId) {
+            data = it;
+            break;
+        }
+    }
+    if (data.device.deviceId.empty()) {
+        data.state = RemoteDeviceState::FOUND;
     }
 
-    data.device.sessionKey = nullptr;
+    json extraJson = json::parse(dmDeviceInfo.extraData, nullptr, false);
+    if (extraJson.is_discarded()) {
+        CLOGI("extrajson is discarded");
+        data.wifiDeviceInfo = data.wifiDeviceInfo.extraData.size() > 0 ? data.wifiDeviceInfo : dmDeviceInfo;
+    } else if (extraJson.contains(PARAM_KEY_BLE_MAC) && extraJson[PARAM_KEY_BLE_MAC].is_string()) {
+        data.bleDeviceInfo = dmDeviceInfo;
+    } else if (extraJson.contains(PARAM_KEY_WIFI_IP) && extraJson[PARAM_KEY_WIFI_IP].is_string()) {
+        data.wifiDeviceInfo = dmDeviceInfo;
+    } else {
+        data.wifiDeviceInfo = dmDeviceInfo;
+    }
+
+    int sessionId = device.sessionId != INVALID_ID ? device.sessionId : data.device.sessionId;
+    data.device = device;
+    data.device.sessionId = sessionId;
+    data.networkId = strlen(dmDeviceInfo.networkId) > 0 ? dmDeviceInfo.networkId : data.networkId;
+    CLOGI("sessionId is %d", sessionId);
+    RemoveDeivceLocked(device.deviceId);
+
     devices_.push_back(data);
     return true;
 }
@@ -93,7 +109,7 @@ std::optional<DmDeviceInfo> CastDeviceDataManager::GetDmDevice(const std::string
     if (it == devices_.end()) {
         return std::nullopt;
     }
-    return it->dmDeviceInfo;
+    return strlen(it->wifiDeviceInfo.deviceId) > 0 ? it->wifiDeviceInfo : it->bleDeviceInfo;
 }
 
 bool CastDeviceDataManager::UpdateDevice(const CastInnerRemoteDevice &device)
@@ -108,7 +124,6 @@ bool CastDeviceDataManager::UpdateDevice(const CastInnerRemoteDevice &device)
     }
 
     it->device = device;
-    it->device.sessionKey = nullptr;
 
     return true;
 }
@@ -296,19 +311,31 @@ std::vector<CastDeviceDataManager::DeviceInfoCollection>::iterator CastDeviceDat
     return devices_.end();
 }
 
-void CastDeviceDataManager::RemoveDeivceLocked(const std::string &deviceId)
+bool CastDeviceDataManager::RemoveDeivceLocked(const std::string &deviceId)
 {
+    CLOGI("RemoveDeivceLocked in");
     if (deviceId.empty()) {
         CLOGE("Empty device id!");
-        return;
+        return false;
+    }
+
+    auto sessionId = GetSessionIdByDeviceId(deviceId);
+    if (sessionId != INVALID_ID) {
+        for (auto it = devices_.begin(); it != devices_.end(); it++) {
+            if (it->device.sessionId == sessionId) {
+                devices_.erase(it);
+                return true;
+            }
+        }
     }
 
     for (auto it = devices_.begin(); it != devices_.end(); it++) {
         if (it->device.deviceId == deviceId) {
             devices_.erase(it);
-            return;
+            return true;
         }
     }
+    return false;
 }
 
 RemoteDeviceState CastDeviceDataManager::GetDeviceStateLocked(const std::string &deviceId)
@@ -330,6 +357,104 @@ int CastDeviceDataManager::GetSessionIdByDeviceId(const std::string &deviceId)
         }
     }
     return INVALID_ID;
+}
+
+bool CastDeviceDataManager::UpdateDeivceByDeviceId(const std::string &deviceId)
+{
+    CLOGI("ClearDeivceByDeviceId in");
+    if (deviceId.empty()) {
+        CLOGE("Empty device id!");
+        return false;
+    }
+    std::lock_guard<std::mutex> lock(mutex_);
+
+    for (auto it = devices_.begin(); it != devices_.end(); it++) {
+        if (it->device.deviceId == deviceId) {
+            it->state = RemoteDeviceState::UNKNOWN;
+            it->localSessionId = INVALID_ID;
+            it->transportId = INVALID_ID;
+            it->isActiveAuth = false;
+            return true;
+        }
+    }
+    return false;
+}
+
+bool CastDeviceDataManager::IsDoubleFrameDevice(const std::string &deviceId)
+{
+    CLOGI("IsDoubleFrameDevice in");
+    if (deviceId.empty()) {
+        CLOGE("Empty device id!");
+        return false;
+    }
+    std::lock_guard<std::mutex> lock(mutex_);
+    for (auto it = devices_.begin(); it != devices_.end(); it++) {
+        if (it->device.deviceId == deviceId) {
+            return !it->device.customData.empty() ? true : false;
+        }
+    }
+    return false;
+}
+
+bool CastDeviceDataManager::SetDeviceSessionKey(const std::string &deviceId, const uint8_t *sessionKey)
+{
+    std::lock_guard<std::mutex> lock(mutex_);
+    auto it = GetDeviceLocked(deviceId);
+    if (it == devices_.end()) {
+        return false;
+    }
+    if (memcpy_s(it->device.sessionKey, SESSION_KEY_LENGTH, sessionKey, SESSION_KEY_LENGTH) != 0) {
+        return false;
+    }
+    it->device.sessionKeyLength = SESSION_KEY_LENGTH;
+    return true;
+}
+
+bool CastDeviceDataManager::SetDeviceIp(const std::string &deviceId, const std::string &localIp,
+    const std::string &remoteIp)
+{
+    std::lock_guard<std::mutex> lock(mutex_);
+    auto it = GetDeviceLocked(deviceId);
+    if (it == devices_.end()) {
+        return false;
+    }
+
+    it->device.localIp = localIp;
+    it->device.remoteIp = remoteIp;
+    return true;
+}
+
+bool CastDeviceDataManager::SetDeviceChannleType(const std::string &deviceId, const ChannelType &channelType)
+{
+    std::lock_guard<std::mutex> lock(mutex_);
+    auto it = GetDeviceLocked(deviceId);
+    if (it == devices_.end()) {
+        return false;
+    }
+
+    it->device.channelType = channelType;
+    return true;
+}
+
+
+std::optional<std::string> CastDeviceDataManager::GetDeviceNameByDeviceId(const std::string &deviceId)
+{
+    std::lock_guard<std::mutex> lock(mutex_);
+    auto it = GetDeviceLocked(deviceId);
+    if (it == devices_.end()) {
+        CLOGE("No device found");
+        return std::nullopt;
+    }
+
+    if (strlen(it->wifiDeviceInfo.deviceName) > 0) {
+        CLOGI("WIFI device name is not empty %s", it->wifiDeviceInfo.deviceName);
+        return std::string(it->wifiDeviceInfo.deviceName);
+    } else if (strlen(it->bleDeviceInfo.deviceName) > 0) {
+        CLOGI("BLE device name is not empty %s", it->bleDeviceInfo.deviceName);
+        return std::string(it->bleDeviceInfo.deviceName);
+    }
+    CLOGW("Device name is empty");
+    return std::nullopt;
 }
 } // namespace CastEngineService
 } // namespace CastEngine

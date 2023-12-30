@@ -1,11 +1,5 @@
 /*
- * Copyright (c) 2023 Huawei Device Co., Ltd.
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
+ * Copyright (c) Huawei Technologies Co., Ltd. 2023-2023. All rights reserved.
  * Description: add permission utils
  * Author: zhangge
  * Create: 2023-05-11
@@ -30,7 +24,7 @@ public:
     static void SavePid(pid_t pid);
     static void RemovePid(pid_t pid);
     static void ClearPids();
-    static void SaveMirrorAppInfo();
+    static void SaveMirrorAppInfo(std::tuple<int32_t, uint32_t, int32_t> appInfo);
     static std::tuple<int32_t, uint32_t, int32_t> GetMirrorAppInfo();
 
 private:

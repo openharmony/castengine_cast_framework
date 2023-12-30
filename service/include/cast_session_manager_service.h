@@ -1,11 +1,5 @@
 /*
- * Copyright (c) 2023 Huawei Device Co., Ltd.
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
+ * Copyright (c) Huawei Technologies Co., Ltd. 2022-2022. All rights reserved.
  * Description: cast session manager service class
  * Author: zhangge
  * Create: 2022-06-15
@@ -56,6 +50,7 @@ public:
     void ReportDeviceFound(const std::vector<CastRemoteDevice> &deviceList);
     void ReportSessionCreate(const sptr<ICastSessionImpl> &castSession);
     void ReportDeviceOffline(const std::string &deviceId);
+    sptr<ICastSessionImpl> GetCastSessionInner(std::string sessionId);
 
 private:
     class CastEngineClientDeathRecipient : public IRemoteObject::DeathRecipient {
@@ -78,6 +73,7 @@ private:
     std::map<int32_t, sptr<ICastSessionImpl>> sessionMap_;
     std::atomic<int> sessionIndex_{ 0 };
     std::unordered_map<pid_t, sptr<IRemoteObject::DeathRecipient>> deathRecipientMap_;
+    std::atomic<bool> hasServer_{ false };
 
     void AddClientDeathRecipientLocked(pid_t pid, sptr<ICastServiceListenerImpl> listener);
     void RemoveClientDeathRecipientLocked(pid_t pid, sptr<ICastServiceListenerImpl> listener);

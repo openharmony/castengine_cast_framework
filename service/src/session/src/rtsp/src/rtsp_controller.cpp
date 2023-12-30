@@ -1,11 +1,5 @@
 /*
- * Copyright (c) 2023 Huawei Device Co., Ltd.
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
+ * Copyright (c) Huawei Technologies Co., Ltd. 2022-2023. All rights reserved.
  * Description: rtsp controller
  * Author: dingkang
  * Create: 2022-01-24
@@ -15,6 +9,7 @@
 
 #include <iterator>
 
+#include "cast_device_data_manager.h"
 #include "cast_engine_log.h"
 #include "encrypt_decrypt.h"
 #include "rtsp_package.h"
@@ -33,7 +28,7 @@ std::shared_ptr<IRtspController> IRtspController::GetInstance(std::shared_ptr<IR
 }
 
 RtspController::RtspController(std::shared_ptr<IRtspListener> listener, ProtocolType protocolType, EndType endType)
-    : listener_(listener), endType_(endType)
+    : protocolType_(protocolType), listener_(listener), endType_(endType)
 {
     rtspNetManager_ = std::make_unique<RtspChannelManager>(this, protocolType);
     ResponseFuncMapInit();
@@ -176,7 +171,6 @@ bool RtspController::OnRequest(RtspParse &request)
 {
     bool isSuccess = true;
     bool isMethodSupport = false;
-
     for (auto &func : requestFuncMap_) {
         if (Utils::StartWith(request.GetFirstLine(), func.first)) {
             isSuccess = (this->*requestFuncMap_[func.first])(request);
@@ -265,11 +259,12 @@ bool RtspController::DealAnnounceRequest(RtspParse &response)
         return true;
     }
 
-    rtspNetManager_->SetNegAlgorithmId(paramInfo_.GetEncryptionParamInfo().controlChannelAlgId);
-    EncryptionParamInfo encryptionParamInfo{};
-    encryptionParamInfo.controlChannelAlgId = paramInfo_.GetEncryptionParamInfo().controlChannelAlgId;
-    encryptionParamInfo.dataChannelAlgId = paramInfo_.GetEncryptionParamInfo().dataChannelAlgId;
-    negotiatedParamInfo_.SetEncryptionParamInfo(encryptionParamInfo);
+    auto remote = CastDeviceDataManager::GetInstance().GetDeviceByDeviceId(deviceId_);
+    if (remote == std::nullopt) {
+        CLOGE("Get remote device is empty");
+        return false;
+    }
+    rtspNetManager_->SetNegAlgorithmId(negotiatedParamInfo_.GetEncryptionParamInfo().controlChannelAlgId);
 
     SendOptionM1M2();
     waitRsp_ = WaitResponse::WAITING_RSP_OPT_M1;
@@ -395,7 +390,9 @@ bool RtspController::ProcessSetupRequest(RtspParse &request)
     int port = INVALID_VALUE;
     currentSetUpSeq_ = RtspParse::ParseIntSafe(request.GetHeader()["cseq"]);
     if (negotiatedParamInfo_.GetDeviceTypeParamInfo().remoteDeviceType == DeviceType::DEVICE_CAST_PLUS ||
-        negotiatedParamInfo_.GetSupportVtpOpt() != VtpType::VTP_NOT_SUPPORT_VIDEO) {
+        negotiatedParamInfo_.GetSupportVtpOpt() != VtpType::VTP_NOT_SUPPORT_VIDEO ||
+        protocolType_ == ProtocolType::HICAR ||
+        protocolType_ == ProtocolType::SUPER_LAUNCHER) {
         port = ProcessGetPort(request);
     }
     if (listener_ != nullptr) {
@@ -689,7 +686,11 @@ bool RtspController::ProcessGetParamM3Response(RtspParse &response)
     CLOGD("Sink HiSight version is %.2f", negotiatedParamInfo_.GetVersion());
 
     // 考虑向前兼容性，需要先解析device type
-    ProcessSinkDeviceType((*(response.GetHeader().find("his_device_type"))).second);
+    if (response.GetHeader()["his_device_type"].empty()) {
+        ProcessSinkDeviceType("");
+    } else {
+        ProcessSinkDeviceType((*(response.GetHeader().find("his_device_type"))).second);
+    }
     std::string content = response.GetHeader()["his_video_formats"];
     if (content.empty()) {
         CLOGE("Process M3 Rsp Error, sink not have his_video_formats.");
@@ -708,8 +709,8 @@ bool RtspController::ProcessGetParamM3Response(RtspParse &response)
         remoteControlParamInfo.isSupportUibc = false;
         negotiatedParamInfo_.SetRemoteControlParamInfo(remoteControlParamInfo);
     } else {
-        CLOGD("Negotiated UIBC result is %{public}d", negotiatedParamInfo_.GetRemoteControlParamInfo().isSupportUibc);
         ProcessUibc(content);
+        CLOGD("Negotiated UIBC result is %{public}d", negotiatedParamInfo_.GetRemoteControlParamInfo().isSupportUibc);
     }
     ProcessSinkVtp(response.GetHeader()["his_vtp"]);
     // his_media_capability 处理
@@ -836,12 +837,13 @@ void RtspController::ProcessUibc(const std::string &content)
 {
     CLOGD("In, %{public}s.", content.c_str());
     std::string categoryList;
+    RemoteControlParamInfo remoteControlParamInfo{};
 
     if (!PreProcessUibc(content, categoryList)) {
+        remoteControlParamInfo.isSupportUibc = false;
+        negotiatedParamInfo_.SetRemoteControlParamInfo(remoteControlParamInfo);
         return;
     }
-
-    RemoteControlParamInfo remoteControlParamInfo{};
 
     remoteControlParamInfo.isSupportUibc = true;
 
@@ -855,7 +857,7 @@ void RtspController::ProcessUibc(const std::string &content)
             CLOGE("Local genericList is empty.");
             return;
         }
-        ProcessUibcDetermine(genericStr, ListType::LIST_TYPE_GENERIC, remoteControlParamInfo);
+        ProcessUibcDetermine(genericStr, remoteControlParamInfo.genericList);
         remoteControlParamInfo.isSupportGeneric = true;
     }
 
@@ -869,13 +871,8 @@ void RtspController::ProcessUibc(const std::string &content)
             CLOGE("Local hidcList is empty.");
             return;
         }
-        ProcessUibcDetermine(hidcStr, ListType::LIST_TYPE_HIDC, remoteControlParamInfo);
+        ProcessUibcDetermine(hidcStr, remoteControlParamInfo.hidcList);
         remoteControlParamInfo.isSupportHidc = true;
-    }
-    if (!negotiatedParamInfo_.GetRemoteControlParamInfo().isSupportGeneric &&
-        !negotiatedParamInfo_.GetRemoteControlParamInfo().isSupportHidc) {
-        CLOGE("Negotiated result not support generic and not hidc.");
-        return;
     }
     ProcessUibcVendor(content, remoteControlParamInfo);
     negotiatedParamInfo_.SetRemoteControlParamInfo(remoteControlParamInfo);
@@ -896,31 +893,19 @@ void RtspController::ProcessUibcVendor(const std::string &content, RemoteControl
             CLOGE("Local vendor_list is empty.");
             return;
         }
-        ProcessUibcDetermine(vendorStr, ListType::LIST_TYPE_VENDOR, remoteControlParamInfo);
+        ProcessUibcDetermine(vendorStr, remoteControlParamInfo.vendorList);
         remoteControlParamInfo.isSupportVendor = true;
     }
 }
 
-void RtspController::ProcessUibcDetermine(const std::string &givenStr, ListType listType, RemoteControlParamInfo &param)
+void RtspController::ProcessUibcDetermine(const std::string &givenStr, std::vector<std::string> &list)
 {
     CLOGD("In, %{public}s.", givenStr.c_str());
     std::vector<std::string> splitStrings;
     Utils::SplitString(givenStr, splitStrings, ", ");
-    if (listType == ListType::LIST_TYPE_HIDC) {
-        param.hidcList.clear();
-    } else if (listType == ListType::LIST_TYPE_GENERIC) {
-        param.genericList.clear();
-    } else if (listType == ListType::LIST_TYPE_VENDOR) {
-        param.vendorList.clear();
-    }
+    list.clear();
     for (auto &iter : splitStrings) {
-        if (listType == ListType::LIST_TYPE_HIDC) {
-            param.hidcList.push_back(iter);
-        } else if (listType == ListType::LIST_TYPE_GENERIC) {
-            param.genericList.push_back(iter);
-        } else if (listType == ListType::LIST_TYPE_VENDOR) {
-            param.vendorList.push_back(iter);
-        }
+        list.push_back(iter);
     }
 }
 
@@ -979,14 +964,16 @@ void RtspController::ProcessVideoInfo(const std::string &content)
         negotiatedParamInfo_.GetVideoProperty().fps, negotiatedParamInfo_.GetVideoProperty().codecType,
         negotiatedParamInfo_.GetVideoProperty().gop);
     CLOGD("His_video_formats: %{public}s", content.c_str());
-    VideoProperty videoProperty{};
+
+    VideoProperty videoProperty = negotiatedParamInfo_.GetVideoProperty();
 
     ProcessSinkVideoForResolution(content, videoProperty);
 
     std::string strCodecs = RtspParse::GetTargetStr(content, "codecs", COMMON_SEPARATOR);
     int codecs = (!strCodecs.empty()) ? RtspParse::ParseIntSafe(strCodecs) : 0;
     if (codecs > 0) {
-        videoProperty.codecType = static_cast<VideoCodecType>(codecs);
+        int localCodecs = static_cast<int>(paramInfo_.GetVideoProperty().codecType);
+        videoProperty.codecType = static_cast<VideoCodecType>(std::min(localCodecs, codecs));
     }
 
     std::string strFps = RtspParse::GetTargetStr(content, "fps", COMMON_SEPARATOR);
@@ -1160,15 +1147,12 @@ void RtspController::ProcessSinkVtp(const std::string &content)
         negotiatedParamInfo_.SetSupportVtpOpt(VtpType::VTP_NOT_SUPPORT_VIDEO);
         return;
     }
-
     auto tmp = content;
     tmp = Utils::ToLower(tmp);
-    if (tmp == "supportav") {
-        negotiatedParamInfo_.SetSupportVtpOpt(VtpType::VTP_SUPPORT_VIDEO_AUDIO);
+    if (tmp == "supportav" || tmp == "supported" || tmp == "support_power_saving") {
+        // not support vtp currently
+        negotiatedParamInfo_.SetSupportVtpOpt(VtpType::VTP_NOT_SUPPORT_VIDEO);
         CLOGI("Peer support vtp, Negotiated Vtp result is %{public}d", negotiatedParamInfo_.GetSupportVtpOpt());
-    } else if (tmp == "supported" || tmp == "support_power_saving") {
-        negotiatedParamInfo_.SetSupportVtpOpt(VtpType::VTP_SUPPORT_VIDEO);
-        CLOGI("Peer support vtp for video, result is %{public}d", negotiatedParamInfo_.GetSupportVtpOpt());
     } else {
         CLOGI("Peer carries invalid vtp flag %{public}s", content.c_str());
         negotiatedParamInfo_.SetSupportVtpOpt(VtpType::VTP_NOT_SUPPORT_VIDEO);

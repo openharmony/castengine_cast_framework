@@ -1,11 +1,5 @@
 /*
- * Copyright (c) 2023 Huawei Device Co., Ltd.
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
+ * Copyright (c) Huawei Technologies Co., Ltd. 2022-2023. All rights reserved.
  * Description: Cast Session states realization.
  * Author: zhangge
  * Create: 2022-07-19
@@ -13,6 +7,7 @@
 
 #include "cast_session_impl.h"
 #include "cast_engine_log.h"
+#include "cast_engine_dfx.h"
 
 namespace OHOS {
 namespace CastEngine {
@@ -116,14 +111,17 @@ bool CastSessionImpl::DisconnectedState::HandleMessage(const Message &msg)
 
     MessageId msgId = static_cast<MessageId>(msg.what_);
     std::string deviceId = msg.strArg_;
-
     switch (msgId) {
+        case MessageId::MSG_AUTH:
+                session->TransferTo(session->authingState_);
+            break;
         case MessageId::MSG_CONNECT:
-            if (session->ProcessConnect(msg)) {
+            if (session->ProcessConnect(msg) >= 0) {
                 session->ChangeDeviceState(DeviceState::CONNECTING, deviceId);
                 session->SendCastMessageDelayed(MessageId::MSG_CONNECT_TIMEOUT, TIMEOUT_CONNECT);
                 session->TransferTo(session->connectingState_);
             } else {
+                // Connection failed
                 session->ChangeDeviceState(DeviceState::DISCONNECTED, deviceId);
             }
             break;
@@ -133,6 +131,63 @@ bool CastSessionImpl::DisconnectedState::HandleMessage(const Message &msg)
     }
     return true;
 }
+
+void CastSessionImpl::AuthingState::Enter()
+{
+    BaseState::Enter(SessionState::AUTHING);
+}
+
+void CastSessionImpl::AuthingState::Exit()
+{
+    BaseState::Exit();
+}
+
+bool CastSessionImpl::AuthingState::HandleMessage(const Message &msg)
+{
+    auto session = session_.promote();
+    if (!session) {
+        CLOGE("Session is invalid");
+        return false;
+    }
+
+    BaseState::HandleMessage(msg);
+
+    MessageId msgId = static_cast<MessageId>(msg.what_);
+    std::string deviceId = msg.strArg_;
+    switch (msgId) {
+        case MessageId::MSG_CONNECT: {
+            int port = session->ProcessConnect(msg);
+            if (port >= 0) {
+                session->ChangeDeviceState(DeviceState::CONNECTING, deviceId);
+                session->SendCastMessageDelayed(MessageId::MSG_CONNECT_TIMEOUT, TIMEOUT_CONNECT);
+                session->TransferTo(session->connectingState_);
+                session->SendConsultData(deviceId, port);
+            } else {
+                session->ChangeDeviceState(DeviceState::DISCONNECTED, deviceId);
+            }
+            break;
+        }
+        case MessageId::MSG_DISCONNECT:
+        case MessageId::MSG_CONNECT_TIMEOUT:
+            session->ProcessDisconnect(msg);
+            session->ChangeDeviceState(DeviceState::DISCONNECTED, deviceId, msg.eventCode_);
+            session->RemoveRemoteDevice(deviceId);
+            session->TransferTo(session->disconnectingState_);
+            break;
+        case MessageId::MSG_ERROR:
+            session->ProcessError(msg);
+            session->TransferTo(session->disconnectingState_);
+            break;
+        case MessageId::MSG_AUTH:
+            session->ReportDeviceStateInfo(DeviceState::AUTHING, deviceId, msg.eventCode_);
+            break;
+        default:
+            CLOGW("unsupported msg: %s, in authing state", MESSAGE_ID_STRING[msgId].c_str());
+            return false;
+    }
+    return true;
+}
+
 
 void CastSessionImpl::ConnectingState::Enter()
 {
@@ -161,6 +216,7 @@ bool CastSessionImpl::ConnectingState::HandleMessage(const Message &msg)
             HandleSetupSuccessMessage(msg, msgId, session);
             break;
         case MessageId::MSG_DISCONNECT:
+        case MessageId::MSG_CONNECT_TIMEOUT:
             HandleDisconnectMessage(msg, session);
             break;
         case MessageId::MSG_ERROR:
@@ -171,6 +227,7 @@ bool CastSessionImpl::ConnectingState::HandleMessage(const Message &msg)
             break;
         case MessageId::MSG_CONNECT:
         case MessageId::MSG_PLAY:
+        case MessageId::MSG_PLAY_REQ:
             HandleConnectMessage(msg, msgId, session);
             break;
         default:
@@ -217,7 +274,8 @@ void CastSessionImpl::ConnectingState::HandleDisconnectMessage(const Message &ms
     }
     std::string deviceId = msg.strArg_;
     session->ProcessDisconnect(msg);
-    session->ChangeDeviceState(DeviceState::DISCONNECTED, deviceId);
+    session->ChangeDeviceState(DeviceState::DISCONNECTED, deviceId, EventCode::ERR_CONNECTION_FAILED);
+    session->RemoveMessage(Message(static_cast<int>(MessageId::MSG_CONNECT_TIMEOUT)));
     session->RemoveRemoteDevice(deviceId);
     session->TransferTo(session->disconnectingState_);
 }
@@ -260,6 +318,37 @@ void CastSessionImpl::ConnectingState::HandleConnectMessage(const Message &msg, 
 void CastSessionImpl::ConnectedState::Enter()
 {
     BaseState::Enter(SessionState::CONNECTED);
+
+    auto session = session_.promote();
+    if (!session) {
+        CLOGE("Session is invalid");
+        return;
+    }
+
+    if (session->property_.protocolType == ProtocolType::COOPERATION) {
+        HiSysEventWriteWrap(__func__, {
+                {"BIZ_SCENE", static_cast<int32_t>(BIZSceneType::COOPERATION)},
+                {"BIZ_STATE", static_cast<int32_t>(BIZStateType::BIZ_STATE_END)},
+                {"BIZ_STAGE", static_cast<int32_t>(BIZSceneStage::COOPERATION_CAST_SUCCESS)},
+                {"STAGE_RES", static_cast<int32_t>(StageResType::STAGE_RES_SUCCESS)},
+                {"ERROR_CODE", CAST_RADAR_SUCCESS}}, {
+                {"TO_CALL_PKG", DSOFTBUS_NAME},
+                {"LOCAL_SESS_NAME", ""},
+                {"PEER_SESS_NAME", ""},
+                {"PEER_UDID", ""}});
+    } else {
+        auto sceneType = GetBIZSceneType(static_cast<int>(session->property_.protocolType));
+        HiSysEventWriteWrap(__func__, {
+                {"BIZ_SCENE", sceneType},
+                {"BIZ_STATE", static_cast<int32_t>(BIZStateType::BIZ_STATE_END)},
+                {"BIZ_STAGE", static_cast<int32_t>(BIZSceneStage::CAST_SUCCESS)},
+                {"STAGE_RES", static_cast<int32_t>(StageResType::STAGE_RES_SUCCESS)},
+                {"ERROR_CODE", CAST_RADAR_SUCCESS}}, {
+                {"TO_CALL_PKG", DSOFTBUS_NAME},
+                {"LOCAL_SESS_NAME", ""},
+                {"PEER_SESS_NAME", ""},
+                {"PEER_UDID", ""}});
+    }
 }
 
 void CastSessionImpl::ConnectedState::Exit()
@@ -273,16 +362,14 @@ bool CastSessionImpl::ConnectedState::HandleMessage(const Message &msg)
     if (!session) {
         return false;
     }
-
     BaseState::HandleMessage(msg);
     MessageId msgId = static_cast<MessageId>(msg.what_);
-
     const auto &deviceId = msg.strArg_;
     switch (msgId) {
         case MessageId::MSG_CONNECT:
             // Designed for 1->N scenarios
             session->ChangeDeviceState(DeviceState::CONNECTING, deviceId);
-            if (session->ProcessConnect(msg)) {
+            if (session->ProcessConnect(msg) >= 0) {
                 session->ChangeDeviceState(DeviceState::CONNECTED, deviceId);
                 session->ChangeDeviceState(DeviceState::PAUSED, deviceId);
                 session->TransferTo(session->pausedState_);
@@ -292,6 +379,7 @@ bool CastSessionImpl::ConnectedState::HandleMessage(const Message &msg)
             return true;
         case MessageId::MSG_SETUP_SUCCESS:
             if (!session->IsStreamMode()) {
+                session->ChangeDeviceState(DeviceState::CONNECTED, deviceId);
                 session->ChangeDeviceState(DeviceState::PAUSED, deviceId);
                 session->TransferTo(session->pausedState_);
             } else if (session->IsSink()) {
@@ -308,6 +396,10 @@ bool CastSessionImpl::ConnectedState::HandleMessage(const Message &msg)
         case MessageId::MSG_ERROR:
             session->ProcessError(msg);
             session->TransferTo(session->disconnectingState_);
+            return true;
+        case MessageId::MSG_PLAY_REQ:
+            CLOGI("in connected state, defer message: %d", msgId);
+            session->DeferMessage(msg);
             return true;
         default:
             CLOGW("unsupported msg: %s, in connected state", MESSAGE_ID_STRING[msgId].c_str());
@@ -422,10 +514,9 @@ bool CastSessionImpl::PlayingState::HandleMessage(const Message &msg)
         CLOGE("Session is invalid");
         return false;
     }
-
+    const auto &param = msg.strArg_;
     BaseState::HandleMessage(msg);
     MessageId msgId = static_cast<MessageId>(msg.what_);
-
     switch (msgId) {
         case MessageId::MSG_PAUSE:
         case MessageId::MSG_PAUSE_REQ:
@@ -442,8 +533,10 @@ bool CastSessionImpl::PlayingState::HandleMessage(const Message &msg)
             session->ProcessStateEvent(MessageId::MSG_UPDATE_VIDEO_SIZE, msg);
             break;
         case MessageId::MSG_SET_CAST_MODE:
-            CLOGD("PlayingState::HandleMessage, MSG_SET_CAST_MODE");
             session->ProcessSetCastMode(msg);
+            break;
+        case MessageId::MSG_MIRROR_SEND_ACTION_EVENT_TO_PEERS:
+            session->SendEventChange(MODULE_ID_MEDIA, msg.arg1_, param);
             break;
         default:
             CLOGW("unsupported msg: %s, in playing state", MESSAGE_ID_STRING[msgId].c_str());

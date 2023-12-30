@@ -1,11 +1,5 @@
 /*
- * Copyright (c) 2023 Huawei Device Co., Ltd.
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
+ * Copyright (c) Huawei Technologies Co., Ltd. 2022-2022. All rights reserved.
  * Description: supply cast session listener implement proxy apis.
  * Author: zhangge
  * Create: 2022-6-15
@@ -32,8 +26,10 @@ private:
 
     int32_t DoOnDeviceStateTask(MessageParcel &data, MessageParcel &reply);
     int32_t DoOnEventTask(MessageParcel &data, MessageParcel &reply);
+    int32_t DoOnRemoteCtrlEventTask(MessageParcel &data, MessageParcel &reply);
     void OnDeviceState(const DeviceStateInfo &stateInfo) override;
     void OnEvent(const EventId &eventId, const std::string &jsonParam) override;
+    void OnRemoteCtrlEvent(int eventType, const uint8_t *data, uint32_t len) override;
     std::shared_ptr<ICastSessionListener> userListener_;
 };
 } // namespace CastEngineClient
