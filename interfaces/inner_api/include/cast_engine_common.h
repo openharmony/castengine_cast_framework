@@ -435,7 +435,7 @@ inline constexpr int EXPORT INVALID_PORT = -1;
 inline constexpr int EXPORT INVALID_VALUE = -1;
 inline constexpr int EXPORT DECIMALISM = 10;
 inline constexpr int EXPORT SUBSYS_CASTPLUS_SYS_ABILITY_ID_BEGIN = 0x00010000;
-inline constexpr int EXPORT CAST_ENGINE_SA_ID = SUBSYS_CASTPLUS_SYS_ABILITY_ID_BEGIN + 10; // 65546
+inline constexpr int EXPORT CAST_ENGINE_SA_ID = 5526; // 65546
 inline constexpr int EXPORT SUBSYS_CASTPLUS_SYS_ABILITY_ID_END = 0x0001001f;
 } // namespace CastEngine
 } // namespace OHOS
