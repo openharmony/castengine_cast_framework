@@ -307,7 +307,7 @@ void DiscoveryManager::OnDeviceInfoFound(uint16_t subscribeId, const DmDeviceInf
         }
     }
     remoteDeviceMap[newDevice] = scanCount;
-    CLOGD("OnDeviceInfoFound out remoteDeviceMap.size: %{public}lu", remoteDeviceMap.size());
+    CLOGD("OnDeviceInfoFound out remoteDeviceMap.size: %{public}u", remoteDeviceMap.size());
 }
 
 void DiscoveryManager::NotifyDeviceIsFound(const CastInnerRemoteDevice &newDevice)
