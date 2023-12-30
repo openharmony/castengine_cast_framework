@@ -1,11 +1,5 @@
 /*
- * Copyright (c) 2023 Huawei Device Co., Ltd.
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
+ * Copyright (c) Huawei Technologies Co., Ltd. 2022-2023. All rights reserved.
  * Description: supply cast session manager listener realization for napi interface.
  * Author: zhangjingnan
  * Create: 2022-7-11
@@ -59,6 +53,13 @@ void NapiCastSessionManagerListener::OnDeviceFound(const std::vector<CastRemoteD
 void NapiCastSessionManagerListener::OnDeviceOffline(const std::string &deviceId)
 {
     CLOGD("OnDeviceOffline start");
+    NapiArgsGetter napiArgsGetter = [deviceId](napi_env env, int &argc, napi_value *argv) {
+        argc = CALLBACK_ARGC_ONE;
+        auto status = napi_create_string_utf8(env, deviceId.c_str(), NAPI_AUTO_LENGTH, &argv[0]);
+        CHECK_RETURN_VOID(status == napi_ok, "napi_create_string_utf8 failed");
+    };
+    HandleEvent(EVENT_DEVICE_OFFLINE, napiArgsGetter);
+    CLOGD("OnDeviceOffline finish");
 }
 
 void NapiCastSessionManagerListener::OnSessionCreated(const std::shared_ptr<ICastSession> &castSession)

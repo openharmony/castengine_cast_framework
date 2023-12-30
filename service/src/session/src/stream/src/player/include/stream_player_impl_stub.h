@@ -1,11 +1,5 @@
 /*
- * Copyright (c) 2023 Huawei Device Co., Ltd.
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
+ * Copyright (c) Huawei Technologies Co., Ltd. 2023-2023. All rights reserved.
  * Description: supply stream player implement stub class.
  * Author: huangchanggui
  * Create: 2023-01-13
@@ -52,7 +46,9 @@ private:
     int32_t DoGetPositionTask(MessageParcel &data, MessageParcel &reply);
     int32_t DoGetDurationTask(MessageParcel &data, MessageParcel &reply);
     int32_t DoGetVolumeTask(MessageParcel &data, MessageParcel &reply);
+    int32_t DoGetMuteTask(MessageParcel &data, MessageParcel &reply);
     int32_t DoGetPlaySpeedTask(MessageParcel &data, MessageParcel &reply);
+    int32_t DoSetMuteTask(MessageParcel &data, MessageParcel &reply);
     int32_t DoGetLoopModeTask(MessageParcel &data, MessageParcel &reply);
     int32_t DoGetMediaInfoHolderTask(MessageParcel &data, MessageParcel &reply);
     int32_t DoReleaseTask(MessageParcel &data, MessageParcel &reply);
@@ -72,12 +68,14 @@ private:
     int32_t FastForward(int delta) override;
     int32_t FastRewind(int delta) override;
     int32_t SetVolume(int volume) override;
+    int32_t SetMute(bool mute) override;
     int32_t SetLoopMode(const LoopMode mode) override;
     int32_t SetSpeed(const PlaybackSpeed speed) override;
     int32_t GetPlayerStatus(PlayerStates &playerStates) override;
     int32_t GetPosition(int &position) override;
     int32_t GetDuration(int &duration) override;
     int32_t GetVolume(int &volume, int &maxVolume) override;
+    int32_t GetMute(bool &mute) override;
     int32_t GetLoopMode(LoopMode &loopMode) override;
     int32_t GetPlaySpeed(PlaybackSpeed &playbackSpeed) override;
     int32_t GetMediaInfoHolder(MediaInfoHolder &mediaInfoHolder) override;

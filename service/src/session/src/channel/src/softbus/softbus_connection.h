@@ -1,11 +1,5 @@
 /*
- * Copyright (c) 2023 Huawei Device Co., Ltd.
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
+ * Copyright (c) Huawei Technologies Co., Ltd. 2022-2023. All rights reserved.
  * Description: softbus connection.
  * Author: sunhong
  * Create: 2022-01-22
@@ -79,6 +73,8 @@ private:
     static const std::string AUDIO_SESSION_NAME_FACTOR;
     static const std::string CONTROL_SESSION_NAME_FACTOR;
     static const std::string STREAM_SESSION_NAME_FACTOR;
+    static const std::string FILES_SESSION_NAME_FACTOR;
+    static const std::string BYTES_SESSION_NAME_FACTOR;
     static const std::string SESSION_NAME_PREFIX;
     static const int RET_ERR = -1;
     static const int RET_OK = 0;

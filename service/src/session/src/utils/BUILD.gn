@@ -1,10 +1,4 @@
-# Copyright (c) 2023 Huawei Device Co., Ltd.
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#    http://www.apache.org/licenses/LICENSE-2.0
-#
+# Copyright (c) Huawei Technologies Co., Ltd. 2022-2023. All rights reserved.
 
 import("//foundation/CastEngine/castengine_cast_framework/cast_engine.gni")
 
@@ -23,7 +17,7 @@ ohos_static_library("cast_session_utils") {
     "src/message.cpp",
     "src/permission.cpp",
     "src/state_machine.cpp",
-    "src/timer.cpp",
+    "src/cast_timer.cpp",
     "src/utils.cpp",
   ]
 
@@ -45,6 +39,7 @@ ohos_static_library("cast_session_utils") {
     "c_utils:utils",
     "hilog:libhilog",
     "ipc:ipc_core",
+    "wifi:wifi_sdk",
   ]
 
   subsystem_name = "castplus"

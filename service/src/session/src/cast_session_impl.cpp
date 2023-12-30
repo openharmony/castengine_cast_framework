@@ -1,11 +1,5 @@
 /*
- * Copyright (c) 2023 Huawei Device Co., Ltd.
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
+ * Copyright (c) Huawei Technologies Co., Ltd. 2022-2023. All rights reserved.
  * Description: Cast Session implement realization.
  * Author: lijianzhao
  * Create: 2022-01-25
@@ -18,12 +12,15 @@
 #include "cast_engine_errors.h"
 #include "cast_engine_log.h"
 #include "cast_device_data_manager.h"
-#include "connection_manager.h"
-#include "ipc_skeleton.h"
-#include "json/json.h"
-#include "permission.h"
 #include "cast_stream_manager_client.h"
 #include "cast_stream_manager_server.h"
+#include "connection_manager.h"
+#include "dm_device_info.h"
+#include "ipc_skeleton.h"
+#include "json/json.h"
+#include "mirror_player_impl.h"
+#include "permission.h"
+#include "cast_engine_dfx.h"
 
 namespace OHOS {
 namespace CastEngine {
@@ -34,7 +31,47 @@ using CastSessionRtsp::ActionType;
 using CastSessionRtsp::DeviceTypeParamInfo;
 using CastSessionRtsp::VtpType;
 
-const std::array<std::string, static_cast<size_t>(CastSessionImpl::MessageId::MSG_ID_MAX)>
+namespace {
+void ProcessConnectWriteWrap(const std::string& funcName,
+    ProtocolType protocolType, int sceneType, const std::string& puid)
+{
+    if (protocolType == ProtocolType::COOPERATION) {
+        HiSysEventWriteWrap(funcName, {
+            {"BIZ_SCENE", static_cast<int32_t>(BIZSceneType::DEVICE_DISCOVERY)},
+            {"BIZ_STATE", static_cast<int32_t>(BIZStateType::BIZ_STATE_END)},
+            {"BIZ_STAGE", static_cast<int32_t>(BIZSceneStage::DEVICE_DISCOVERY)},
+            {"STAGE_RES", static_cast<int32_t>(StageResType::STAGE_RES_SUCCESS)},
+            {"ERROR_CODE", CAST_RADAR_SUCCESS}}, {
+            {"TO_CALL_PKG", DEVICE_MANAGER_NAME},
+            {"LOCAL_SESS_NAME", ""},
+            {"PEER_SESS_NAME", ""},
+            {"PEER_UDID", puid}});
+
+        HiSysEventWriteWrap(funcName, {
+            {"BIZ_SCENE", static_cast<int32_t>(BIZSceneType::COOPERATION)},
+            {"BIZ_STATE", static_cast<int32_t>(BIZStateType::BIZ_STATE_BEGIN)},
+            {"BIZ_STAGE", static_cast<int32_t>(BIZSceneStage::COOPERATION_ESTABLISH_RTSP_CHANNEL)},
+            {"STAGE_RES", static_cast<int32_t>(StageResType::STAGE_RES_IDLE)},
+            {"ERROR_CODE", CAST_RADAR_SUCCESS}}, {
+            {"TO_CALL_PKG", DSOFTBUS_NAME},
+            {"LOCAL_SESS_NAME", ""},
+            {"PEER_SESS_NAME", ""},
+            {"PEER_UDID", puid}});
+    } else {
+        HiSysEventWriteWrap(funcName, {
+            {"BIZ_SCENE", sceneType},
+            {"BIZ_STAGE", static_cast<int32_t>(BIZSceneStage::ESTABLISH_RTSP_CHANNEL)},
+            {"STAGE_RES", static_cast<int32_t>(StageResType::STAGE_RES_IDLE)},
+            {"ERROR_CODE", CAST_RADAR_SUCCESS}}, {
+            {"TO_CALL_PKG", DSOFTBUS_NAME},
+            {"LOCAL_SESS_NAME", ""},
+            {"PEER_SESS_NAME", ""},
+            {"PEER_UDID", ""}});
+    }
+}
+}
+
+const std::array<std::string, static_cast<size_t>(MessageId::MSG_ID_MAX)>
     CastSessionImpl::MESSAGE_ID_STRING = {
         "MSG_CONNECT",
         "MSG_SETUP",
@@ -55,6 +92,7 @@ const std::array<std::string, static_cast<size_t>(CastSessionImpl::MessageId::MS
         "MSG_ERROR",
         "MSG_SET_CAST_MODE",
         "MSG_READY_TO_PLAYING",
+        "MSG_MIRROR_SEND_ACTION_EVENT_TO_PEERS",
     };
 std::atomic<int> CastSessionImpl::idCount_ = rand();
 
@@ -101,22 +139,17 @@ int32_t CastSessionImpl::UnregisterListener()
 int32_t CastSessionImpl::AddDevice(const CastRemoteDevice &remoteDevice)
 {
     CLOGI("sessionId_ %{public}d", sessionId_);
-    CastInnerRemoteDevice remote = {
-        .deviceId = remoteDevice.deviceId,
-        .deviceName = remoteDevice.deviceName,
-        .deviceType = remoteDevice.deviceType,
-        .subDeviceType = remoteDevice.subDeviceType,
-        .ipAddress = remoteDevice.ipAddress,
-        .sessionId = sessionId_,
-        .channelType = remoteDevice.channelType,
-    };
-    if (!AddDevice(remote)) {
+    auto remote = CastDeviceDataManager::GetInstance().GetDeviceByDeviceId(remoteDevice.deviceId);
+    if (remote == std::nullopt) {
         return CAST_ENGINE_ERROR;
     }
-    if (!ConnectionManager::GetInstance().ConnectDevice(remote)) {
+    remote->sessionId = sessionId_;
+    remote->subDeviceType = remoteDevice.subDeviceType;
+    if (!AddDevice(*remote) || !ConnectionManager::GetInstance().ConnectDevice(*remote)) {
+        CLOGE("AddDevice or ConnectDevice fail");
         return CAST_ENGINE_ERROR;
     }
-    Permission::SaveMirrorAppInfo();
+    CLOGI("AddDevice out.");
     return CAST_ENGINE_SUCCESS;
 }
 
@@ -140,7 +173,27 @@ bool CastSessionImpl::AddDevice(const CastInnerRemoteDevice &remoteDevice)
             }
         }
     }
-    if (!CastDeviceDataManager::GetInstance().UpdateDevice(remoteDevice)) {
+
+    WaitSinkSetProperty();
+    if (property_.protocolType == ProtocolType::HICAR || property_.protocolType == ProtocolType::SUPER_LAUNCHER) {
+        OtherAddDevice(remoteDevice);
+    } else if (property_.protocolType == ProtocolType::COOPERATION ||
+        property_.protocolType == ProtocolType::COOPERATION_LEGACY) {
+        CLOGI("cooperation scene protocolType:%x", static_cast<uint32_t>(property_.protocolType));
+        auto dmDevice = ConnectionManager::GetInstance().GetDmDeviceInfo(remoteDevice.deviceId);
+        if (remoteDevice.deviceId.compare(dmDevice.deviceId) != 0) {
+            CLOGE("Failed to get DmDeviceInfo");
+            return false;
+        }
+        std::string networkId;
+        if (!ConnectionManager::GetInstance().IsDeviceTrusted(remoteDevice.deviceId, networkId)) {
+            CLOGI("Is not a trusted device");
+            return false;
+        }
+        if (!CastDeviceDataManager::GetInstance().AddDevice(remoteDevice, dmDevice)) {
+            return false;
+        }
+    } else if (!CastDeviceDataManager::GetInstance().UpdateDevice(remoteDevice)) {
         return false;
     }
 
@@ -148,8 +201,45 @@ bool CastSessionImpl::AddDevice(const CastInnerRemoteDevice &remoteDevice)
         return false;
     }
 
-    SendCastMessage(Message(MessageId::MSG_CONNECT, remoteDevice.deviceId));
+    if (property_.protocolType == ProtocolType::COOPERATION ||
+        property_.protocolType == ProtocolType::COOPERATION_LEGACY ||
+        property_.protocolType == ProtocolType::HICAR || property_.protocolType == ProtocolType::SUPER_LAUNCHER) {
+        SendCastMessage(Message(MessageId::MSG_CONNECT, remoteDevice.deviceId));
+    }
     return true;
+}
+
+void CastSessionImpl::OtherAddDevice(const CastInnerRemoteDevice &remoteDevice)
+{
+    CLOGI("hicar scene protocolType:%{public}x", static_cast<uint32_t>(property_.protocolType));
+    DmDeviceInfo dmDeviceInfo {};
+    if (strcpy_s(dmDeviceInfo.deviceId, sizeof(dmDeviceInfo.deviceId), remoteDevice.deviceId.c_str()) != EOK) {
+        CLOGE("strcpy_s fail, errno: %{public}d", errno);
+        return;
+    }
+    if (strcpy_s(dmDeviceInfo.deviceName, sizeof(dmDeviceInfo.deviceName), remoteDevice.deviceName.c_str()) != EOK) {
+        CLOGE("strcpy_s fail, errno: %{public}d", errno);
+        return;
+    }
+    if (!CastDeviceDataManager::GetInstance().AddDevice(remoteDevice, dmDeviceInfo)) {
+        CLOGW("Add device fail");
+    }
+}
+
+void CastSessionImpl::WaitSinkSetProperty()
+{
+    std::unique_lock<std::mutex> lock(mutex_);
+    if (property_.protocolType == ProtocolType::CAST_PLUS_STREAM || property_.endType != EndType::CAST_SINK) {
+        return;
+    }
+
+    int timeout = 1; // unit: s
+    sptr<CastSessionImpl> self(this);
+    bool result = setProperty_.wait_for(lock, std::chrono::seconds(timeout),
+        [self] { return self->property_.videoProperty.fps != 0; });
+    if (!result) {
+        CLOGW("Wait the SetSessionProperty timeout");
+    }
 }
 
 int32_t CastSessionImpl::RemoveDevice(const std::string &deviceId)
@@ -158,6 +248,19 @@ int32_t CastSessionImpl::RemoveDevice(const std::string &deviceId)
     if (!Permission::CheckPidPermission()) {
         return ERR_NO_PERMISSION;
     }
+
+    auto anonymousID = GetAnonymousDeviceID(deviceId);
+    auto sceneType = GetBIZSceneType(static_cast<int>(property_.protocolType));
+    HiSysEventWriteWrap(__func__, {
+            {"BIZ_SCENE", sceneType},
+            {"BIZ_STATE", static_cast<int32_t>(BIZStateType::BIZ_STATE_BEGIN)},
+            {"BIZ_STAGE", static_cast<int32_t>(BIZSceneStage::START_DISCONNECT)},
+            {"STAGE_RES", static_cast<int32_t>(StageResType::STAGE_RES_SUCCESS)},
+            {"ERROR_CODE", CAST_RADAR_SUCCESS}}, {
+            {"TO_CALL_PKG", DEVICE_MANAGER_NAME},
+            {"LOCAL_SESS_NAME", ""},
+            {"PEER_SESS_NAME", ""},
+            {"PEER_UDID", anonymousID}});
 
     SendCastMessage(Message(MessageId::MSG_DISCONNECT, deviceId));
     return CAST_ENGINE_SUCCESS;
@@ -185,6 +288,17 @@ int32_t CastSessionImpl::CreateMirrorPlayer(sptr<IMirrorPlayerImpl> &mirrorPlaye
         return ERR_NO_PERMISSION;
     }
     auto player = MirrorPlayerGetter();
+    if (player == nullptr) {
+        auto tmp = new (std::nothrow) MirrorPlayerImpl(this);
+        if (tmp == nullptr) {
+            CLOGE("CastMirrorPlayerImpl is null");
+            return CAST_ENGINE_ERROR;
+        }
+
+        std::unique_lock<std::mutex> lock(mirrorMutex_);
+        player = tmp;
+        mirrorPlayer_ = player;
+    }
     mirrorPlayer = player;
     return CAST_ENGINE_SUCCESS;
 }
@@ -213,9 +327,13 @@ int32_t CastSessionImpl::CreateStreamPlayer(sptr<IStreamPlayerIpc> &streamPlayer
 std::shared_ptr<ICastStreamManager> CastSessionImpl::CreateStreamPlayerManager()
 {
     std::unique_lock<std::mutex> lock(streamMutex_);
+    bool isDoubleFrame = CastDeviceDataManager::GetInstance().IsDoubleFrameDevice(GetCurrentRemoteDeviceId());
+    CLOGI("CreateStreamPlayerManager isDoubleFrame:%{public}d", static_cast<int>(isDoubleFrame));
+    isDoubleFrame = false;
     if (!streamManager_) {
         if (property_.endType == EndType::CAST_SOURCE) {
-            streamManager_ = std::make_shared<CastStreamManagerClient>(std::make_shared<CastStreamListenerImpl>(this));
+            streamManager_ = std::make_shared<CastStreamManagerClient>(std::make_shared<CastStreamListenerImpl>(this),
+                isDoubleFrame);
         } else {
             streamManager_ = std::make_shared<CastStreamManagerServer>(std::make_shared<CastStreamListenerImpl>(this));
         }
@@ -264,6 +382,13 @@ int32_t CastSessionImpl::GetSessionId(std::string &sessionId)
     if (!Permission::CheckPidPermission()) {
         return ERR_NO_PERMISSION;
     }
+    std::lock_guard<std::mutex> lock(mutex_);
+    if (!remoteDeviceList_.empty() &&
+        remoteDeviceList_.front().remoteDevice.channelType == ChannelType::LEGACY_CHANNEL) {
+        CLOGD("tcp get rtsp port");
+        sessionId = std::to_string(rtspPort_);
+        return CAST_ENGINE_SUCCESS;
+    }
     sessionId = std::to_string(sessionId_);
     return CAST_ENGINE_SUCCESS;
 }
@@ -308,17 +433,18 @@ int32_t CastSessionImpl::SetSessionProperty(const CastSessionProperty &property)
     if (!Permission::CheckPidPermission()) {
         return ERR_NO_PERMISSION;
     }
-
+    std::unique_lock<std::mutex> lock(mutex_);
     if (property_.protocolType != property.protocolType || property_.endType != property.endType) {
         CLOGE("Wrong protocol type:%d or end type:%d", property.protocolType, property.endType);
         return CAST_ENGINE_ERROR;
     }
     property_ = property;
-
+    setProperty_.notify_all();
     CLOGD("video: width-%{public}u, height-%{public}u, fps-%{public}u; audio: sample_rate-%{public}u, "
-        "channels-%{public}u ",
+        "channels-%{public}u windowWidth-%{public}u, windowHeight-%{public}u",
         property.videoProperty.videoWidth, property.videoProperty.videoHeight, property.videoProperty.fps,
-        property.audioProperty.sampleRate, property.audioProperty.channelConfig);
+        property.audioProperty.sampleRate, property.audioProperty.channelConfig,
+        property.windowProperty.width, property.windowProperty.height);
     return CAST_ENGINE_SUCCESS;
 }
 
@@ -344,6 +470,36 @@ int32_t CastSessionImpl::DeliverInputEvent(const OHRemoteControlEvent &event)
     return CAST_ENGINE_SUCCESS;
 }
 
+int32_t CastSessionImpl::InjectEvent(const OHRemoteControlEvent &event)
+{
+    if (!Permission::CheckPidPermission()) {
+        return ERR_NO_PERMISSION;
+    }
+    CLOGD("InjectEvent in.");
+    if (sessionState_ != SessionState::PLAYING) {
+        CLOGE("InjectEvent failed, not playing.");
+        return ERR_SESSION_STATE_NOT_MATCH;
+    }
+    return CAST_ENGINE_SUCCESS;
+}
+
+int32_t CastSessionImpl::GetDisplayId(std::string &displayId)
+{
+    if (!Permission::CheckPidPermission()) {
+        return ERR_NO_PERMISSION;
+    }
+    CLOGD("GetDisplayId in");
+    return CAST_ENGINE_SUCCESS;
+}
+
+int32_t CastSessionImpl::ResizeVirtualScreen(uint32_t width, uint32_t height)
+{
+    if (!Permission::CheckPidPermission()) {
+        return ERR_NO_PERMISSION;
+    }
+    return CAST_ENGINE_SUCCESS;
+}
+
 void CastSessionImpl::SetLocalDevice(const CastLocalDevice &localDevice)
 {
     localDevice_ = localDevice;
@@ -359,20 +515,42 @@ bool CastSessionImpl::TransferTo(std::shared_ptr<BaseState> state)
     return false;
 }
 
+int32_t CastSessionImpl::GetSessionProtocolType(ProtocolType &protocolType)
+{
+    CLOGI("GetSessionProtocolType in");
+    std::unique_lock<std::mutex> lock(mutex_);
+    protocolType = property_.protocolType;
+    return CAST_ENGINE_SUCCESS;
+}
+
+void CastSessionImpl::SetSessionProtocolType(ProtocolType protocolType)
+{
+    CLOGI("SetSessionProtocolType in %d old %d", protocolType, property_.protocolType);
+    std::unique_lock<std::mutex> lock(mutex_);
+    property_.protocolType = protocolType;
+    if (protocolType == ProtocolType::CAST_PLUS_STREAM) {
+        setProperty_.notify_all();
+    }
+}
+
 bool CastSessionImpl::Init()
 {
     CLOGI("Session state: %{public}s", SESSION_STATE_STRING[static_cast<int>(sessionState_)].c_str());
 
     srand(static_cast<unsigned int >(time(nullptr)));
-    sessionId_ = rand();
+    sessionId_ = rand() % (MAX_SESSION_ID + 1);
     channelManagerListener_ = std::make_shared<ChannelManagerListenerImpl>(this);
     channelManager_ = std::make_shared<ChannelManager>(sessionId_, channelManagerListener_);
 
     rtspListener_ = std::make_shared<RtspListenerImpl>(this);
     rtspControl_ = IRtspController::GetInstance(rtspListener_, property_.protocolType, property_.endType);
 
+    connectManagerListener_ = std::make_shared<ConnectManagerListenerImpl>(this);
+    ConnectionManager::GetInstance().SetSessionListener(connectManagerListener_);
+
     defaultState_ = std::make_shared<DefaultState>(SessionState::DEFAULT, this, nullptr);
     disconnectedState_ = std::make_shared<DisconnectedState>(SessionState::DISCONNECTED, this, defaultState_);
+    authingState_ = std::make_shared<AuthingState>(SessionState::AUTHING, this, defaultState_);
     connectingState_ = std::make_shared<ConnectingState>(SessionState::CONNECTING, this, defaultState_);
     connectedState_ = std::make_shared<ConnectedState>(SessionState::CONNECTED, this, defaultState_);
     disconnectingState_ = std::make_shared<DisconnectingState>(SessionState::DISCONNECTING, this, defaultState_);
@@ -402,7 +580,8 @@ void CastSessionImpl::InitRtspParamInfo(std::shared_ptr<CastRemoteDeviceInfo> re
         VtpType::VTP_SUPPORT_VIDEO :
         VtpType::VTP_NOT_SUPPORT_VIDEO);
     if (property_.protocolType == ProtocolType::CAST_PLUS_MIRROR ||
-        property_.protocolType == ProtocolType::CAST_PLUS_STREAM) {
+        property_.protocolType == ProtocolType::CAST_PLUS_STREAM ||
+        property_.protocolType == ProtocolType::CAST_COOPERATION) {
         rtspParamInfo_.SetAudioProperty(property_.audioProperty);
     }
 
@@ -437,12 +616,13 @@ std::string CastSessionImpl::GetCurrentRemoteDeviceId()
     return remoteDeviceList_.front().remoteDevice.deviceId;
 }
 
-bool CastSessionImpl::ProcessConnect(const Message &msg)
+int CastSessionImpl::ProcessConnect(const Message &msg)
 {
+    UpdateRemoteDeviceInfoFromCastDeviceDataManager(msg.strArg_);
     auto remoteDeviceInfo = FindRemoteDevice(msg.strArg_);
     if (remoteDeviceInfo == nullptr) {
         CLOGE("remote device is null");
-        return false;
+        return -1;
     }
     InitRtspParamInfo(remoteDeviceInfo);
     if (!rtspControl_->Start(rtspParamInfo_, remoteDeviceInfo->remoteDevice.sessionKey,
@@ -450,10 +630,10 @@ bool CastSessionImpl::ProcessConnect(const Message &msg)
         CLOGE("Rtsp start failed, session state: %{public}s",
             SESSION_STATE_STRING[static_cast<int>(sessionState_)].c_str());
         rtspControl_->Action(ActionType::TEARDOWN);
-        return false;
+        return -1;
     }
 
-    const auto &remote = remoteDeviceInfo->remoteDevice;
+    auto &remote = remoteDeviceInfo->remoteDevice;
     CLOGD("DeviceName = %s, deviceId = %s, sessionId = %{public}d.", remote.deviceName.c_str(), remote.deviceId.c_str(),
         remoteDeviceInfo->remoteDevice.sessionId);
 
@@ -461,19 +641,34 @@ bool CastSessionImpl::ProcessConnect(const Message &msg)
     if (request == nullptr) {
         CLOGE("Rtsp start failed, session state: %{public}s",
             SESSION_STATE_STRING[static_cast<int>(sessionState_)].c_str());
-        return false;
+        return -1;
     }
+
+    auto sceneType = GetBIZSceneType(static_cast<int>(property_.protocolType));
+    ProcessConnectWriteWrap(__func__,
+        property_.protocolType, sceneType, GetAnonymousDeviceID(remote.deviceId));
+
     int deviceSessionId = channelManager_->CreateChannel(*request, rtspControl_->GetChannelListener());
     UpdateRemoteDeviceSessionId(remote.deviceId, deviceSessionId);
-
+    ConnectionManager::GetInstance().SetRTSPPort(deviceSessionId);
+    remote.rtspPort = deviceSessionId;
+    rtspPort_ = deviceSessionId;
     CLOGD("Out: deviceName = %s, deviceId = %s, sessionId = %{public}d.", remote.deviceName.c_str(),
         remote.deviceId.c_str(), remoteDeviceInfo->remoteDevice.sessionId);
-    return true;
+    return deviceSessionId;
 }
 
-bool CastSessionImpl::SetupRemoteControl(const CastInnerRemoteDevice &remote)
+void CastSessionImpl::SendConsultData(const std::string &deviceId, int port)
 {
-    return true;
+    CLOGI("SendConsultInfo port");
+    ConnectionManager::GetInstance().SendConsultInfo(deviceId, port);
+}
+
+int CastSessionImpl::SetupRemoteControl(const CastInnerRemoteDevice &remote)
+{
+    CLOGD("SetupRemoteControl.");
+    CLOGD("SetupRemoteControl out");
+    return INVALID_PORT;
 }
 
 bool CastSessionImpl::IsVtpUsed(ChannelType type)
@@ -497,15 +692,25 @@ bool CastSessionImpl::IsChannelNeeded(ChannelType type)
 
 std::pair<int, int> CastSessionImpl::GetMediaPort(ChannelType type, int port)
 {
+    if (type != ChannelType::SOFT_BUS) {
+        if (IsChannelClient(type)) {
+            int videoPort = rand() % (MAX_PORT - MIN_PORT + 1) + MIN_PORT;
+            return std::pair<int, int> { videoPort, videoPort + 1 };
+        }
+        return std::pair<int, int> { port, UNNEEDED_PORT };
+    }
+
     if (!IsChannelClient(type)) {
         return (property_.protocolType == ProtocolType::CAST_PLUS_MIRROR ||
-            property_.protocolType == ProtocolType::CAST_PLUS_STREAM) ?
+            property_.protocolType == ProtocolType::CAST_PLUS_STREAM ||
+            property_.protocolType == ProtocolType::CAST_COOPERATION) ?
             std::pair<int, int> { INVALID_PORT, INVALID_PORT } :
             std::pair<int, int> { INVALID_PORT, UNNEEDED_PORT };
     }
 
     if (property_.protocolType == ProtocolType::CAST_PLUS_MIRROR ||
-        property_.protocolType == ProtocolType::CAST_PLUS_STREAM) {
+        property_.protocolType == ProtocolType::CAST_PLUS_STREAM ||
+        property_.protocolType == ProtocolType::CAST_COOPERATION) {
         if (!IsVtpUsed(type)) {
             // audio port is same as video base on tcp protocol, softbus don't care about the port.
             return { port, port };
@@ -520,29 +725,7 @@ std::pair<int, int> CastSessionImpl::GetMediaPort(ChannelType type, int port)
 
 std::optional<int> CastSessionImpl::SetupMedia(const CastInnerRemoteDevice &remote, ChannelType type, int ports)
 {
-    mediaState_ = ModuleState::STARTING;
-
-    auto [videoPort, audioPort] = GetMediaPort(type, ports);
-    // need 2 channels: video channel and audio channel.
-    std::array<std::pair<int, ModuleType>, 2> portsInfo { { { videoPort, ModuleType::VIDEO },
-        { audioPort, ModuleType::AUDIO } } };
-
-    for (auto &tmp : portsInfo) {
-        // Audio channel is not needed in the pc/pad cooperation.
-        // For a channel server, the port is -1 before creating the channel.
-        if (tmp.first == UNNEEDED_PORT || (tmp.first == INVALID_PORT && !IsChannelNeeded(type))) {
-            continue;
-        }
-
-        auto request = BuildChannelRequest(remote.deviceId, IsVtpUsed(type), tmp.second);
-        if (request == nullptr) {
-            CLOGE("rtsp start failed, session state: %{public}s",
-                SESSION_STATE_STRING[static_cast<int>(sessionState_)].c_str());
-            return std::nullopt;
-        }
-    }
-
-    return portsInfo[0].first;
+    return std::nullopt;
 }
 
 bool CastSessionImpl::ProcessSetUp(const Message &msg)
@@ -560,7 +743,8 @@ bool CastSessionImpl::ProcessSetUp(const Message &msg)
     auto channelType = remote.channelType;
     CLOGD("DeviceName = %s, deviceId = %s, sessionId = %{public}d, channelType = %{public}d.",
         remote.deviceName.c_str(), remote.deviceId.c_str(), remote.sessionId, channelType);
-    if (!SetupRemoteControl(remote)) {
+    int remoteControlPort = SetupRemoteControl(remote);
+    if (remoteControlPort == INVALID_PORT) {
         rtspControl_->Action(ActionType::TEARDOWN);
         return false;
     }
@@ -573,7 +757,7 @@ bool CastSessionImpl::ProcessSetUp(const Message &msg)
     }
 
     if (property_.endType == EndType::CAST_SOURCE) {
-        rtspControl_->SetupPort(*port, mediaPort, INVALID_PORT);
+        rtspControl_->SetupPort(*port, remoteControlPort, INVALID_PORT);
     }
 
     return true;
@@ -611,10 +795,14 @@ bool CastSessionImpl::ProcessPauseReq(const Message &msg)
     return true;
 }
 
+void CastSessionImpl::MirrorRcvVideoFrame()
+{
+}
+
 bool CastSessionImpl::ProcessPlay(const Message &msg)
 {
     CLOGD("In");
-    return rtspControl_->Action(ActionType::PLAY);
+    return (rtspControl_->Action(ActionType::PLAY));
 }
 
 bool CastSessionImpl::ProcessPlayReq(const Message &msg)
@@ -629,6 +817,15 @@ bool CastSessionImpl::ProcessPlayReq(const Message &msg)
 
 bool CastSessionImpl::ProcessDisconnect(const Message &msg)
 {
+    auto sceneType = GetBIZSceneType(static_cast<int>(property_.protocolType));
+    HiSysEventWriteWrap(__func__, { {"BIZ_SCENE", sceneType},
+        {"BIZ_STATE", static_cast<int32_t>(BIZStateType::BIZ_STATE_END)},
+        {"BIZ_STAGE", static_cast<int32_t>(BIZSceneStage::DISCONNECT_END)},
+        {"STAGE_RES", static_cast<int32_t>(StageResType::STAGE_RES_SUCCESS)},
+        {"ERROR_CODE", CAST_RADAR_SUCCESS}}, {
+        {"TO_CALL_PKG", DSOFTBUS_NAME}, {"LOCAL_SESS_NAME", ""}, {"PEER_SESS_NAME", ""},
+        {"PEER_UDID", ""}});
+
     CLOGD("In");
     rtspControl_->Action(ActionType::TEARDOWN);
     channelManager_->DestroyAllChannels();
@@ -653,6 +850,14 @@ bool CastSessionImpl::ProcessError(const Message &msg)
 bool CastSessionImpl::ProcessUpdateVideoSize(const Message &msg)
 {
     return true;
+}
+
+void CastSessionImpl::UpdateScreenInfo(uint64_t screenId, uint16_t width, uint16_t height)
+{
+}
+
+void CastSessionImpl::UpdateDefaultDisplayRotationInfo(int rotation, uint16_t width, uint16_t height)
+{
 }
 
 bool CastSessionImpl::ProcessStateEvent(MessageId msgId, const Message &msg)
@@ -691,8 +896,6 @@ bool CastSessionImpl::ProcessSetCastMode(const Message &msg)
 {
     CastMode mode = static_cast<CastMode>(msg.arg1_);
     switch (mode) {
-        case CastMode::MIRROR_CAST:
-            break;
         default:
             break;
     }
@@ -708,7 +911,6 @@ std::shared_ptr<ChannelRequest> CastSessionImpl::BuildChannelRequest(const std::
         CLOGE("Remote device is null");
         return nullptr;
     }
-
     const auto &remote = deviceInfo->remoteDevice;
     bool isReceiver = !(property_.endType == EndType::CAST_SOURCE &&
         (moduleType == ModuleType::VIDEO || moduleType == ModuleType::AUDIO));
@@ -753,6 +955,32 @@ void CastSessionImpl::UpdateRemoteDeviceSessionId(const std::string &deviceId, i
     }
 }
 
+void CastSessionImpl::UpdateRemoteDeviceInfoFromCastDeviceDataManager(const std::string &deviceId)
+{
+    std::lock_guard<std::mutex> lock(mutex_);
+    auto remote = CastDeviceDataManager::GetInstance().GetDeviceByDeviceId(deviceId);
+    if (remote == std::nullopt) {
+        CLOGE("Get remote device is empty");
+        return;
+    }
+    for (auto &deviceInfo : remoteDeviceList_) {
+        if (deviceInfo.remoteDevice.deviceId == deviceId) {
+            deviceInfo.remoteDevice.channelType = remote->channelType;
+            deviceInfo.remoteDevice.localIp = remote->localIp;
+            deviceInfo.remoteDevice.remoteIp = remote->remoteIp;
+            if (property_.protocolType != ProtocolType::HICAR) {
+                deviceInfo.remoteDevice.ipAddress = remote->remoteIp;
+            }
+            if (memcpy_s(deviceInfo.remoteDevice.sessionKey, remote->sessionKeyLength, remote->sessionKey,
+                remote->sessionKeyLength) != 0) {
+                CLOGE("SessionKey Copy Error!");
+            }
+            deviceInfo.remoteDevice.sessionKeyLength = remote->sessionKeyLength;
+            return;
+        }
+    }
+}
+
 void CastSessionImpl::RemoveRemoteDevice(const std::string &deviceId)
 {
     std::lock_guard<std::mutex> lock(mutex_);
@@ -784,13 +1012,13 @@ bool CastSessionImpl::IsAllowTransferState(SessionState desiredState) const
     return true;
 }
 
-void CastSessionImpl::ChangeDeviceState(DeviceState state, const std::string &deviceId)
+void CastSessionImpl::ChangeDeviceState(DeviceState state, const std::string &deviceId, const EventCode eventCode)
 {
     std::lock_guard<std::mutex> lock(mutex_);
-    ChangeDeviceStateLocked(state, deviceId);
+    ChangeDeviceStateLocked(state, deviceId, eventCode);
 }
 
-void CastSessionImpl::ChangeDeviceStateLocked(DeviceState state, const std::string &deviceId)
+void CastSessionImpl::ChangeDeviceStateLocked(DeviceState state, const std::string &deviceId, const EventCode eventCode)
 {
     auto deviceInfo = FindRemoteDeviceLocked(deviceId);
     if (!deviceInfo) {
@@ -798,9 +1026,11 @@ void CastSessionImpl::ChangeDeviceStateLocked(DeviceState state, const std::stri
         return;
     }
 
-    CLOGD("New state:%{public}s, old state:%{public}s, device id:%s",
+    CLOGD("New state:%{public}s, old state:%{public}s, device id:%s, eventCode:%{public}d",
         DEVICE_STATE_STRING[static_cast<int>(state)].c_str(),
-        DEVICE_STATE_STRING[static_cast<int>(deviceInfo->deviceState)].c_str(), deviceId.c_str());
+        DEVICE_STATE_STRING[static_cast<int>(deviceInfo->deviceState)].c_str(),
+        deviceId.c_str(),
+        static_cast<int>(eventCode));
     if (state == deviceInfo->deviceState) {
         return;
     }
@@ -808,12 +1038,38 @@ void CastSessionImpl::ChangeDeviceStateLocked(DeviceState state, const std::stri
     UpdateRemoteDeviceStateLocked(deviceId, state);
 
     for (const auto &[pid, listener] : listeners_) {
-        listener->OnDeviceState(DeviceStateInfo { state, deviceId });
+        listener->OnDeviceState(DeviceStateInfo { state, deviceId, eventCode });
+    }
+}
+
+void CastSessionImpl::ReportDeviceStateInfo(DeviceState state, const std::string &deviceId, const EventCode eventCode)
+{
+    CLOGI("ReportDeviceStateInfo in.");
+    auto deviceInfo = FindRemoteDeviceLocked(deviceId);
+    if (!deviceInfo) {
+        CLOGE("does not exist this device, deviceId = %s.", deviceId.c_str());
+        return;
+    }
+    for (const auto &[pid, listener] : listeners_) {
+        listener->OnDeviceState(DeviceStateInfo { state, deviceId, eventCode });
+    }
+}
+
+void CastSessionImpl::OnSessionEvent(const std::string &deviceId, const EventCode eventCode)
+{
+    std::lock_guard<std::mutex> lock(mutex_);
+    CLOGD("Session event: %{public}d", static_cast<int32_t>(eventCode));
+    if (static_cast<int32_t>(eventCode) < 0 or eventCode == EventCode::EVT_CANCEL_BY_SOURCE) {
+        ConnectionManager::GetInstance().UpdateDeviceState(deviceId, RemoteDeviceState::FOUND);
+        SendCastMessage(Message(MessageId::MSG_DISCONNECT, deviceId, eventCode));
+    } else {
+        SendCastMessage(Message(MessageId::MSG_AUTH, deviceId, eventCode));
     }
 }
 
 void CastSessionImpl::OnEvent(EventId eventId, const std::string &data)
 {
+    std::unique_lock<std::mutex> lock(mutex_);
     if (listeners_.empty()) {
         CLOGE("OnEvent failed because listeners_ is empty!");
         return;
@@ -970,6 +1226,14 @@ void CastSessionImpl::OnEventInner(sptr<CastSessionImpl> session, EventId eventI
     std::unique_lock<std::mutex> lock(mutex_);
     for (const auto &[pid, listener] : session->listeners_) {
         listener->OnEvent(eventId, jsonParam);
+    }
+}
+
+void CastSessionImpl::OnRemoteCtrlEvent(int eventType, const uint8_t *data, uint32_t len)
+{
+    std::unique_lock<std::mutex> lock(mutex_);
+    for (const auto &[pid, listener] : listeners_) {
+        listener->OnRemoteCtrlEvent(eventType, data, len);
     }
 }
 } // namespace CastEngineService

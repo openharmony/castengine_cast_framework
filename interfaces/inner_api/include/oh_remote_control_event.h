@@ -1,11 +1,5 @@
 /*
- * Copyright (c) 2023 Huawei Device Co., Ltd.
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
+ * Copyright (c) Huawei Technologies Co., Ltd. 2022-2022. All rights reserved.
  * Description: Remote Control related data from OH XComponent structure definitions.
  * Author: mayihao
  * Create: 2022-09-14
@@ -81,6 +75,28 @@ enum EXPORT OHNativeXcomponentVirtualKeyEventType {
 
 const uint32_t EXPORT OH_MAX_TOUCH_POINTS_NUMBER = 10;
 const uint32_t EXPORT OH_MAX_CONTENT_LEN = 472;
+
+const uint32_t EXPORT EXPORT META_CAP_LOCKED = 0x100;
+const uint32_t EXPORT META_ALT_LOCKED = 0x200;
+const uint32_t EXPORT META_SYM_LOCKED = 0x400;
+const uint32_t EXPORT META_SELECTING = 0x800;
+const uint32_t EXPORT META_ALT_ON = 0x02;
+const uint32_t EXPORT META_ALT_LEFT_ON = 0x10;
+const uint32_t EXPORT META_ALT_RIGHT_ON = 0x20;
+const uint32_t EXPORT META_SHIFT_ON = 0x1;
+const uint32_t EXPORT META_SHIFT_LEFT_ON = 0x40;
+const uint32_t EXPORT META_SHIFT_RIGHT_ON = 0x80;
+const uint32_t EXPORT META_SYM_ON = 0x4;
+const uint32_t EXPORT META_FUNCTION_ON = 0x8;
+const uint32_t EXPORT META_CTRL_ON = 0x1000;
+const uint32_t EXPORT META_CTRL_LEFT_ON = 0x2000;
+const uint32_t EXPORT META_CTRL_RIGHT_ON = 0x4000;
+const uint32_t EXPORT META_META_ON = 0x10000;
+const uint32_t EXPORT META_META_LEFT_ON = 0x20000;
+const uint32_t EXPORT META_META_RIGHT_ON = 0x40000;
+const uint32_t EXPORT META_CAPS_LOCK_ON = 0x100000;
+const uint32_t EXPORT META_NUM_LOCK_ON = 0x200000;
+const uint32_t EXPORT META_SCROLL_LOCK_ON = 0x400000;
 
 struct EXPORT OHNativeXcomponentTouchPoint {
     int32_t id = 0; // Unique identifier of a finger.

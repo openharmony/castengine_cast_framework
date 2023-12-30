@@ -1,11 +1,5 @@
 /*
- * Copyright (c) 2023 Huawei Device Co., Ltd.
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
+ * Copyright (c) Huawei Technologies Co., Ltd. 2023-2023. All rights reserved.
  * Description: cast stream manager interface.
  * Author: huangchanggui
  * Create: 2023-02-01
@@ -76,6 +70,7 @@ protected:
     const std::string KEY_MUTE = "MUTE";
     const std::string KEY_MAX_VOLUME = "MAX_VOLUME";
     const std::string KEY_MODE = "MODE";
+    const std::string KEY_REPEAT_MODE = "REPEAT_MODE";
     const std::string KEY_DELTA = "DELTA";
     const std::string KEY_SPEED = "SPEED";
     const std::string KEY_POSITION = "POSITION";
@@ -103,6 +98,7 @@ protected:
     const std::string ACTION_FAST_FORWARD = "fastForward";
     const std::string ACTION_FAST_REWIND = "fastRewind";
     const std::string ACTION_SET_VOLUME = "setVolume";
+    const std::string ACTION_SET_MUTE = "setMute";
     const std::string ACTION_SET_REPEAT_MODE = "setRepeatMode";
     const std::string ACTION_SET_SPEED = "setSpeed";
     const std::string ACTION_PLAYER_STATUS_CHANGED = "onPlayerStatusChanged";
@@ -119,10 +115,10 @@ protected:
     const std::string ACTION_PLAY_REQUEST = "onPlayRequest";
 
     void Handle();
-    bool SendControlAction(const std::string &action, const json &dataBody = {});
-    bool SendCallbackAction(const std::string &action, const json &dataBody = {});
-    bool ParseMediaInfo(const json &data, MediaInfo &MediaInfo);
-    void EncapMediaInfo(const MediaInfo &mediaInfo, json &data);
+    bool SendControlAction(const std::string &action, const json &dataBody = "{}");
+    bool SendCallbackAction(const std::string &action, const json &dataBody = "{}");
+    bool ParseMediaInfo(const json &data, MediaInfo &MediaInfo, bool isDoubleFrame);
+    void EncapMediaInfo(const MediaInfo &mediaInfo, json &data, bool isDoubleFrame);
 
     using StreamActionProcessor = std::function<bool(const json &data)>;
     std::map<std::string, StreamActionProcessor> streamActionProcessor_ {};
@@ -141,6 +137,7 @@ protected:
     std::mutex listenerMutex_;
     int currentVolume_{ CAST_STREAM_INT_INVALID };
     int maxVolume_{ CAST_STREAM_INT_INVALID };
+    bool isMute_ = false;
 };
 } // namespace CastEngineService
 } // namespace CastEngine

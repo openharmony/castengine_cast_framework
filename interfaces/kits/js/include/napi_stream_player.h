@@ -1,11 +1,5 @@
 /*
- * Copyright (c) 2023 Huawei Device Co., Ltd.
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
+ * Copyright (c) Huawei Technologies Co., Ltd. 2023-2023. All rights reserved.
  * Description: supply napi interface for stream player.
  * Author: huangchanggui
  * Create: 2023-1-11
@@ -68,11 +62,13 @@ private:
     static napi_value FastForward(napi_env env, napi_callback_info info);
     static napi_value FastRewind(napi_env env, napi_callback_info info);
     static napi_value SetVolume(napi_env env, napi_callback_info info);
+    static napi_value SetMute(napi_env env, napi_callback_info info);
     static napi_value SetLoopMode(napi_env env, napi_callback_info info);
     static napi_value SetSpeed(napi_env env, napi_callback_info info);
     static napi_value GetPlayerStatus(napi_env env, napi_callback_info info);
     static napi_value GetPosition(napi_env env, napi_callback_info info);
     static napi_value GetVolume(napi_env env, napi_callback_info info);
+    static napi_value GetMute(napi_env env, napi_callback_info info);
     static napi_value GetLoopMode(napi_env env, napi_callback_info info);
     static napi_value GetPlaySpeed(napi_env env, napi_callback_info info);
     static napi_value GetMediaInfoHolder(napi_env env, napi_callback_info info);
@@ -93,6 +89,7 @@ private:
     static napi_status OnPreviousRequest(napi_env env, napi_value callback, NapiStreamPlayer *napiStreamPlayer);
     static napi_status OnSeekDone(napi_env env, napi_value callback, NapiStreamPlayer *napiStreamPlayer);
     static napi_status OnEndOfStream(napi_env env, napi_value callback, NapiStreamPlayer *napiStreamPlayer);
+    static napi_status OnImageChanged(napi_env env, napi_value callback, NapiStreamPlayer *napiStreamPlayer);
 
     static napi_status OffStateChanged(napi_env env, napi_value callback, NapiStreamPlayer *napiStreamPlayer);
     static napi_status OffPositionChanged(napi_env env, napi_value callback, NapiStreamPlayer *napiStreamPlayer);
@@ -106,6 +103,7 @@ private:
     static napi_status OffPreviousRequest(napi_env env, napi_value callback, NapiStreamPlayer *napiStreamPlayer);
     static napi_status OffSeekDone(napi_env env, napi_value callback, NapiStreamPlayer *napiStreamPlayer);
     static napi_status OffEndOfStream(napi_env env, napi_value callback, NapiStreamPlayer *napiStreamPlayer);
+    static napi_status OffImageChanged(napi_env env, napi_value callback, NapiStreamPlayer *napiStreamPlayer);
 
     static NapiStreamPlayer *GetNapiStreamPlayer(napi_env env, napi_callback_info info);
     static napi_status RegisterNativeStreamPlayerListener(NapiStreamPlayer *napiStreamPlayer);

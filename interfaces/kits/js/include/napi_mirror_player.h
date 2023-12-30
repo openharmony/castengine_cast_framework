@@ -1,11 +1,5 @@
 /*
- * Copyright (c) 2023 Huawei Device Co., Ltd.
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
+ * Copyright (c) Huawei Technologies Co., Ltd. 2023-2023. All rights reserved.
  * Description: supply napi interface for cast mirror player.
  * Author: zhangjingnan
  * Create: 2023-5-27
@@ -52,8 +46,10 @@ private:
     static napi_value NapiMirrorPlayerConstructor(napi_env env, napi_callback_info info);
     static napi_value Play(napi_env env, napi_callback_info info);
     static napi_value Pause(napi_env env, napi_callback_info info);
+    static napi_value SetAppInfo(napi_env env, napi_callback_info info);
     static napi_value SetSurface(napi_env env, napi_callback_info info);
     static napi_value Release(napi_env env, napi_callback_info info);
+    static napi_value ResizeVirtualScreen(napi_env env, napi_callback_info info);
 
     std::mutex mutex_;
     std::shared_ptr<IMirrorPlayer> mirrorPlayer_;

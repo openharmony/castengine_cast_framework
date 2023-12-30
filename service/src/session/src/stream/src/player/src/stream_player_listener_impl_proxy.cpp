@@ -1,11 +1,5 @@
 /*
- * Copyright (c) 2023 Huawei Device Co., Ltd.
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
+ * Copyright (c) Huawei Technologies Co., Ltd. 2023-2023. All rights reserved.
  * Description: supply cast session listener implement proxy class.
  * Author: huangchanggui
  * Create: 2023-01-13
@@ -280,6 +274,52 @@ void StreamPlayerListenerImplProxy::OnPlayRequest(const MediaInfo &mediaInfo)
     }
     if (Remote()->SendRequest(ON_PLAY_REQUEST, data, reply, option) != ERR_NONE) {
         CLOGE("Failed to send ipc request when reporting play request");
+    }
+}
+
+void StreamPlayerListenerImplProxy::OnImageChanged(std::shared_ptr<Media::PixelMap> pixelMap)
+{
+    if (pixelMap == nullptr) {
+        CLOGE("PixelMap is null");
+        return;
+    }
+    MessageParcel data;
+    MessageParcel reply;
+    MessageOption option;
+ 
+    if (!data.WriteInterfaceToken(GetDescriptor())) {
+        CLOGE("Failed to write the interface token");
+        return;
+    }
+    if (!pixelMap->Marshalling(data)) {
+        CLOGE("Failed to write the pixelMap");
+        return;
+    }
+    if (Remote()->SendRequest(ON_IMAGE_CHANGED, data, reply, option) != ERR_NONE) {
+        CLOGE("Failed to send ipc request when reporting image changed");
+    }
+}
+
+void StreamPlayerListenerImplProxy::OnAlbumCoverChanged(std::shared_ptr<Media::PixelMap> pixelMap)
+{
+    if (pixelMap == nullptr) {
+        CLOGE("PixelMap is null");
+        return;
+    }
+    MessageParcel data;
+    MessageParcel reply;
+    MessageOption option;
+ 
+    if (!data.WriteInterfaceToken(GetDescriptor())) {
+        CLOGE("Failed to write the interface token");
+        return;
+    }
+    if (!pixelMap->Marshalling(data)) {
+        CLOGE("Failed to write the pixelMap");
+        return;
+    }
+    if (Remote()->SendRequest(ON_ALBUM_COVER_CHANGED, data, reply, option) != ERR_NONE) {
+        CLOGE("Failed to send ipc request when reporting album cover changed");
     }
 }
 } // namespace CastEngineService

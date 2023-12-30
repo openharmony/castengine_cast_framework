@@ -1,11 +1,5 @@
 /*
- * Copyright (c) 2023 Huawei Device Co., Ltd.
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
+ * Copyright (c) Huawei Technologies Co., Ltd. 2022-2023. All rights reserved.
  * Description: channel manager
  * Author: sunhong
  * Create: 2022-01-19
@@ -14,6 +8,7 @@
 #include "channel_manager.h"
 #include "cast_engine_log.h"
 #include "softbus/softbus_connection.h"
+#include "tcp/tcp_connection.h"
 
 namespace OHOS {
 namespace CastEngine {
@@ -37,10 +32,13 @@ std::shared_ptr<Connection> ChannelManager::GetConnection(ChannelLinkType linkTy
     std::shared_ptr<Connection> connection;
     switch (linkType) {
         case ChannelLinkType::SOFT_BUS:
-        case ChannelLinkType::TCP:
-        case ChannelLinkType::VTP:
             connection = std::make_shared<SoftBusConnection>();
             CLOGD("GetConnection, Create SoftBus Connection, linkType = %{public}d.", linkType);
+            break;
+        case ChannelLinkType::VTP:
+        case ChannelLinkType::TCP:
+            connection = std::make_shared<TcpConnection>();
+            CLOGD("GetConnection, Create Tcp Connection, linkType = %{public}d.", linkType);
             break;
         default:
             CLOGE("Invalid linkType, linkType = %{public}d.", linkType);

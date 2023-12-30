@@ -1,11 +1,5 @@
 /*
- * Copyright (c) 2023 Huawei Device Co., Ltd.
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
+ * Copyright (c) Huawei Technologies Co., Ltd. 2023-2023. All rights reserved.
  * Description: Stream Player function realization.
  * Author: huangchanggui
  * Create: 2023-01-12
@@ -127,6 +121,11 @@ int32_t StreamPlayer::SetVolume(int volume)
     return proxy_ ? proxy_->SetVolume(volume) : CAST_ENGINE_ERROR;
 }
 
+int32_t StreamPlayer::SetMute(bool mute)
+{
+    return proxy_ ? proxy_->SetMute(mute) : CAST_ENGINE_ERROR;
+}
+
 int32_t StreamPlayer::SetLoopMode(const LoopMode mode)
 {
     return proxy_ ? proxy_->SetLoopMode(mode) : CAST_ENGINE_ERROR;
@@ -155,6 +154,11 @@ int32_t StreamPlayer::GetDuration(int &duration)
 int32_t StreamPlayer::GetVolume(int &volume, int &maxVolume)
 {
     return proxy_ ? proxy_->GetVolume(volume, maxVolume) : CAST_ENGINE_ERROR;
+}
+
+int32_t StreamPlayer::GetMute(bool &mute)
+{
+    return proxy_ ? proxy_->GetMute(mute) : CAST_ENGINE_ERROR;
 }
 
 int32_t StreamPlayer::GetLoopMode(LoopMode &loopMode)

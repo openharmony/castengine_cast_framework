@@ -1,11 +1,5 @@
 /*
- * Copyright (c) 2023 Huawei Device Co., Ltd.
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
+ * Copyright (c) Huawei Technologies Co., Ltd. 2023-2023. All rights reserved.
  * Description: supply stream player implement stub class.
  * Author: huangchanggui
  * Create: 2023-01-13
@@ -56,6 +50,7 @@ StreamPlayerImplStub::StreamPlayerImplStub(std::shared_ptr<IStreamPlayerImpl> st
     FILL_SINGLE_STUB_TASK(FAST_FORWARD, &StreamPlayerImplStub::DoFastForwardTask);
     FILL_SINGLE_STUB_TASK(FAST_REWIND, &StreamPlayerImplStub::DoFastRewindTask);
     FILL_SINGLE_STUB_TASK(SET_VOLUME, &StreamPlayerImplStub::DoSetVolumeTask);
+    FILL_SINGLE_STUB_TASK(SET_MUTE, &StreamPlayerImplStub::DoSetMuteTask);
     FILL_SINGLE_STUB_TASK(SET_LOOP_MODE, &StreamPlayerImplStub::DoSetLoopModeTask);
     FILL_SINGLE_STUB_TASK(SET_SPEED, &StreamPlayerImplStub::DoSetSpeedTask);
     FILL_SINGLE_STUB_TASK(GET_PLAYER_STATUS, &StreamPlayerImplStub::DoGetPlayerStatusTask);
@@ -249,6 +244,17 @@ int32_t StreamPlayerImplStub::DoSetVolumeTask(MessageParcel &data, MessageParcel
     return ERR_NONE;
 }
 
+int32_t StreamPlayerImplStub::DoSetMuteTask(MessageParcel &data, MessageParcel &reply)
+{
+    bool mute = data.ReadBool();
+    if (!reply.WriteInt32(SetMute(mute))) {
+        CLOGE("Failed to write int value");
+        return IPC_STUB_WRITE_PARCEL_ERR;
+    }
+
+    return ERR_NONE;
+}
+
 int32_t StreamPlayerImplStub::DoSetLoopModeTask(MessageParcel &data, MessageParcel &reply)
 {
     int32_t mode = data.ReadInt32();
@@ -341,6 +347,23 @@ int32_t StreamPlayerImplStub::DoGetVolumeTask(MessageParcel &data, MessageParcel
     }
     if (!reply.WriteInt32(maxVolume)) {
         CLOGE("Failed to write maxVolume:%{public}d", maxVolume);
+        return IPC_STUB_WRITE_PARCEL_ERR;
+    }
+
+    return ERR_NONE;
+}
+
+int32_t StreamPlayerImplStub::DoGetMuteTask(MessageParcel &data, MessageParcel &reply)
+{
+    static_cast<void>(data);
+    bool mute = false;
+    int32_t ret = GetMute(mute);
+    if (!reply.WriteInt32(ret)) {
+        CLOGE("Failed to write ret:%{public}d", ret);
+        return IPC_STUB_WRITE_PARCEL_ERR;
+    }
+    if (!reply.WriteBool(mute)) {
+        CLOGE("Failed to write mute:%{public}d", mute);
         return IPC_STUB_WRITE_PARCEL_ERR;
     }
 
@@ -567,6 +590,16 @@ int32_t StreamPlayerImplStub::SetVolume(int volume)
     return streamPlayerImpl->SetVolume(volume);
 }
 
+int32_t StreamPlayerImplStub::SetMute(bool mute)
+{
+    auto streamPlayerImpl = PlayerImplGetter();
+    if (!streamPlayerImpl) {
+        CLOGE("playerImpl is nullptr");
+        return CAST_ENGINE_ERROR;
+    }
+    return streamPlayerImpl->SetMute(mute);
+}
+
 int32_t StreamPlayerImplStub::SetLoopMode(const LoopMode mode)
 {
     auto streamPlayerImpl = PlayerImplGetter();
@@ -625,6 +658,16 @@ int32_t StreamPlayerImplStub::GetVolume(int &volume, int &maxVolume)
         return CAST_ENGINE_ERROR;
     }
     return streamPlayerImpl->GetVolume(volume, maxVolume);
+}
+
+int32_t StreamPlayerImplStub::GetMute(bool &mute)
+{
+    auto streamPlayerImpl = PlayerImplGetter();
+    if (!streamPlayerImpl) {
+        CLOGE("playerImpl is nullptr");
+        return CAST_ENGINE_ERROR;
+    }
+    return streamPlayerImpl->GetMute(mute);
 }
 
 int32_t StreamPlayerImplStub::GetLoopMode(LoopMode &loopMode)

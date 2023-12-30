@@ -1,11 +1,5 @@
 /*
- * Copyright (c) 2023 Huawei Device Co., Ltd.
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
+ * Copyright (c) Huawei Technologies Co., Ltd. 2023-2023. All rights reserved.
  * Description: Cast stream manager server class.
  * Author: zhangjingnan
  * Create: 2023-08-30
@@ -62,6 +56,7 @@ private:
     bool ProcessActionFastForward(const json &data);
     bool ProcessActionFastRewind(const json &data);
     bool ProcessActionSetVolume(const json &data);
+    bool ProcessActionSetMute(const json &data);
     bool ProcessActionSetRepeatMode(const json &data);
     bool ProcessActionSetSpeed(const json &data);
 

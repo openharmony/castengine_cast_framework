@@ -1,11 +1,5 @@
 /*
- * Copyright (c) 2023 Huawei Device Co., Ltd.
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
+ * Copyright (c) Huawei Technologies Co., Ltd. 2022-2022. All rights reserved.
  * Description: Cast engine related common data stucture definitions.
  * Author: zhangge
  * Create: 2022-06-15
@@ -32,13 +26,17 @@ enum class EXPORT DeviceType {
     DEVICE_MATEBOOK = 5,
     DEVICE_PAD = 6,
     DEVICE_CAST_PLUS = 7,
-    DEVICE_TYPE_2IN1 = 8
+    DEVICE_TYPE_2IN1 = 8,
+    DEVICE_SMART_SCREEN_UNF = 9,
+    DEVICE_PAD_IN_CAR = 10,
+    DEVICE_SUPER_LAUNCHER = 11,
+    DEVICE_CAR_MULTI_SCREEN_PLAY = 12,
 };
 
 inline bool EXPORT IsDeviceType(int32_t type)
 {
     return (type >= static_cast<int32_t>(DeviceType::DEVICE_OTHERS)) &&
-        (type <= static_cast<int32_t>(DeviceType::DEVICE_TYPE_2IN1));
+        (type <= static_cast<int32_t>(DeviceType::DEVICE_CAR_MULTI_SCREEN_PLAY));
 }
 
 enum class EXPORT SubDeviceType {
@@ -75,11 +73,52 @@ enum class EXPORT DeviceState {
     DISCONNECTING,
     DISCONNECTED,
     STREAM,
+    AUTHING,
     DEVICE_STATE_MAX,
+};
+
+enum class EXPORT DeviceGrabState {
+    GRAB_ALLOWED,
+    GRAB_NOT_ALLOWED,
+    GRABING,
+    NO_GRAB,
+};
+
+enum ConnectEvent : int {
+    AUTH_START,
+    AUTH_SUCCESS,
+    AUTH_FILED,
+    CONNECT_START,
+    CONNECT_FAIL,
+    CONNECT_SUCCESS,
+    DISCONNECT_START,
+};
+
+/*
+ * code =0 -> no specific events
+ * code >0 -> regular events
+ *   code = 1xxxx -> regular events
+ * code <0 -> error events
+ *   code = -1xxxx -> error called from DM
+ *   code = -2xxxx -> error called from cast session
+ */
+enum class EXPORT EventCode {
+    UNKNOWN_EVENT = -99999,
+    ERR_CONNECTION_FAILED = -20000,
+    ERR_PIN_CODE_RETRY_COUNT_EXCEEDED = -10000,
+    ERR_CANCEL_BY_SINK = -10001,
+    ERR_DISTRUST_BY_SINK = -10002,
+    ERR_SINK_TIMEOUT = -10003,
+    DEFAULT_EVENT = 0,
+    EVT_TRUST_BY_SINK = 10000,
+    EVT_CANCEL_BY_SOURCE = 10001,
+    EVT_AUTHENTICATION_COMPLETED = 10002,
+    EVT_SHOW_AUTHORIZE_UI = 10003
 };
 
 const EXPORT std::array<std::string, static_cast<size_t>(DeviceState::DEVICE_STATE_MAX)> DEVICE_STATE_STRING = {
     "CONNECTING", "CONNECTED", "PAUSED", "PLAYING", "DISCONNECTING", "DISCONNECTED", "STREAM",
+    "AUTHING",
 };
 
 inline bool EXPORT IsDeviceState(int32_t state)
@@ -137,12 +176,21 @@ inline bool EXPORT IsChannelType(int32_t type)
         (type == static_cast<int32_t>(ChannelType::LEGACY_CHANNEL));
 }
 
+enum class EXPORT CapabilityType {
+    CAST_PLUS,
+    DLNA,
+};
+
 enum class EXPORT ProtocolType {
-    CAST_PLUS_MIRROR = 1<<0,
-    CAST_PLUS_STREAM = 1<<1,
-    MIRACAST = 1<<2,
-    DLNA = 1<<3,
-    COOPERATION = 1<<4
+    CAST_PLUS_MIRROR = 1 << 0,
+    CAST_PLUS_STREAM = 1 << 1,
+    MIRACAST = 1 << 2,
+    DLNA = 1 << 3,
+    COOPERATION_LEGACY = 1 << 4,
+    COOPERATION = 1 << 5,
+    HICAR = 1 << 6,
+    SUPER_LAUNCHER = 1 << 7,
+    CAST_COOPERATION = 1 << 8,
 };
 
 inline bool EXPORT IsProtocolType(int32_t type)
@@ -151,7 +199,11 @@ inline bool EXPORT IsProtocolType(int32_t type)
         static_cast<uint32_t>(ProtocolType::CAST_PLUS_STREAM) |
         static_cast<uint32_t>(ProtocolType::MIRACAST) |
         static_cast<uint32_t>(ProtocolType::DLNA) |
-        static_cast<uint32_t>(ProtocolType::COOPERATION))) != 0;
+        static_cast<uint32_t>(ProtocolType::COOPERATION) |
+        static_cast<uint32_t>(ProtocolType::HICAR) |
+        static_cast<uint32_t>(ProtocolType::SUPER_LAUNCHER) |
+        static_cast<uint32_t>(ProtocolType::COOPERATION_LEGACY) |
+        static_cast<uint32_t>(ProtocolType::CAST_COOPERATION))) != 0;
 }
 
 enum class EXPORT EndType {
@@ -167,6 +219,7 @@ inline bool EXPORT IsEndType(int32_t type)
 struct EXPORT DeviceStateInfo {
     DeviceState deviceState{ DeviceState::DISCONNECTED };
     std::string deviceId{};
+    EventCode eventCode{ EventCode::DEFAULT_EVENT };
 };
 
 struct EXPORT VideoSize {
@@ -271,6 +324,11 @@ struct EXPORT CastRemoteDevice {
     SubDeviceType subDeviceType;
     std::string ipAddress;
     ChannelType channelType;
+    CapabilityType capability;
+    std::string networkId{ "" };
+    std::string localIpAddress{ "" };
+    uint32_t sessionKeyLength{ 0 };
+    const uint8_t *sessionKey{ nullptr };
 };
 
 enum class EXPORT CastMode {
@@ -289,6 +347,9 @@ const int32_t EXPORT MAX_FILE_NUM = 16 * 1024;
 
 enum class EXPORT EventId {
     EVENT_BEGIN = 1,
+    STREAM_BEGIN = 2000,
+    STEAM_DEVICE_DISCONNECTED,
+    STREAM_END = 2999,
     EVENT_END = 5000,
 };
 
@@ -321,6 +382,12 @@ struct EXPORT MediaInfoHolder {
     uint32_t progressRefreshInterval;
 };
 
+struct EXPORT AppInfo {
+    int32_t appUid;
+    uint32_t appTokenId;
+    int32_t appPid;
+};
+
 // <source file, <fd, target file path>>
 using FileFdMap = std::map<std::string, std::pair<int, std::string>>;
 
@@ -337,14 +404,22 @@ enum class EXPORT PlayerStates {
     PLAYER_PAUSED = 6,
     PLAYER_STOPPED = 7,
     PLAYER_PLAYBACK_COMPLETE = 8,
-    PLAYER_RELEASED = 9
+    PLAYER_RELEASED = 9,
+    PLAYER_BUFFERING = 100,
+};
+
+enum class EXPORT HmosPlayerStates {
+    STATE_IDLE = 1,
+    STATE_BUFFERING = 2,
+    STATE_READY = 3,
+    STATE_ENDED = 4
 };
 
 enum class EXPORT LoopMode {
-    LOOP_MODE_SEQUENCE = 1,
-    LOOP_MODE_SINGLE = 2,
-    LOOP_MODE_LIST = 3,
-    LOOP_MODE_SHUFFLE = 4
+    LOOP_MODE_SEQUENCE = 0,
+    LOOP_MODE_SINGLE = 1,
+    LOOP_MODE_LIST = 2,
+    LOOP_MODE_SHUFFLE = 3
 };
 
 enum class EXPORT PlaybackSpeed {
@@ -356,10 +431,11 @@ enum class EXPORT PlaybackSpeed {
 };
 
 inline constexpr int EXPORT INVALID_ID = -1;
+inline constexpr int EXPORT INVALID_PORT = -1;
 inline constexpr int EXPORT INVALID_VALUE = -1;
 inline constexpr int EXPORT DECIMALISM = 10;
 inline constexpr int EXPORT SUBSYS_CASTPLUS_SYS_ABILITY_ID_BEGIN = 0x00010000;
-inline constexpr int EXPORT CAST_ENGINE_SA_ID = 5526; // SUBSYS_CASTPLUS_SYS_ABILITY_ID_BEGIN + 10; // 65546
+inline constexpr int EXPORT CAST_ENGINE_SA_ID = SUBSYS_CASTPLUS_SYS_ABILITY_ID_BEGIN + 10; // 65546
 inline constexpr int EXPORT SUBSYS_CASTPLUS_SYS_ABILITY_ID_END = 0x0001001f;
 } // namespace CastEngine
 } // namespace OHOS

@@ -1,11 +1,5 @@
 /*
- * Copyright (c) 2023 Huawei Device Co., Ltd.
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
+ * Copyright (c) Huawei Technologies Co., Ltd. 2022-2023. All rights reserved.
  * Description: rtsp parameter class
  * Author: dingkang
  * Create: 2022-01-28
@@ -29,12 +23,14 @@ void RtspChannelManager::ChannelListener::OnDataReceived(const uint8_t *buffer, 
 {
     CLOGD("==============Received data length %{public}u timeCost %{public}ld================", length, timeCost);
 
-    if (!((channelManager_->algorithmId_ > 0) && (channelManager_->sessionKeys_ != nullptr))) {
+    if (!((channelManager_->algorithmId_ > 0) &&
+        !Utils::IsArrayAllZero(channelManager_->sessionKeys_, SESSION_KEY_LENGTH))) {
         CLOGD("==============Not Authed Recv Msg ================");
         CLOGD("Algorithm id %{public}d, length %{public}u.", channelManager_->algorithmId_, length);
         channelManager_->OnData(buffer, length);
     } else {
-        std::unique_ptr<uint8_t[]> decryContent = std::make_unique<uint8_t[]>(length);
+        unsigned int realPktlen = length - EncryptDecrypt::AES_IV_LEN;
+        std::unique_ptr<uint8_t[]> decryContent = std::make_unique<uint8_t[]>(realPktlen);
         PacketData outputData = { decryContent.get(), 0 };
         bool isSucc =
             EncryptDecrypt::GetInstance().DecryptData(channelManager_->algorithmId_, channelManager_->sessionKeys_,
@@ -44,7 +40,7 @@ void RtspChannelManager::ChannelListener::OnDataReceived(const uint8_t *buffer, 
             return;
         }
         CLOGD("==============Authed Recv Msg ================, decryContent length %{public}u", length);
-        channelManager_->OnData(decryContent.get(), length);
+        channelManager_->OnData(decryContent.get(), realPktlen);
     }
 }
 
@@ -58,7 +54,7 @@ RtspChannelManager::RtspChannelManager(RtspListenerInner *listener, ProtocolType
 RtspChannelManager::~RtspChannelManager()
 {
     CLOGI("In.");
-    sessionKeys_ = nullptr;
+    memset_s(sessionKeys_, SESSION_KEY_LENGTH, 0, SESSION_KEY_LENGTH);
     channelListener_ = nullptr;
     StopSafty(false);
     ThreadJoin();
@@ -89,7 +85,9 @@ void RtspChannelManager::RemoveChannel(std::shared_ptr<Channel> channel)
 void RtspChannelManager::StartSession(const uint8_t *sessionKey, uint32_t sessionKeyLength)
 {
     isSessionActive_ = true;
-    sessionKeys_ = sessionKey;
+    if (memcpy_s(sessionKeys_, sessionKeyLength, sessionKey, sessionKeyLength) != 0) {
+        CLOGE("SessionKey Copy Error!");
+    }
     sessionKeyLength_ = sessionKeyLength;
 }
 
@@ -97,7 +95,7 @@ void RtspChannelManager::StopSession()
 {
     CLOGD("Stop session.");
     if (isSessionActive_) {
-        sessionKeys_ = nullptr;
+        memset_s(sessionKeys_, SESSION_KEY_LENGTH, 0, SESSION_KEY_LENGTH);
         isSessionActive_ = false;
         listener_->OnPeerGone();
     }
@@ -154,7 +152,8 @@ bool RtspChannelManager::SendData(const std::string &dataFrame)
     size_t pktlen = dataFrame.size();
     std::unique_ptr<uint8_t[]> encryptContent = std::make_unique<uint8_t[]>(pktlen + EncryptDecrypt::AES_IV_LEN);
     PacketData outputData = { encryptContent.get(), 0 };
-    if (channel->GetRequest().linkType == ChannelLinkType::SOFT_BUS || sessionKeys_ == nullptr || algorithmId_ <= 0) {
+    if (channel->GetRequest().linkType == ChannelLinkType::SOFT_BUS ||
+        Utils::IsArrayAllZero(sessionKeys_, SESSION_KEY_LENGTH) || algorithmId_ <= 0) {
         errno_t ret = memcpy_s(encryptContent.get(), pktlen + EncryptDecrypt::AES_IV_LEN, dataFrame.c_str(), pktlen);
         if (ret != EOK) {
             CLOGE("ERROR: memory copy error:%{public}d", ret);
@@ -166,7 +165,7 @@ bool RtspChannelManager::SendData(const std::string &dataFrame)
     } else {
         bool ret = EncryptDecrypt::GetInstance().EncryptData(algorithmId_, sessionKeys_, sessionKeyLength_,
             { reinterpret_cast<const uint8_t *>(dataFrame.c_str()), pktlen }, outputData);
-        if (!ret || (outputData.length != static_cast<int>(pktlen) + EncryptDecrypt::AES_IV_LEN)) {
+        if (!ret || (outputData.length != static_cast<int>(pktlen) + static_cast<int>(EncryptDecrypt::AES_IV_LEN))) {
             CLOGE("Encrypt data failed, dataLength: %{public}d, pktlen: %{public}zu", outputData.length, pktlen);
             return false;
         }

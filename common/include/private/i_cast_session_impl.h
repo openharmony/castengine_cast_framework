@@ -1,11 +1,5 @@
 /*
- * Copyright (c) 2023 Huawei Device Co., Ltd.
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
+ * Copyright (c) Huawei Technologies Co., Ltd. 2022-2022. All rights reserved.
  * Description: supply cast session interface.
  * Author: zhangge
  * Create: 2022-06-15
@@ -18,6 +12,7 @@
 
 #include "cast_engine_common.h"
 #include "cast_service_common.h"
+#include "cast_engine_errors.h"
 #include "i_cast_session.h"
 #include "i_cast_session_listener_impl.h"
 #include "iremote_broker.h"
@@ -52,6 +47,7 @@ public:
     virtual int32_t Release() = 0;
     virtual int32_t NotifyEvent(EventId eventId, std::string &jsonParam) = 0;
     virtual int32_t SetCastMode(CastMode mode, std::string &jsonParam) = 0;
+    virtual void OnSessionEvent(const std::string &deviceId, const EventCode eventCode) {}
     virtual bool AddDevice(const CastInnerRemoteDevice &remoteDevice)
     {
         return false;
@@ -61,6 +57,11 @@ public:
         return false;
     }
     virtual void Stop() {}
+    virtual int32_t GetSessionProtocolType(ProtocolType &protocolType)
+    {
+        return CAST_ENGINE_ERROR;
+    }
+    virtual void SetSessionProtocolType(ProtocolType protocolType) {}
 
 protected:
     enum {

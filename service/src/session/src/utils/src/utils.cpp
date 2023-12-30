@@ -1,11 +1,5 @@
 /*
- * Copyright (c) 2023 Huawei Device Co., Ltd.
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
+ * Copyright (c) Huawei Technologies Co., Ltd. 2022-2023. All rights reserved.
  * Description: common method for cast session
  * Author: lijianzhao
  * Create: 2022-01-19
@@ -14,6 +8,7 @@
 #include "utils.h"
 #include <cctype>
 #include <glib.h>
+#include "wifi_device.h"
 
 namespace OHOS {
 namespace CastEngine {
@@ -117,6 +112,45 @@ int32_t Utils::StringToInt(const std::string &str)
     return static_cast<int32_t>(result);
 }
 
+std::string Utils::ConvertIpv4Address(unsigned int addressIpv4)
+{
+    std::string address;
+    if (addressIpv4 == 0) {
+        return address;
+    }
+    std::ostringstream stream;
+    stream<<((addressIpv4>>OHOS::Wifi::BITS_24) & 0xFF)<<"."<<((addressIpv4>>OHOS::Wifi::BITS_16) & 0xFF)<<"."
+          <<((addressIpv4>>OHOS::Wifi::BITS_8) & 0xFF)<<"."<<(addressIpv4 & 0xFF);
+    address = stream.str();
+    return address;
+}
+
+std::string Utils::GetWifiIp()
+{
+    std::shared_ptr<OHOS::Wifi::WifiDevice> wifiDevice = OHOS::Wifi::WifiDevice::GetInstance(WIFI_DEVICE_ABILITY_ID);
+    if (wifiDevice == nullptr) {
+        return "";
+    }
+    OHOS::Wifi::IpInfo ipInfo;
+    ErrCode ret = wifiDevice->GetIpInfo(ipInfo);
+    if (ret != OHOS::Wifi::WIFI_OPT_SUCCESS) {
+        return "";
+    }
+    std::string strIp = Utils::ConvertIpv4Address(ipInfo.ipAddress);
+    return strIp;
+}
+
+bool Utils::IsArrayAllZero(const uint8_t *input, int length)
+{
+    bool isAllZero = true;
+    for (int i = 0; i < length; i++) {
+        if (input[i] != 0) {
+            isAllZero = false;
+            break;
+        }
+    }
+    return isAllZero;
+}
 } // namespace CastEngineService
 } // namespace CastEngine
 } // namespace OHOS

@@ -1,11 +1,5 @@
 ﻿/*
- * Copyright (c) 2023 Huawei Device Co., Ltd.
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
+ * Copyright (c) Huawei Technologies Co., Ltd. 2022-2022. All rights reserved.
  * Description: encrypt and decrypt data module
  * Author: lijianzhao
  * Create: 2022-01-19
@@ -46,7 +40,7 @@ public:
     int GetVersion();
 
     static const int AES_KEY_LEN_128 = 16;
-    static const int AES_IV_LEN = 16;
+    static const unsigned int AES_IV_LEN = 16;
     static const int AES_KEY_LEN = 16;
     static const int AES_KEY_SIZE = 16;
     static const int PC_ENCRYPT_LEN = 64;
