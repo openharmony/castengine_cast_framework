@@ -1,11 +1,5 @@
 /*
- * Copyright (c) 2023 Huawei Device Co., Ltd.
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
+ * Copyright (c) Huawei Technologies Co., Ltd. 2022-2022. All rights reserved.
  * Description: cast device data management
  * Author: zhangge
  * Create: 2022-10-15
@@ -33,7 +27,11 @@ enum class RemoteDeviceState {
     FOUND,
     CONNECTING,
     CONNECTED,
+    REMOTE_DEVICE_STATE_MAX
 };
+
+const EXPORT std::array<std::string, static_cast<size_t>(RemoteDeviceState::REMOTE_DEVICE_STATE_MAX)>
+    REMOTE_DEVICE_STATE_STRING = { "UNKNOWN", "FOUND", "CONNECTING", "CONNECTED" };
 
 class CastDeviceDataManager final {
 public:
@@ -63,17 +61,25 @@ public:
     bool SetDeviceIsActiveAuth(const std::string &deviceId, bool isActiveAuth);
     std::optional<bool> GetDeviceIsActiveAuth(const std::string &deviceId);
 
+    bool SetDeviceSessionKey(const std::string &deviceId, const uint8_t* sessionKey);
+    bool SetDeviceIp(const std::string &deviceId, const std::string &localIp, const std::string &remoteIp);
+    bool SetDeviceChannleType(const std::string &deviceId, const ChannelType &channelType);
+
     bool SetDeviceState(const std::string &deviceId, RemoteDeviceState state);
     RemoteDeviceState GetDeviceState(const std::string &deviceId);
     bool IsDeviceConnected(const std::string &deviceId);
     bool IsDeviceConnecting(const std::string &deviceId);
     bool IsDeviceUsed(const std::string &deviceId);
     int GetSessionIdByDeviceId(const std::string &deviceId);
+    bool UpdateDeivceByDeviceId(const std::string &deviceId);
+    bool IsDoubleFrameDevice(const std::string &deviceId);
+    std::optional<std::string> GetDeviceNameByDeviceId(const std::string &deviceId);
 
 private:
     struct DeviceInfoCollection {
         CastInnerRemoteDevice device;
-        DmDeviceInfo dmDeviceInfo;
+        DmDeviceInfo wifiDeviceInfo;
+        DmDeviceInfo bleDeviceInfo;
         RemoteDeviceState state{ RemoteDeviceState::UNKNOWN };
         std::string networkId;
         int localSessionId{ INVALID_ID };
@@ -85,7 +91,7 @@ private:
     CastDeviceDataManager() = default;
 
     std::vector<DeviceInfoCollection>::iterator GetDeviceLocked(const std::string &deviceId);
-    void RemoveDeivceLocked(const std::string &deviceId);
+    bool RemoveDeivceLocked(const std::string &deviceId);
     RemoteDeviceState GetDeviceStateLocked(const std::string &deviceId);
     bool HasDeviceLocked(const std::string &deviceId);
 

@@ -1,24 +1,54 @@
 /*
- * Copyright (c) 2023 Huawei Device Co., Ltd.
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
+ * Copyright (c) Huawei Technologies Co., Ltd. 2022-2023. All rights reserved.
  * Description: Cast Session implement realization.
  * Author: zhangge
  * Create: 2022-07-19
  */
 
 #include "cast_engine_log.h"
-#include "cast_session_common.h"
 #include "cast_session_impl.h"
+#include "cast_engine_dfx.h"
+#include "softbus_wrapper.h"
 
 namespace OHOS {
 namespace CastEngine {
 namespace CastEngineService {
 DEFINE_CAST_ENGINE_LABEL("Cast-Session-Listeners");
+
+namespace {
+
+void RTSPWriteWrap(const std::string& funcName,
+    ProtocolType protocolType,
+    int sessionID)
+{
+    auto sceneType = GetBIZSceneType(static_cast<int>(protocolType));
+    auto localSessName = SoftBusWrapper::GetSoftBusMySessionName(sessionID);
+    auto peerSessName = SoftBusWrapper::GetSoftBusPeerSessionName(sessionID);
+
+    if (protocolType == ProtocolType::COOPERATION) {
+        HiSysEventWriteWrap(funcName, {
+            {"BIZ_SCENE", static_cast<int32_t>(BIZSceneType::COOPERATION)},
+            {"BIZ_STATE", static_cast<int32_t>(BIZStateType::BIZ_STATE_BEGIN)},
+            {"BIZ_STAGE", static_cast<int32_t>(BIZSceneStage::COOPERATION_ESTABLISH_RTSP_CHANNEL)},
+            {"STAGE_RES", static_cast<int32_t>(StageResType::STAGE_RES_SUCCESS)},
+            {"ERROR_CODE", CAST_RADAR_SUCCESS}}, {
+            {"TO_CALL_PKG", DSOFTBUS_NAME},
+            {"LOCAL_SESS_NAME", localSessName},
+            {"PEER_SESS_NAME", peerSessName},
+            {"PEER_UDID", ""}});
+    } else {
+        HiSysEventWriteWrap(funcName, {
+            {"BIZ_SCENE", sceneType},
+            {"BIZ_STAGE", static_cast<int32_t>(BIZSceneStage::ESTABLISH_RTSP_CHANNEL)},
+            {"STAGE_RES", static_cast<int32_t>(StageResType::STAGE_RES_SUCCESS)},
+            {"ERROR_CODE", CAST_RADAR_SUCCESS}}, {
+            {"TO_CALL_PKG", DSOFTBUS_NAME},
+            {"LOCAL_SESS_NAME", localSessName},
+            {"PEER_SESS_NAME", peerSessName},
+            {"PEER_UDID", ""}});
+    }
+}
+}
 
 void CastSessionImpl::RtspListenerImpl::OnSetup(const ParamInfo &param, int mediaPort, int remoteControlPort,
     const std::string &deviceId)
@@ -113,6 +143,33 @@ void CastSessionImpl::RtspListenerImpl::NotifyEventChange(int moduleId, int even
     session->ProcessRtspEvent(moduleId, event, param);
 }
 
+void CastSessionImpl::ConnectManagerListenerImpl::NotifySessionEvent(const std::string &deviceId, int result)
+{
+    CLOGD("NotifySessionEvent in");
+    auto session = session_.promote();
+    if (!session) {
+        CLOGE("session is nullptr");
+        return;
+    }
+    switch (result) {
+        case ConnectEvent::AUTH_START:
+            session->SendCastMessage(Message(MessageId::MSG_AUTH, deviceId));
+            break;
+        case ConnectEvent::AUTH_SUCCESS:
+            session->SendCastMessage(Message(MessageId::MSG_CONNECT, deviceId));
+            break;
+        case ConnectEvent::CONNECT_START:
+            session->SendCastMessage(Message(MessageId::MSG_CONNECT, deviceId));
+            break;
+        case ConnectEvent::DISCONNECT_START:
+            session->SendCastMessage(Message(MessageId::MSG_DISCONNECT, deviceId));
+            break;
+        default:
+            CLOGW("unsupported result: %d", result);
+            break;
+    }
+}
+
 bool CastSessionImpl::CastStreamListenerImpl::SendActionToPeers(int action, const std::string &param)
 {
     auto session = session_.promote();
@@ -174,8 +231,6 @@ void CastSessionImpl::RtspListenerImpl::NotifyModuleCustomParamsNegotiation(cons
         return;
     }
 
-    std::string negotiationParams = "";
-    session->rtspControl_->SetNegotiatedMediaCapability(negotiationParams);
     if (session->property_.endType == EndType::CAST_SOURCE) {
         session->rtspControl_->ModuleCustomParamsNegotiationDone();
         std::string negotiationParams = session->streamManager_->HandleCustomNegotiationParams(controllerParams);
@@ -221,11 +276,17 @@ void CastSessionImpl::ChannelManagerListenerImpl::OnChannelCreated(std::shared_p
         CLOGE("Remote device is null");
         return;
     }
+
+    auto sessionID = channel->GetRequest().remoteDeviceInfo.sessionId;
+
     auto streamManager = session->StreamManagerGetter();
     ModuleType moduleType = channel->GetRequest().moduleType;
     switch (moduleType) {
         case ModuleType::RTSP:
             session->rtspControl_->AddChannel(channel, deviceInfo->remoteDevice);
+
+            RTSPWriteWrap(__func__, session->property_.protocolType, sessionID);
+
             break;
         case ModuleType::STREAM:
             if (streamManager) {
@@ -289,6 +350,11 @@ void CastSessionImpl::ChannelManagerListenerImpl::OnChannelRemoved(std::shared_p
             break;
     }
 
+    if (session->IsStreamMode() && session->IsSink()) {
+        CLOGI("Support to continue playing resources after channel disconnected accidently");
+        session->OnEvent(EventId::STEAM_DEVICE_DISCONNECTED, "Connection is disconnected unexpectedly.");
+        return;
+    }
     session->SendCastMessage(MessageId::MSG_ERROR);
     return;
 }
@@ -303,6 +369,7 @@ void CastSessionImpl::ChannelManagerListenerImpl::SetMediaChannel(ModuleType mod
     if (moduleType == ModuleType::VIDEO) {
         mediaChannelState_ |= VIDEO_CHANNEL_CONNECTED;
     }
+    CLOGI("SetMediaChannel mediaChannelState_ is %d, moduleType is %d", mediaChannelState_, moduleType);
 }
 
 bool CastSessionImpl::ChannelManagerListenerImpl::IsMediaChannelReady()
@@ -312,13 +379,16 @@ bool CastSessionImpl::ChannelManagerListenerImpl::IsMediaChannelReady()
         CLOGE("Session is null");
         return false;
     }
-
+    
+    CLOGI("protocolType %d", session->property_.protocolType);
     if (session->property_.protocolType == ProtocolType::CAST_PLUS_MIRROR ||
-        session->property_.protocolType == ProtocolType::CAST_PLUS_STREAM) {
+        session->property_.protocolType == ProtocolType::CAST_PLUS_STREAM ||
+        session->property_.protocolType == ProtocolType::CAST_COOPERATION) {
+        CLOGI("mediaState %d, both %d", mediaChannelState_, VIDEO_CHANNEL_CONNECTED | AUDIO_CHANNEL_CONNECTED);
         return mediaChannelState_ == (VIDEO_CHANNEL_CONNECTED | AUDIO_CHANNEL_CONNECTED);
     }
 
-    CLOGD("Only Cast Video.");
+    CLOGI("Only Cast Video.");
     return mediaChannelState_ == VIDEO_CHANNEL_CONNECTED;
 }
 

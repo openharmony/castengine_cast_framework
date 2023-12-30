@@ -1,11 +1,5 @@
 /*
- * Copyright (c) 2023 Huawei Device Co., Ltd.
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
+ * Copyright (c) Huawei Technologies Co., Ltd. 2023-2023. All rights reserved.
  * Description: Stream player listener implement interface.
  * Author: huangchanggui
  * Create: 2023-01-12
@@ -16,6 +10,7 @@
 
 #include "cast_engine_common.h"
 #include "iremote_broker.h"
+#include "pixel_map.h"
 
 namespace OHOS {
 namespace CastEngine {
@@ -42,6 +37,8 @@ public:
     virtual void OnSeekDone(int position) = 0;
     virtual void OnEndOfStream(int isLooping) = 0;
     virtual void OnPlayRequest(const MediaInfo &mediaInfo) = 0;
+    virtual void OnImageChanged(std::shared_ptr<Media::PixelMap> pixelMap) = 0;
+    virtual void OnAlbumCoverChanged(std::shared_ptr<Media::PixelMap> pixelMap) = 0;
 
 protected:
     enum {
@@ -57,7 +54,9 @@ protected:
         ON_PREVIOUS_REQUEST,
         ON_SEEK_DONE,
         ON_END_OF_STREAM,
-        ON_PLAY_REQUEST
+        ON_PLAY_REQUEST,
+        ON_IMAGE_CHANGED,
+        ON_ALBUM_COVER_CHANGED
     };
 };
 } // namespace CastEngine

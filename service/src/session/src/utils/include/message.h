@@ -1,11 +1,5 @@
 /*
- * Copyright (c) 2023 Huawei Device Co., Ltd.
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
+ * Copyright (c) Huawei Technologies Co., Ltd. 2022-2022. All rights reserved.
  * Description: message definition
  * Author: lijianzhao
  * Create: 2022-01-19
@@ -18,14 +12,17 @@
 #include <functional>
 #include <string>
 
+#include "cast_engine_common.h"
+
 namespace OHOS {
 namespace CastEngine {
 namespace CastEngineService {
 class Message {
 public:
     int what_;
-    int arg1_;
-    int arg2_;
+    int arg1_{ 0 };
+    int arg2_{ 0 };
+    EventCode eventCode_{ EventCode::DEFAULT_EVENT };
 
     using Function = std::function<void()>;
     Function task_ = nullptr;
@@ -43,6 +40,8 @@ public:
     Message &operator=(const Message &msg);
     explicit Message(int what);
     Message(int what, std::string strArg);
+    Message(int what, std::string deviceId, EventCode eventCode) : what_(what),
+        eventCode_(eventCode), strArg_(deviceId) {}
     Message(int what, int arg1);
     Message(int what, int arg1, int arg2);
     Message(int what, int arg1, int arg2, long uptimeMillis);

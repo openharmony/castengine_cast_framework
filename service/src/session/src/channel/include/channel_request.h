@@ -1,11 +1,5 @@
 /*
- * Copyright (c) 2023 Huawei Device Co., Ltd.
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
+ * Copyright (c) Huawei Technologies Co., Ltd. 2022-2023. All rights reserved.
  * Description: channel request
  * Author: sunhong
  * Create: 2022-01-19
@@ -46,9 +40,10 @@ struct ChannelRequest {
     ChannelLinkType linkType;
     ModuleType moduleType;
     bool isReceiver;
-    int sessionId{ -1 };
-    int localPort{ -1 };
-    int connectionId{ -1 };
+    int sessionId{ INVALID_ID };
+    int localPort{ INVALID_PORT };
+    int remotePort{ INVALID_PORT };
+    int connectionId{ INVALID_ID };
     CastLocalDevice localDeviceInfo;
     CastInnerRemoteDevice remoteDeviceInfo;
     CastSessionProperty sessionProperty;

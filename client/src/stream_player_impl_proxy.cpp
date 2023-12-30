@@ -1,11 +1,5 @@
 /*
- * Copyright (c) 2023 Huawei Device Co., Ltd.
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
+ * Copyright (c) Huawei Technologies Co., Ltd. 2023-2023. All rights reserved.
  * Description: supply stream player implement proxy realization.
  * Author: huangchanggui
  * Create: 2023-01-12
@@ -347,6 +341,28 @@ int32_t StreamPlayerImplProxy::SetVolume(int volume)
     return reply.ReadInt32();
 }
 
+int32_t StreamPlayerImplProxy::SetMute(bool mute)
+{
+    MessageParcel data;
+    MessageParcel reply;
+    MessageOption option;
+
+    if (!data.WriteInterfaceToken(GetDescriptor())) {
+        CLOGE("Failed to write the interface token");
+        return CAST_ENGINE_ERROR;
+    }
+    if (!data.WriteBool(mute)) {
+        CLOGE("Failed to write the mute");
+        return CAST_ENGINE_ERROR;
+    }
+    if (Remote()->SendRequest(SET_MUTE, data, reply, option) != ERR_NONE) {
+        CLOGE("Failed to send ipc request when set mute");
+        return CAST_ENGINE_ERROR;
+    }
+
+    return reply.ReadInt32();
+}
+
 int32_t StreamPlayerImplProxy::SetLoopMode(const LoopMode mode)
 {
     MessageParcel data;
@@ -477,6 +493,28 @@ int32_t StreamPlayerImplProxy::GetVolume(int &volume, int &maxVolume)
     CHECK_AND_RETURN_RET_LOG(errorCode != CAST_ENGINE_SUCCESS, errorCode, "CastEngine Errors");
     volume = reply.ReadInt32();
     maxVolume = reply.ReadInt32();
+
+    return errorCode;
+}
+
+int32_t StreamPlayerImplProxy::GetMute(bool &mute)
+{
+    MessageParcel data;
+    MessageParcel reply;
+    MessageOption option;
+
+    if (!data.WriteInterfaceToken(GetDescriptor())) {
+        CLOGE("Failed to write the interface token");
+        return CAST_ENGINE_ERROR;
+    }
+    if (Remote()->SendRequest(GET_MUTE, data, reply, option) != ERR_NONE) {
+        CLOGE("Failed to send ipc request when query is mute");
+        return CAST_ENGINE_ERROR;
+    }
+
+    int32_t errorCode = reply.ReadInt32();
+    CHECK_AND_RETURN_RET_LOG(errorCode != CAST_ENGINE_SUCCESS, errorCode, "CastEngine Errors");
+    mute = reply.ReadBool();
 
     return errorCode;
 }

@@ -1,11 +1,5 @@
 /*
- * Copyright (c) 2023 Huawei Device Co., Ltd.
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
+ * Copyright (c) Huawei Technologies Co., Ltd. 2023-2023. All rights reserved.
  * Description: cast stream manager client interface.
  * Author: zhangjingnan
  * Create: 2023-09-01
@@ -36,6 +30,7 @@ public:
     virtual bool NotifyPeerFastForward(int delta) = 0;
     virtual bool NotifyPeerFastRewind(int delta) = 0;
     virtual bool NotifyPeerSetVolume(int volume) = 0;
+    virtual bool NotifyPeerSetMute(bool mute) = 0;
     virtual bool NotifyPeerSetRepeatMode(int mode) = 0;
     virtual bool NotifyPeerSetSpeed(int speed) = 0;
     virtual void OnEvent(EventId eventId, const std::string &data) = 0;
@@ -43,9 +38,11 @@ public:
     virtual int GetPosition() = 0;
     virtual int GetDuration() = 0;
     virtual int GetVolume() = 0;
+    virtual bool GetMute() = 0;
     virtual int GetMaxVolume() = 0;
     virtual LoopMode GetLoopMode() = 0;
     virtual PlaybackSpeed GetPlaySpeed() = 0;
+    virtual bool IsDoubleFrame() = 0;
 };
 } // namespace CastEngineService
 } // namespace CastEngine

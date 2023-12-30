@@ -1,11 +1,5 @@
 /*
- * Copyright (c) 2023 Huawei Device Co., Ltd.
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
+ * Copyright (c) Huawei Technologies Co., Ltd. 2022-2023. All rights reserved.
  * Description: rtsp network management
  * Author: dingkang
  * Create: 2022-01-24
@@ -73,10 +67,12 @@ private:
         RtspChannelManager *channelManager_;
     };
 
+    constexpr static int SESSION_KEY_LENGTH = 16;
+
     bool SendData(const std::string &dataFrame);
     void HandleMessage(const Message &msg) override;
 
-    const uint8_t *sessionKeys_{ nullptr };
+    uint8_t sessionKeys_[SESSION_KEY_LENGTH] = {0};
     uint32_t sessionKeyLength_{ 0 };
     RtspListenerInner *listener_;
     bool isSessionActive_{ false };

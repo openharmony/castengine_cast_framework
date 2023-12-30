@@ -5,11 +5,12 @@ import("//foundation/CastEngine/castengine_cast_framework/cast_engine.gni")
 config("cast_session_stream_config") {
   include_dirs = [
     "include",
-    "${cast_session_stream_path}/include",
-    "${cast_session_stream_path}/src/utils/include",
-    "${cast_session_stream_path}/src/stream/include",
-    "${cast_session_stream_path}/src/stream/src/local/include",
-    "${cast_session_stream_path}/src/stream/src/player/include",
+    "${cast_engine_service}/src/device_manager/include",
+    "${cast_engine_service}/src/session/include",
+    "${cast_engine_service}/src/session/src/utils/include",
+    "${cast_engine_service}/src/session/src/stream/include",
+    "${cast_engine_service}/src/session/src/stream/src/local/include",
+    "${cast_engine_service}/src/session/src/stream/src/player/include",
     "//third_party/json/single_include/nlohmann",
   ]
 }
@@ -40,8 +41,9 @@ ohos_static_library("cast_session_stream") {
 
   deps = [
     "${cast_engine_common}:cast_engine_common_sources",
-    "${cast_session_stream_path}/src/channel:cast_session_channel",
-    "${cast_session_stream_path}/src/utils:cast_session_utils",
+    "${cast_engine_service}/src/device_manager:cast_discovery",
+    "${cast_engine_service}/src/session/src/channel:cast_session_channel",
+    "${cast_engine_service}/src/session/src/utils:cast_session_utils",
   ]
 
   external_deps = [
@@ -50,7 +52,8 @@ ohos_static_library("cast_session_stream") {
     "graphic_2d:surface",
     "hilog:libhilog",
     "hisysevent:libhisysevent",
-    "player_framework:media_client"
+    "player_framework:media_client",
+    "image_framework:image_native",
   ]
 
   subsystem_name = "castplus"

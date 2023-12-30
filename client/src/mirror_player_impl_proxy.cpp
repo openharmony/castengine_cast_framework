@@ -1,11 +1,5 @@
 /*
- * Copyright (c) 2023 Huawei Device Co., Ltd.
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
+ * Copyright (c) Huawei Technologies Co., Ltd. 2023-2023. All rights reserved.
  * Description: supply mirror player implement proxy
  * Author: zhangjingnan
  * Create: 2023-5-27
@@ -110,6 +104,32 @@ int32_t MirrorPlayerImplProxy::SetSurface(sptr<IBufferProducer> producer)
     return reply.ReadInt32();
 }
 
+int32_t MirrorPlayerImplProxy::SetAppInfo(const AppInfo &appInfo)
+{
+    MessageParcel data, reply;
+    MessageOption option;
+
+    if (!data.WriteInterfaceToken(GetDescriptor())) {
+        CLOGE("Failed to write the interface token");
+        return CAST_ENGINE_ERROR;
+    }
+    if (!data.WriteInt32(appInfo.appUid) || !data.WriteUint32(appInfo.appTokenId) ||
+        !data.WriteInt32(appInfo.appPid)) {
+        CLOGE("Failed to write appInfo");
+        return CAST_ENGINE_ERROR;
+    }
+    CLOGI("start set app info impl proxy");
+    int32_t ret = Remote()->SendRequest(SET_APP_INFO, data, reply, option);
+    if (ret == ERR_UNKNOWN_TRANSACTION) {
+        CLOGE("No permission when setting surface");
+        return ERR_NO_PERMISSION;
+    } else if (ret != ERR_NONE) {
+        CLOGE("Failed to send ipc request when setting surface");
+        return CAST_ENGINE_ERROR;
+    }
+    return reply.ReadInt32();
+}
+
 int32_t MirrorPlayerImplProxy::DeliverInputEvent(const OHRemoteControlEvent &event)
 {
     MessageParcel data, reply;
@@ -141,6 +161,38 @@ int32_t MirrorPlayerImplProxy::DeliverInputEvent(const OHRemoteControlEvent &eve
     return reply.ReadInt32();
 }
 
+int32_t MirrorPlayerImplProxy::InjectEvent(const OHRemoteControlEvent &event)
+{
+    MessageParcel data;
+    MessageParcel reply;
+    MessageOption option;
+
+    CLOGD("In, eventType:%d", static_cast<uint32_t>(event.eventType));
+
+    if (!data.WriteInterfaceToken(GetDescriptor())) {
+        CLOGE("Failed to write the interface token");
+        return CAST_ENGINE_ERROR;
+    }
+    if (!WriteRemoteControlEvent(data, event)) {
+        CLOGE("Failed to write the remote control event");
+        return CAST_ENGINE_ERROR;
+    }
+
+    int32_t ret = Remote()->SendRequest(INJECT_EVENT, data, reply, option);
+    if (ret == ERR_UNKNOWN_TRANSACTION) {
+        CLOGE("No permission when deliver input event");
+        return ERR_NO_PERMISSION;
+    } else if (ret == ERR_INVALID_DATA) {
+        CLOGE("Invalid parameter when deliver input event");
+        return ERR_INVALID_PARAM;
+    } else if (ret != ERR_NONE) {
+        CLOGE("Failed to send ipc request when deliver input event");
+        return CAST_ENGINE_ERROR;
+    }
+
+    return reply.ReadInt32();
+}
+
 int32_t MirrorPlayerImplProxy::Release()
 {
     MessageParcel data;
@@ -158,6 +210,57 @@ int32_t MirrorPlayerImplProxy::Release()
         return ERR_NO_PERMISSION;
     } else if (ret != ERR_NONE) {
         CLOGE("Failed to send ipc request when setting surface");
+        return CAST_ENGINE_ERROR;
+    }
+
+    return reply.ReadInt32();
+}
+
+int32_t MirrorPlayerImplProxy::GetDisplayId(std::string &displayId)
+{
+    MessageParcel data;
+    MessageParcel reply;
+    MessageOption option;
+    displayId = std::string{};
+    if (!data.WriteInterfaceToken(GetDescriptor())) {
+        CLOGE("Failed to write the interface token");
+        return CAST_ENGINE_ERROR;
+    }
+
+    int32_t ret = Remote()->SendRequest(GET_DISPLAYID, data, reply, option);
+    if (ret == ERR_UNKNOWN_TRANSACTION) {
+        CLOGE("No permission when getDisplayId");
+        return ERR_NO_PERMISSION;
+    } else if (ret != ERR_NONE) {
+        CLOGE("Failed to send ipc request when getDisplayId");
+        return CAST_ENGINE_ERROR;
+    }
+    int32_t errorCode = reply.ReadInt32();
+    CHECK_AND_RETURN_RET_LOG(errorCode != CAST_ENGINE_SUCCESS, errorCode, "CastEngine Errors");
+    displayId = reply.ReadString();
+    return errorCode;
+}
+
+int32_t MirrorPlayerImplProxy::ResizeVirtualScreen(uint32_t width, uint32_t height)
+{
+    MessageParcel data;
+    MessageParcel reply;
+    MessageOption option;
+
+    if (!data.WriteInterfaceToken(GetDescriptor())) {
+        CLOGE("Failed to write the interface token");
+        return CAST_ENGINE_ERROR;
+    }
+    if (!data.WriteUint32(width)) {
+        CLOGE("Failed to write the width");
+        return CAST_ENGINE_ERROR;
+    }
+    if (!data.WriteUint32(height)) {
+        CLOGE("Failed to write the height");
+        return CAST_ENGINE_ERROR;
+    }
+    if (Remote()->SendRequest(RESIZE_VIRTUAL_SCREEN, data, reply, option) != ERR_NONE) {
+        CLOGE("Failed to send ipc request when ResizeVirtualScreen");
         return CAST_ENGINE_ERROR;
     }
 

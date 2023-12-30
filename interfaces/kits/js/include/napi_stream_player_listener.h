@@ -1,11 +1,5 @@
 /*
- * Copyright (c) 2023 Huawei Device Co., Ltd.
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
+ * Copyright (c) Huawei Technologies Co., Ltd. 2023-2023. All rights reserved.
  * Description: supply stream player listener for napi interface.
  * Author: huangchanggui
  * Create: 2023-1-11
@@ -22,6 +16,7 @@
 #include "napi_callback.h"
 #include "napi_castengine_utils.h"
 #include "i_stream_player.h"
+#include "pixel_map.h"
 
 namespace OHOS {
 namespace CastEngine {
@@ -43,6 +38,8 @@ public:
         EVENT_SEEK_DONE,
         EVENT_END_OF_STREAM,
         EVENT_PLAY_REQUEST,
+        EVENT_IMAGE_CHANGED,
+        EVENT_ALBUM_COVER_CHANGED,
         EVENT_TYPE_MAX
     };
 
@@ -62,6 +59,8 @@ public:
     void OnSeekDone(int position) override;
     void OnEndOfStream(int isLooping) override;
     void OnPlayRequest(const MediaInfo &mediaInfo) override;
+    void OnImageChanged(std::shared_ptr<Media::PixelMap> pixelMap) override;
+    void OnAlbumCoverChanged(std::shared_ptr<Media::PixelMap> pixelMap) override;
 
     napi_status AddCallback(napi_env env, int32_t event, napi_value callback);
     napi_status RemoveCallback(napi_env env, int32_t event, napi_value callback);

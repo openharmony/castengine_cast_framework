@@ -1,11 +1,5 @@
 /*
- * Copyright (c) 2023 Huawei Device Co., Ltd.
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
+ * Copyright (c) Huawei Technologies Co., Ltd. 2023-2023. All rights reserved.
  * Description: supply local data source cache implement class
  * Author: huangchanggui
  * Create: 2023-04-20
@@ -101,6 +95,22 @@ void LocalDataSource::SolveReqData(std::shared_ptr<Cache> cache, int64_t pos)
 
 int32_t LocalDataSource::ReadAt(const std::shared_ptr<Media::AVSharedMemory> &mem, uint32_t length, int64_t pos)
 {
+    return ReadBuffer(mem->GetBase(), length, pos);
+}
+
+int32_t LocalDataSource::ReadAt(int64_t pos, uint32_t length, const std::shared_ptr<Media::AVSharedMemory> &mem)
+{
+    return ReadAt(mem, length, pos);
+}
+
+int32_t LocalDataSource::ReadAt(uint32_t length, const std::shared_ptr<Media::AVSharedMemory> &mem)
+{
+    return ReadAt(mem, length);
+}
+
+int32_t LocalDataSource::ReadBuffer(uint8_t *data, uint32_t length, int64_t pos)
+{
+    CLOGD("ReadBuffer length = %{public}d pos = %{public}ld", length, pos);
     if (pos >= fileLength_) {
         CLOGE("ReadAt EOF, pos:%{public}" PRId64 " fileLength_:%{public}" PRId64, pos, fileLength_);
         return Media::SOURCE_ERROR_EOF;
@@ -116,20 +126,10 @@ int32_t LocalDataSource::ReadAt(const std::shared_ptr<Media::AVSharedMemory> &me
     }
     // The cache may be a new that has no data, need req data before reading
     SolveReqData(cache, pos);
-    int32_t readBytes = static_cast<int32_t>(cache->Read(mem->GetBase(), length, pos));
+    int32_t readBytes = static_cast<int32_t>(cache->Read(data, length, pos));
     // cache data may be not enoungh after reading, req data in advance for next reading
     SolveReqData(cache, pos);
     return readBytes;
-}
-
-int32_t LocalDataSource::ReadAt(int64_t pos, uint32_t length, const std::shared_ptr<Media::AVSharedMemory> &mem)
-{
-    return ReadAt(mem, length, pos);
-}
-
-int32_t LocalDataSource::ReadAt(uint32_t length, const std::shared_ptr<Media::AVSharedMemory> &mem)
-{
-    return ReadAt(mem, length);
 }
 
 int32_t LocalDataSource::GetSize(int64_t &size)

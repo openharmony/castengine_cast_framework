@@ -1,11 +1,5 @@
 /*
- * Copyright (c) 2023 Huawei Device Co., Ltd.
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
+ * Copyright (c) Huawei Technologies Co., Ltd. 2023-2023. All rights reserved.
  * Description: Stream Player interface.
  * Author: huangchanggui
  * Create: 2023-01-11
@@ -15,6 +9,7 @@
 #define I_STREAM_PLAYER_H
 
 #include "cast_engine_common.h"
+#include "pixel_map.h"
 
 namespace OHOS {
 namespace CastEngine {
@@ -40,6 +35,8 @@ public:
     virtual void OnSeekDone(int position) = 0;
     virtual void OnEndOfStream(int isLooping) = 0;
     virtual void OnPlayRequest(const MediaInfo &mediaInfo) = 0;
+    virtual void OnImageChanged(std::shared_ptr<Media::PixelMap> pixelMap) = 0;
+    virtual void OnAlbumCoverChanged(std::shared_ptr<Media::PixelMap> pixelMap) = 0;
 };
 
 class EXPORT IStreamPlayer {
@@ -66,12 +63,14 @@ public:
     virtual int32_t FastForward(int delta) = 0;
     virtual int32_t FastRewind(int delta) = 0;
     virtual int32_t SetVolume(int volume) = 0;
+    virtual int32_t SetMute(bool mute) = 0;
     virtual int32_t SetLoopMode(const LoopMode mode) = 0;
     virtual int32_t SetSpeed(const PlaybackSpeed speed) = 0;
     virtual int32_t GetPlayerStatus(PlayerStates &playerStates) = 0;
     virtual int32_t GetPosition(int &position) = 0;
     virtual int32_t GetDuration(int &duration) = 0;
     virtual int32_t GetVolume(int &volume, int &maxVolume) = 0;
+    virtual int32_t GetMute(bool &mute) = 0;
     virtual int32_t GetLoopMode(LoopMode &loopMode) = 0;
     virtual int32_t GetPlaySpeed(PlaybackSpeed &playbackSpeed) = 0;
     virtual int32_t GetMediaInfoHolder(MediaInfoHolder &mediaInfoHolder) = 0;

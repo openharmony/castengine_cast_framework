@@ -1,11 +1,5 @@
 /*
- * Copyright (c) 2023 Huawei Device Co., Ltd.
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
+ * Copyright (c) Huawei Technologies Co., Ltd. 2022-2022. All rights reserved.
  * Description: message definition
  * Author: lijianzhao
  * Create: 2022-01-19
@@ -68,6 +62,7 @@ Message &Message::operator=(const Message &msg)
     this->task_ = msg.task_;
     this->ptrArg_ = msg.ptrArg_;
     this->strArg_ = msg.strArg_;
+    this->eventCode_ = msg.eventCode_;
     return *this;
 }
 
@@ -80,6 +75,7 @@ Message::Message(const Message &msg)
     this->task_ = msg.task_;
     this->ptrArg_ = msg.ptrArg_;
     this->strArg_ = msg.strArg_;
+    this->eventCode_ = msg.eventCode_;
 }
 } // namespace CastEngineService
 } // namespace CastEngine

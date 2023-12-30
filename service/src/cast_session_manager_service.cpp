@@ -1,11 +1,5 @@
 /*
- * Copyright (c) 2023 Huawei Device Co., Ltd.
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
+ * Copyright (c) Huawei Technologies Co., Ltd. 2022-2022. All rights reserved.
  * Description: cast session manager service class
  * Author: zhangge
  * Create: 2022-06-15
@@ -27,6 +21,7 @@
 #include "cast_session_impl.h"
 #include "connection_manager.h"
 #include "discovery_manager.h"
+#include "softbus_error_code.h"
 #include "hisysevent.h"
 #include "permission.h"
 #include "utils.h"
@@ -37,6 +32,102 @@ namespace CastEngineService {
 DEFINE_CAST_ENGINE_LABEL("Cast-Service");
 
 REGISTER_SYSTEM_ABILITY_BY_ID(CastSessionManagerService, CAST_ENGINE_SA_ID, false);
+
+namespace SessionServer {
+constexpr char SESSION_NAME[] = "CastPlusSessionName";
+constexpr int ROLE_CLENT = 1;
+constexpr int SOFTBUS_OK = 0;
+
+int OnSessionOpened(int sessionId, int result)
+{
+    CLOGI("OnSessionOpened, session id = %{public}d, result is %{public}d", sessionId, result);
+    if (sessionId <= INVALID_ID || result != SOFTBUS_OK) {
+        auto device = CastDeviceDataManager::GetInstance().GetDeviceByTransId(sessionId);
+        if (device == std::nullopt) {
+            CLOGE("device is empty");
+            return result;
+        }
+        ConnectionManager::GetInstance().NotifySessionEvent(device->deviceId, ConnectEvent::DISCONNECT_START);
+        return result;
+    }
+    int role = GetSessionSide(sessionId);
+    if (role == ROLE_CLENT) {
+        ConnectionManager::GetInstance().OnConsultSessionOpened(sessionId, true);
+    } else {
+        ConnectionManager::GetInstance().OnConsultSessionOpened(sessionId, false);
+    }
+    return SOFTBUS_OK;
+}
+
+void OnSessionClosed(int sessionId)
+{
+    CLOGI("OnSessionClosed, session id = %{public}d", sessionId);
+    if (sessionId <= INVALID_ID) {
+        return;
+    }
+}
+
+void OnBytesReceived(int sessionId, const void *data, unsigned int dataLen)
+{
+    CLOGI("OnBytesReceived,session id = %{public}d, len = %{public}u", sessionId, dataLen);
+    if (sessionId <= INVALID_ID || data == nullptr || dataLen == 0) {
+        return;
+    }
+    int role = GetSessionSide(sessionId);
+    if (role != ROLE_CLENT) {
+        ConnectionManager::GetInstance().OnConsultDataReceived(sessionId, data, dataLen);
+    }
+}
+
+ISessionListener g_SessionListener = {
+    OnSessionOpened, OnSessionClosed, OnBytesReceived, nullptr, nullptr, nullptr
+};
+
+// true: softbus service is up, and the session server has been created;
+// false: softbus service is up, but the session server failed to create;
+// nullopt: softbus service is down.
+std::optional<bool> WaitSoftBusInit()
+{
+    constexpr int sleepTime = 50; // uint: ms
+    constexpr int retryTimes = 60 * 20; // total 60s
+    int ret = SoftBusErrNo::SOFTBUS_TRANS_SESSION_ADDPKG_FAILED;
+    int retryTime = 0;
+    while (ret == SoftBusErrNo::SOFTBUS_TRANS_SESSION_ADDPKG_FAILED && retryTime < retryTimes) {
+        CLOGI("create session server");
+        ret = CreateSessionServer(PKG_NAME, SessionServer::SESSION_NAME, &SessionServer::g_SessionListener);
+        if (ret == SOFTBUS_OK) {
+            return true;
+        }
+        retryTime++;
+        std::this_thread::sleep_for(std::chrono::milliseconds(sleepTime));
+    }
+
+    if (retryTime == retryTimes) {
+        CLOGE("softbus service is down.");
+        return std::nullopt;
+    }
+
+    return false;
+}
+
+bool SetupSessionServer()
+{
+    int32_t result = SoftBusErrNo::SOFTBUS_ERR;
+    int32_t retryTime = 0;
+    constexpr int32_t retryTimes = 20;
+    while (result != SessionServer::SOFTBUS_OK && retryTime < retryTimes) {
+        CLOGI("retry create session server");
+        result = CreateSessionServer(PKG_NAME, SessionServer::SESSION_NAME, &SessionServer::g_SessionListener);
+        retryTime++;
+    }
+    if (result != SessionServer::SOFTBUS_OK) {
+        CLOGE("CreateSessionServer failed, ret:%d", result);
+        return false;
+    }
+
+    return true;
+}
+}
 
 CastSessionManagerService::CastSessionManagerService(int32_t saId, bool runOnCreate) : SystemAbility(saId, runOnCreate)
 {
@@ -58,9 +149,30 @@ void CastSessionManagerService::OnStart()
     }
 
     AddSystemAbilityListener(CAST_ENGINE_SA_ID);
+    auto result = SessionServer::WaitSoftBusInit();
+    if (result == std::nullopt) {
+        CastEngineDfx::WriteErrorEvent(SOURCE_CREATE_SESSION_SERVER_FAIL);
+        CLOGE("softbus service is down.");
+        return;
+    }
+
+    if (result) {
+        hasServer_ = true;
+        return;
+    }
+
+    if (!SessionServer::SetupSessionServer()) {
+        CastEngineDfx::WriteErrorEvent(SOURCE_CREATE_SESSION_SERVER_FAIL);
+        return;
+    }
+    hasServer_ = true;
 }
 
-void CastSessionManagerService::OnStop() {}
+void CastSessionManagerService::OnStop()
+{
+    CLOGI("Stop in");
+    RemoveSessionServer(PKG_NAME, SessionServer::SESSION_NAME);
+}
 
 namespace {
 using namespace OHOS::DistributedHardware;
@@ -80,7 +192,8 @@ public:
         std::vector<CastRemoteDevice> remoteDevices;
         for (const auto &device : devices) {
             remoteDevices.push_back(CastRemoteDevice{ device.deviceId, device.deviceName, device.deviceType,
-                device.subDeviceType, device.ipAddress, device.channelType });
+                device.subDeviceType, device.ipAddress, device.channelType,
+                CapabilityType::CAST_PLUS, device.networkId, "", 0, nullptr});
         }
         service->ReportDeviceFound(remoteDevices);
     }
@@ -118,7 +231,7 @@ public:
         auto service = service_.promote();
         if (!service) {
             CLOGE("service is null");
-            return INVALID_ID;
+            return false;
         }
         sptr<ICastSessionImpl> session;
         service->GetCastSession(std::to_string(castSessionId), session);
@@ -126,7 +239,12 @@ public:
             CLOGE("Session is null when consultation data comes!");
             return false;
         }
-        return session->AddDevice(device);
+        if (!session->AddDevice(device)) {
+            CLOGE("Session addDevice fail");
+            return false;
+        }
+        ConnectionManager::GetInstance().NotifySessionEvent(device.deviceId, ConnectEvent::CONNECT_START);
+        return true;
     }
 
     void NotifyDeviceIsOffline(const std::string &deviceId) override
@@ -140,7 +258,7 @@ public:
         CLOGD("OnDeviceOffline out");
     }
 
-    void OnError(const std::string &deviceId) override
+    void OnEvent(const std::string &deviceId, EventCode currentEventCode) override
     {
         auto service = service_.promote();
         if (!service) {
@@ -158,7 +276,59 @@ public:
             CLOGE("The session is null. Failed to obtain the session.");
             return;
         }
-        session->RemoveDevice(deviceId);
+        session->OnSessionEvent(deviceId, currentEventCode);
+    }
+
+    void GrabDevice(int32_t sessionId) override
+    {
+        auto service = service_.promote();
+        if (!service) {
+            CLOGE("service is null");
+            return;
+        }
+
+        sptr<ICastSessionImpl> session;
+        service->GetCastSession(std::to_string(sessionId), session);
+        if (!session) {
+            CLOGE("The session is null. Failed to obtain the session.");
+            return;
+        }
+        session->Release();
+    }
+
+    int32_t GetSessionProtocolType(int sessionId, ProtocolType &protocolType) override
+    {
+        CLOGI("GetSessionProtocolType in");
+        auto service = service_.promote();
+        if (!service) {
+            CLOGE("service is null");
+            return CAST_ENGINE_ERROR;
+        }
+        sptr<ICastSessionImpl> session;
+        service->GetCastSession(std::to_string(sessionId), session);
+        if (!session) {
+            CLOGE("The session is null. Failed to obtain the session.");
+            return CAST_ENGINE_ERROR;
+        }
+        return session->GetSessionProtocolType(protocolType);
+    }
+
+    int32_t SetSessionProtocolType(int sessionId, ProtocolType protocolType) override
+    {
+        CLOGI("SetSessionProtocolType in");
+        auto service = service_.promote();
+        if (!service) {
+            CLOGE("service is null");
+            return CAST_ENGINE_ERROR;
+        }
+        sptr<ICastSessionImpl> session;
+        service->GetCastSession(std::to_string(sessionId), session);
+        if (!session) {
+            CLOGE("The session is null. Failed to obtain the session.");
+            return CAST_ENGINE_ERROR;
+        }
+        session->SetSessionProtocolType(protocolType);
+        return CAST_ENGINE_SUCCESS;
     }
 
 private:
@@ -248,20 +418,28 @@ int32_t CastSessionManagerService::SetLocalDevice(const CastLocalDevice &localDe
 
 int32_t CastSessionManagerService::GetCastSession(std::string sessionId, sptr<ICastSessionImpl> &castSession)
 {
-    auto innerSessionId = Utils::StringToInt(sessionId);
     SharedRLock lock(mutex_);
     if (!Permission::CheckPidPermission()) {
         return ERR_NO_PERMISSION;
     }
 
+    auto session = GetCastSessionInner(sessionId);
+    if (session == nullptr) {
+        return ERR_SESSION_NOT_EXIST;
+    }
+    castSession = session;
+    return CAST_ENGINE_SUCCESS;
+}
+
+sptr<ICastSessionImpl> CastSessionManagerService::GetCastSessionInner(std::string sessionId)
+{
+    auto innerSessionId = Utils::StringToInt(sessionId);
     auto it = sessionMap_.find(innerSessionId);
     if (it == sessionMap_.end()) {
         CLOGE("No sessionId=%{public}d session.", innerSessionId);
-        return ERR_SESSION_NOT_EXIST;
+        return nullptr;
     }
-
-    castSession = it->second;
-    return CAST_ENGINE_SUCCESS;
+    return it->second;
 }
 
 int32_t CastSessionManagerService::CreateCastSession(const CastSessionProperty &property,
@@ -302,6 +480,7 @@ int32_t CastSessionManagerService::CreateCastSession(const CastSessionProperty &
     CLOGD("CreateCastSession success, session(%{public}d) count:%{public}zu",
         Utils::StringToInt(sessionId), sessionMap_.size());
     castSession = session;
+    ConnectionManager::GetInstance().UpdateGrabState(true, Utils::StringToInt(sessionId));
     return CAST_ENGINE_SUCCESS;
 }
 
@@ -320,6 +499,7 @@ bool CastSessionManagerService::DestroyCastSession(int32_t sessionId)
         sessionMap_.erase(it);
     }
 
+    ConnectionManager::GetInstance().UpdateGrabState(false, -1);
     session->Stop();
     CLOGD("Session refcount is %d, session count:%zu", session->GetSptrRefCount(), sessionMap_.size());
     return true;
@@ -366,14 +546,19 @@ int32_t CastSessionManagerService::SetDiscoverable(bool enable)
     if (!Permission::CheckPidPermission()) {
         return ERR_NO_PERMISSION;
     }
-    bool ret = false;
-    if (enable) {
-        ret = ConnectionManager::GetInstance().EnableDiscoverable();
-    } else {
-        ret = ConnectionManager::GetInstance().DisableDiscoverable();
-    }
 
-    return ret ? CAST_ENGINE_SUCCESS : CAST_ENGINE_ERROR;
+    if (enable) {
+        if (ConnectionManager::GetInstance().EnableDiscoverable() &&
+            DiscoveryManager::GetInstance().StartAdvertise()) {
+            return CAST_ENGINE_SUCCESS;
+        }
+    } else {
+        if (ConnectionManager::GetInstance().DisableDiscoverable() &&
+            DiscoveryManager::GetInstance().StopAdvertise()) {
+            return CAST_ENGINE_SUCCESS;
+        }
+    }
+    return CAST_ENGINE_ERROR;
 }
 
 void CastSessionManagerService::ReleaseServiceResources(pid_t pid)

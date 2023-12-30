@@ -1,11 +1,5 @@
 /*
- * Copyright (c) 2023 Huawei Device Co., Ltd.
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
+ * Copyright (c) Huawei Technologies Co., Ltd. 2023-2023. All rights reserved.
  * Description: supply napi interface realization for cast mirror player.
  * Author: zhangjingnan
  * Create: 2023-5-27
@@ -37,8 +31,10 @@ void NapiMirrorPlayer::DefineMirrorPlayerJSClass(napi_env env)
     napi_property_descriptor NapiMirrorPlayerDesc[] = {
         DECLARE_NAPI_FUNCTION("play", Play),
         DECLARE_NAPI_FUNCTION("pause", Pause),
+        DECLARE_NAPI_FUNCTION("setAppInfo", SetAppInfo),
         DECLARE_NAPI_FUNCTION("setSurface", SetSurface),
-        DECLARE_NAPI_FUNCTION("release", Release)
+        DECLARE_NAPI_FUNCTION("release", Release),
+        DECLARE_NAPI_FUNCTION("resizeVirtualScreen", ResizeVirtualScreen)
     };
 
     napi_value mirrorPlayer = nullptr;
@@ -248,6 +244,56 @@ napi_value NapiMirrorPlayer::SetSurface(napi_env env, napi_callback_info info)
     return NapiAsyncWork::Enqueue(env, napiAsyntask, "SetSurface", executor, complete);
 }
 
+napi_value NapiMirrorPlayer::SetAppInfo(napi_env env, napi_callback_info info)
+{
+    CLOGD("Start to set appInfo in");
+    struct ConcreteTask : public NapiAsyncTask {
+        int32_t appUid;
+        uint32_t appTokenId;
+        int32_t appPid;
+    };
+    auto napiAsyntask = std::make_shared<ConcreteTask>();
+    if (napiAsyntask == nullptr) {
+        CLOGE("Create NapiAsyncTask failed");
+        return GetUndefinedValue(env);
+    }
+
+    auto inputParser = [env, napiAsyntask](size_t argc, napi_value *argv) {
+        constexpr size_t expectedArgc = 3;
+        napi_valuetype expectedTypes[expectedArgc] = { napi_number,  napi_number, napi_number};
+        bool isParamsTypeValid = CheckJSParamsType(env, argv, expectedArgc, expectedTypes);
+        CHECK_ARGS_RETURN_VOID(napiAsyntask, isParamsTypeValid, "invalid arguments",
+            NapiErrors::errcode_[ERR_INVALID_PARAM]);
+        napiAsyntask->appUid = ParseInt32(env, argv[0]);
+        napiAsyntask->appTokenId = static_cast<uint32_t>(ParseInt32(env, argv[1]));
+        napiAsyntask->appPid = ParseInt32(env, argv[2]);
+    };
+
+    napiAsyntask->GetJSInfo(env, info, inputParser);
+    auto executor = [napiAsyntask]() {
+        auto *napiPlayer = reinterpret_cast<NapiMirrorPlayer *>(napiAsyntask->native);
+        CHECK_ARGS_RETURN_VOID(napiAsyntask, napiPlayer != nullptr, "napiPlayer is null",
+            NapiErrors::errcode_[CAST_ENGINE_ERROR]);
+        shared_ptr<IMirrorPlayer> mirrorPlayer = napiPlayer->GetMirrorPlayer();
+        CHECK_ARGS_RETURN_VOID(napiAsyntask, mirrorPlayer, "IMirrorPlayer is null",
+            NapiErrors::errcode_[CAST_ENGINE_ERROR]);
+        CLOGI("SetAppInfo in");
+        int32_t ret = mirrorPlayer->SetAppInfo({napiAsyntask->appUid, napiAsyntask->appTokenId, napiAsyntask->appPid});
+        CLOGI("SetAppInfo out");
+        if (ret != CAST_ENGINE_SUCCESS) {
+            if (ret == ERR_NO_PERMISSION) {
+                napiAsyntask->errMessage = "SetAppInfo failed : no permission";
+            } else {
+                napiAsyntask->errMessage = "SetAppInfo failed : native server exception";
+            }
+            napiAsyntask->status = napi_generic_failure;
+            napiAsyntask->errCode = NapiErrors::errcode_[ret];
+        }
+    };
+    auto complete = [env](napi_value &output) { output = GetUndefinedValue(env); };
+    return NapiAsyncWork::Enqueue(env, napiAsyntask, "SetAppInfo", executor, complete);
+}
+
 napi_value NapiMirrorPlayer::Release(napi_env env, napi_callback_info info)
 {
     CLOGD("Start to release in");
@@ -281,6 +327,55 @@ napi_value NapiMirrorPlayer::Release(napi_env env, napi_callback_info info)
 
     auto complete = [env](napi_value &output) { output = GetUndefinedValue(env); };
     return NapiAsyncWork::Enqueue(env, napiAsyntask, "Release", executor, complete);
+}
+
+napi_value NapiMirrorPlayer::ResizeVirtualScreen(napi_env env, napi_callback_info info)
+{
+    struct ConcreteTask : public NapiAsyncTask {
+        uint32_t width_;
+        uint32_t height_;
+    };
+    auto napiAsyntask = std::make_shared<ConcreteTask>();
+    if (napiAsyntask == nullptr) {
+        CLOGE("Create NapiAsyncTask failed");
+        return GetUndefinedValue(env);
+    }
+
+    auto inputParser = [env, napiAsyntask](size_t argc, napi_value *argv) {
+        constexpr size_t expectedArgc = 2;
+        CHECK_ARGS_RETURN_VOID(napiAsyntask, argc == expectedArgc, "invalid arguments",
+                               NapiErrors::errcode_[ERR_INVALID_PARAM]);
+        napi_valuetype expectedTypes[expectedArgc] = { napi_number, napi_number };
+        bool isParamsTypeValid = CheckJSParamsType(env, argv, expectedArgc, expectedTypes);
+        CHECK_ARGS_RETURN_VOID(napiAsyntask, isParamsTypeValid, "invalid arguments",
+                               NapiErrors::errcode_[ERR_INVALID_PARAM]);
+        napiAsyntask->width_ = ParseUint32(env, argv[0]);
+        napiAsyntask->height_ = ParseUint32(env, argv[1]);
+    };
+    napiAsyntask->GetJSInfo(env, info, inputParser);
+    auto executor = [napiAsyntask]() {
+        auto *napiMirrorPlayer = reinterpret_cast<NapiMirrorPlayer *>(napiAsyntask->native);
+        CHECK_ARGS_RETURN_VOID(napiAsyntask, napiMirrorPlayer != nullptr, "napiMirrorPlayer is null",
+                               NapiErrors::errcode_[CAST_ENGINE_ERROR]);
+        std::shared_ptr<IMirrorPlayer> mirrorPlayer = napiMirrorPlayer->GetMirrorPlayer();
+        CHECK_ARGS_RETURN_VOID(napiAsyntask, mirrorPlayer, "IMirrorPlayer is null",
+                               NapiErrors::errcode_[CAST_ENGINE_ERROR]);
+        int32_t ret = mirrorPlayer->ResizeVirtualScreen(napiAsyntask->width_, napiAsyntask->height_);
+        if (ret != CAST_ENGINE_SUCCESS) {
+            if (ret == ERR_NO_PERMISSION) {
+                napiAsyntask->errMessage = "ResizeVirtualScreen failed : no permission";
+            } else if (ret == ERR_INVALID_PARAM) {
+                napiAsyntask->errMessage = "ResizeVirtualScreen failed : invalid parameters";
+            } else {
+                napiAsyntask->errMessage = "ResizeVirtualScreen failed : native server exception";
+            }
+            napiAsyntask->status = napi_generic_failure;
+            napiAsyntask->errCode = NapiErrors::errcode_[ret];
+        }
+    };
+
+    auto complete = [env](napi_value &output) { output = GetUndefinedValue(env); };
+    return NapiAsyncWork::Enqueue(env, napiAsyntask, "ResizeVirtualScreen", executor, complete);
 }
 } // namespace CastEngineClient
 } // namespace CastEngine

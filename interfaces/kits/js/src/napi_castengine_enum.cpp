@@ -1,11 +1,5 @@
 /*
- * Copyright (c) 2023 Huawei Device Co., Ltd.
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
+ * Copyright (c) Huawei Technologies Co., Ltd. 2023-2023. All rights reserved.
  * Description: supply napi nums realization for interfaces.
  * Author: zhangjingnan
  * Create: 2023-4-11
@@ -55,6 +49,7 @@ static napi_value ExportPlayerStates(napi_env env)
     (void)SetNamedProperty(env, result, "PLAYER_PLAYBACK_COMPLETE",
         static_cast<int32_t>(PlayerStates::PLAYER_PLAYBACK_COMPLETE));
     (void)SetNamedProperty(env, result, "PLAYER_RELEASED", static_cast<int32_t>(PlayerStates::PLAYER_RELEASED));
+    (void)SetNamedProperty(env, result, "PLAYER_BUFFERING", static_cast<int32_t>(PlayerStates::PLAYER_BUFFERING));
 
     NAPI_CALL(env, napi_object_freeze(env, result));
     return result;
@@ -107,7 +102,14 @@ static napi_value ExportDeviceType(napi_env env)
     (void)SetNamedProperty(env, result, "DEVICE_MATEBOOK", static_cast<int32_t>(DeviceType::DEVICE_MATEBOOK));
     (void)SetNamedProperty(env, result, "DEVICE_PAD", static_cast<int32_t>(DeviceType::DEVICE_PAD));
     (void)SetNamedProperty(env, result, "DEVICE_CAST_PLUS", static_cast<int32_t>(DeviceType::DEVICE_CAST_PLUS));
-
+    (void)SetNamedProperty(env, result, "DEVICE_SMART_SCREEN_UNF",
+                           static_cast<int32_t>(DeviceType::DEVICE_SMART_SCREEN_UNF));
+    (void)SetNamedProperty(env, result, "DEVICE_PAD_IN_CAR",
+                           static_cast<int32_t>(DeviceType::DEVICE_PAD_IN_CAR));
+    (void)SetNamedProperty(env, result, "DEVICE_SUPER_LAUNCHER",
+                           static_cast<int32_t>(DeviceType::DEVICE_SUPER_LAUNCHER));
+    (void)SetNamedProperty(env, result, "DEVICE_CAR_MULTI_SCREEN_PLAY",
+                           static_cast<int32_t>(DeviceType::DEVICE_CAR_MULTI_SCREEN_PLAY));
     NAPI_CALL(env, napi_object_freeze(env, result));
     return result;
 }
@@ -153,12 +155,33 @@ static napi_value ExportDeviceState(napi_env env)
     (void)SetNamedProperty(env, result, "DISCONNECTING", static_cast<int32_t>(DeviceState::DISCONNECTING));
     (void)SetNamedProperty(env, result, "DISCONNECTED", static_cast<int32_t>(DeviceState::DISCONNECTED));
     (void)SetNamedProperty(env, result, "STREAM", static_cast<int32_t>(DeviceState::STREAM));
+    (void)SetNamedProperty(env, result, "AUTHING", static_cast<int32_t>(DeviceState::AUTHING));
     (void)SetNamedProperty(env, result, "DEVICE_STATE_MAX", static_cast<int32_t>(DeviceState::DEVICE_STATE_MAX));
 
     NAPI_CALL(env, napi_object_freeze(env, result));
     return result;
 }
 
+static napi_value ExportEventCode(napi_env env)
+{
+    napi_value result = nullptr;
+    NAPI_CALL(env, napi_create_object(env, &result));
+
+    (void)SetNamedProperty(env, result, "UNKNOWN_EVENT", static_cast<int32_t>(EventCode::UNKNOWN_EVENT));
+    (void)SetNamedProperty(env, result, "ERR_CONNECTION_FAILED", static_cast<int32_t>(
+        EventCode::ERR_CONNECTION_FAILED));
+    (void)SetNamedProperty(env, result, "ERR_PIN_CODE_RETRY_COUNT_EXCEEDED", static_cast<int32_t>(
+        EventCode::ERR_PIN_CODE_RETRY_COUNT_EXCEEDED));
+    (void)SetNamedProperty(env, result, "ERR_CANCEL_BY_SINK", static_cast<int32_t>(EventCode::ERR_CANCEL_BY_SINK));
+    (void)SetNamedProperty(env, result, "ERR_DISTRUST_BY_SINK", static_cast<int32_t>(EventCode::ERR_DISTRUST_BY_SINK));
+    (void)SetNamedProperty(env, result, "DEFAULT_EVENT", static_cast<int32_t>(EventCode::DEFAULT_EVENT));
+    (void)SetNamedProperty(env, result, "EVT_TRUST_BY_SINK", static_cast<int32_t>(EventCode::EVT_TRUST_BY_SINK));
+    (void)SetNamedProperty(env, result, "EVT_CANCEL_BY_SOURCE", static_cast<int32_t>(EventCode::EVT_CANCEL_BY_SOURCE));
+    (void)SetNamedProperty(env, result, "EVT_AUTHENTICATION_COMPLETED",
+        static_cast<int32_t>(EventCode::EVT_AUTHENTICATION_COMPLETED));
+    NAPI_CALL(env, napi_object_freeze(env, result));
+    return result;
+}
 
 static napi_value ExportServiceStatus(napi_env env)
 {
@@ -225,7 +248,10 @@ static napi_value ExportProtocolType(napi_env env)
     (void)SetNamedProperty(env, result, "MIRACAST", static_cast<int32_t>(ProtocolType::MIRACAST));
     (void)SetNamedProperty(env, result, "DLNA", static_cast<int32_t>(ProtocolType::DLNA));
     (void)SetNamedProperty(env, result, "COOPERATION", static_cast<int32_t>(ProtocolType::COOPERATION));
-
+    (void)SetNamedProperty(env, result, "COOPERATION_LEGACY", static_cast<int32_t>(ProtocolType::COOPERATION_LEGACY));
+    (void)SetNamedProperty(env, result, "HICAR", static_cast<int32_t>(ProtocolType::HICAR));
+    (void)SetNamedProperty(env, result, "SUPER_LAUNCHER", static_cast<int32_t>(ProtocolType::SUPER_LAUNCHER));
+    (void)SetNamedProperty(env, result, "CAST_COOPERATION", static_cast<int32_t>(ProtocolType::CAST_COOPERATION));
     NAPI_CALL(env, napi_object_freeze(env, result));
     return result;
 }
@@ -302,6 +328,7 @@ napi_status InitEnums(napi_env env, napi_value exports)
         DECLARE_NAPI_PROPERTY("SubDeviceType", ExportSubDeviceType(env)),
         DECLARE_NAPI_PROPERTY("TriggerType", ExportTriggerType(env)),
         DECLARE_NAPI_PROPERTY("DeviceState", ExportDeviceState(env)),
+        DECLARE_NAPI_PROPERTY("EventCode", ExportEventCode(env)),
         DECLARE_NAPI_PROPERTY("ServiceStatus", ExportServiceStatus(env)),
         DECLARE_NAPI_PROPERTY("DeviceStatusState", ExportDeviceStatusState(env)),
         DECLARE_NAPI_PROPERTY("PropertyType", ExportPropertyType(env)),

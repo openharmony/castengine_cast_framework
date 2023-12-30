@@ -1,11 +1,5 @@
 /*
- * Copyright (c) 2023 Huawei Device Co., Ltd.
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
+ * Copyright (c) Huawei Technologies Co., Ltd. 2022-2023. All rights reserved.
  * Description: supply untils realization for napi interface.
  * Author: zhangjingnan
  * Create: 2022-7-11
@@ -95,6 +89,32 @@ int32_t ParseInt32(napi_env env, napi_value args)
     return param;
 }
 
+uint32_t ParseUint32(napi_env env, napi_value args)
+{
+    uint32_t param = 0;
+    if (args == nullptr) {
+        CLOGE("args is nullptr");
+        return param;
+    }
+    napi_valuetype valueType;
+    napi_status status = napi_typeof(env, args, &valueType);
+    if (status != napi_ok) {
+        CLOGE("napi_typeof failed.");
+        return param;
+    }
+    CLOGD("param=%{public}d.", valueType);
+    if (valueType != napi_number) {
+        CLOGE("Wrong argument type. Int32 expected.");
+        return param;
+    }
+    status = napi_get_value_uint32(env, args, &param);
+    if (status != napi_ok) {
+        CLOGE("napi_get_value_int32 failed.");
+        return param;
+    }
+    return param;
+}
+
 bool ParseBool(napi_env env, napi_value args)
 {
     bool param = false;
@@ -152,14 +172,20 @@ napi_value ConvertCastSessionToJS(napi_env env, const shared_ptr<ICastSession> &
 napi_value ConvertDeviceStateInfoToJS(napi_env env, const DeviceStateInfo &stateEvent)
 {
     napi_value stateEventCallback = nullptr;
-    napi_value deviceState = nullptr;
-    napi_value deviceId = nullptr;
-
     NAPI_CALL(env, napi_create_object(env, &stateEventCallback));
-    NAPI_CALL(env, napi_create_string_utf8(env, stateEvent.deviceId.c_str(), NAPI_AUTO_LENGTH, &deviceId));
+
+    napi_value deviceState = nullptr;
     NAPI_CALL(env, napi_create_int32(env, static_cast<int32_t>(stateEvent.deviceState), &deviceState));
     NAPI_CALL(env, napi_set_named_property(env, stateEventCallback, "deviceState", deviceState));
+
+    napi_value deviceId = nullptr;
+    NAPI_CALL(env, napi_create_string_utf8(env, stateEvent.deviceId.c_str(), NAPI_AUTO_LENGTH, &deviceId));
     NAPI_CALL(env, napi_set_named_property(env, stateEventCallback, "deviceId", deviceId));
+
+    napi_value eventCode = nullptr;
+    NAPI_CALL(env, napi_create_int32(env, static_cast<int32_t>(stateEvent.eventCode), &eventCode));
+    NAPI_CALL(env, napi_set_named_property(env, stateEventCallback, "eventCode", eventCode));
+
     return stateEventCallback;
 }
 
@@ -176,7 +202,7 @@ CastRemoteDevice GetCastRemoteDeviceFromJS(napi_env env, napi_value &object)
     castRemoteDevice.ipAddress = JsObjectToString(env, object, "ipAddress");
     int32_t channelTypeInt = JsObjectToInt32(env, object, "channelType");
     ChannelType channelType = static_cast<ChannelType>(channelTypeInt);
-
+    castRemoteDevice.networkId = JsObjectToString(env, object, "networkId");
     castRemoteDevice.deviceType = deviceType;
     castRemoteDevice.subDeviceType = subDeviceType;
     castRemoteDevice.channelType = channelType;
@@ -437,6 +463,9 @@ napi_value ConvertCastRemoteDeviceToJS(napi_env env, const CastRemoteDevice &cas
     napi_value channelType = nullptr;
     NAPI_CALL(env, napi_create_int32(env, static_cast<int32_t>(castRemoteDevice.channelType), &channelType));
     NAPI_CALL(env, napi_set_named_property(env, result, "channelType", channelType));
+    napi_value networkId = nullptr;
+    NAPI_CALL(env, napi_create_string_utf8(env, castRemoteDevice.networkId.c_str(), NAPI_AUTO_LENGTH, &networkId));
+    NAPI_CALL(env, napi_set_named_property(env, result, "networkId", networkId));
     return result;
 }
 

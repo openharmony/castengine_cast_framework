@@ -1,11 +1,5 @@
 /*
- * Copyright (c) 2023 Huawei Device Co., Ltd.
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
+ * Copyright (c) Huawei Technologies Co., Ltd. 2023-2023. All rights reserved.
  * Description: Cast mirror player function realization.
  * Author: zhangjingnan
  * Create: 2023-05-27
@@ -65,15 +59,36 @@ int32_t MirrorPlayer::SetSurface(const std::string &surfaceId)
     return proxy_ ? proxy_->SetSurface(producer) : CAST_ENGINE_ERROR;
 }
 
+int32_t MirrorPlayer::SetAppInfo(const AppInfo &appInfo)
+{
+    return proxy_ ? proxy_->SetAppInfo(appInfo) : CAST_ENGINE_ERROR;
+}
+
 int32_t MirrorPlayer::DeliverInputEvent(OHRemoteControlEvent event)
 {
     return proxy_ ? proxy_->DeliverInputEvent(event) : CAST_ENGINE_ERROR;
+}
+
+int32_t MirrorPlayer::InjectEvent(const OHRemoteControlEvent &event)
+{
+    return proxy_ ? proxy_->InjectEvent(event) : CAST_ENGINE_ERROR;
 }
 
 int32_t MirrorPlayer::Release()
 {
     return proxy_ ? proxy_->Release() : CAST_ENGINE_ERROR;
 }
+
+int32_t MirrorPlayer::GetDisplayId(std::string &displayId)
+{
+    return proxy_ ? proxy_->GetDisplayId(displayId) : CAST_ENGINE_ERROR;
+}
+
+int32_t MirrorPlayer::ResizeVirtualScreen(uint32_t width, uint32_t height)
+{
+    return proxy_ ? proxy_->ResizeVirtualScreen(width, height) : CAST_ENGINE_ERROR;
+}
+
 } // namespace CastEngineClient
 } // namespace CastEngine
 } // namespace OHOS

@@ -1,11 +1,5 @@
 /*
- * Copyright (c) 2023 Huawei Device Co., Ltd.
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
+ * Copyright (c) Huawei Technologies Co., Ltd. 2022-2023. All rights reserved.
  * Description: rtsp controller
  * Author: dingkang
  * Create: 2022-01-24
@@ -56,12 +50,6 @@ private:
         STATE_ESTABLISHED
     };
 
-    enum class ListType {
-        LIST_TYPE_GENERIC = 1,
-        LIST_TYPE_HIDC,
-        LIST_TYPE_VENDOR
-    };
-
     using ResponseFunc = bool (RtspController::*)(RtspParse &);
     using RequestFunc = bool (RtspController::*)(RtspParse &);
     bool ProcessAnnounceRequest(RtspParse &request);
@@ -93,8 +81,7 @@ private:
     void ProcessUibc(const std::string &content);
     bool PreProcessUibc(const std::string &content, std::string &categoryList);
     void ProcessUibcVendor(const std::string &content, RemoteControlParamInfo &remoteControlParamInfo);
-    void ProcessUibcDetermine(const std::string &givenStr, ListType listType,
-        RemoteControlParamInfo &remoteControlParamInfo);
+    void ProcessUibcDetermine(const std::string &givenStr, std::vector<std::string> &list);
     void ProcessSinkBitrate(const std::string &content, VideoProperty &videoProperty);
     void ProcessVideoInfo(const std::string &content);
     void ProcessAudioInfo(RtspParse &parseInfo);
@@ -116,6 +103,7 @@ private:
     void ResponseFuncMapInit();
     void RequestFuncMapInit();
 
+    const ProtocolType protocolType_;
     std::shared_ptr<IRtspListener> listener_;
     EndType endType_;
     int currentSeq_{ 0 };

@@ -1,11 +1,5 @@
 /*
- * Copyright (c) 2023 Huawei Device Co., Ltd.
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
+ * Copyright (c) Huawei Technologies Co., Ltd. 2023-2023. All rights reserved.
  * Description: supply stream player listener implement proxy apis.
  * Author: huangchanggui
  * Create: 2023-01-12
@@ -18,6 +12,7 @@
 #include "i_stream_player.h"
 #include "cast_stub_helper.h"
 #include "iremote_stub.h"
+#include "pixel_map.h"
 
 namespace OHOS {
 namespace CastEngine {
@@ -45,6 +40,8 @@ private:
     int32_t DoOnSeekDoneTask(MessageParcel &data, MessageParcel &reply);
     int32_t DoOnEndOfStreamTask(MessageParcel &data, MessageParcel &reply);
     int32_t DoOnPlayRequestTask(MessageParcel &data, MessageParcel &reply);
+    int32_t DoOnImageChangedTask(MessageParcel &data, MessageParcel &reply);
+    int32_t DoOnAlbumCoverChangedTask(MessageParcel &data, MessageParcel &reply);
     void OnStateChanged(const PlayerStates playbackState, bool isPlayWhenReady) override;
     void OnPositionChanged(int position, int bufferPosition, int duration) override;
     void OnMediaItemChanged(const MediaInfo &mediaInfo) override;
@@ -58,6 +55,8 @@ private:
     void OnSeekDone(int position) override;
     void OnEndOfStream(int isLooping) override;
     void OnPlayRequest(const MediaInfo &mediaInfo) override;
+    void OnImageChanged(std::shared_ptr<Media::PixelMap> pixelMap) override;
+    void OnAlbumCoverChanged(std::shared_ptr<Media::PixelMap> pixelMap) override;
 
     std::shared_ptr<IStreamPlayerListener> userListener_;
 };
