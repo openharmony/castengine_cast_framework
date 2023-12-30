@@ -22,7 +22,7 @@ namespace CastEngine {
 namespace CastEngineService {
 DEFINE_CAST_ENGINE_LABEL("Cast-Localfile-Client");
 
-static const int CREATE_CHANNEL_TIMEOUT = 10 * 1000;
+static const int CREATE_CHANNEL_TIMEOUT = 100 * 1000;
 
 CastLocalFileChannelClient::CastLocalFileChannelClient(std::shared_ptr<ICastStreamManagerServer> callback)
 {
