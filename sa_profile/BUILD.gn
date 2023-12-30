@@ -3,6 +3,6 @@
 import("//build/ohos/sa_profile/sa_profile.gni")
 
 ohos_sa_profile("cast_engine_sa_profile") {
-  sources = [ "65546.json" ]
+  sources = [ "5526.json" ]
   part_name = "cast_engine"
 }
