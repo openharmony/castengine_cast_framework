@@ -19,7 +19,7 @@ inline constexpr unsigned int CASTPLUS_LOG_BEGIN = 0xD004600;
 inline constexpr unsigned int CAST_ENGINE_LOG_ID = CASTPLUS_LOG_BEGIN + 0x01;
 inline constexpr unsigned int CASTPLUS_LOG_END = CASTPLUS_LOG_BEGIN + 0x10;
 
-inline constexpr bool DEBUG = false;
+inline constexpr bool DEBUG = true;
 
 #define DEFINE_CAST_ENGINE_LABEL(name) \
     static constexpr HiLogLabel CAST_ENGINE_LABEL = { LOG_CORE, OHOS::CastEngine::CAST_ENGINE_LOG_ID, name }
@@ -27,16 +27,16 @@ inline constexpr bool DEBUG = false;
 #define CLOGV(format, ...)                                                                                \
     do {                                                                                                  \
         if (DEBUG) {                                                                                      \
-            (void)HiLog::Debug(CAST_ENGINE_LABEL, "[%{public}s:%{public}d]: " format, __func__, __LINE__, \
+            (void)HiLog::Error(CAST_ENGINE_LABEL, "[%{public}s:%{public}d]: " format, __func__, __LINE__, \
                 ##__VA_ARGS__);                                                                           \
         }                                                                                                 \
     } while (0)
 #define CLOGD(format, ...) \
-    (void)HiLog::Debug(CAST_ENGINE_LABEL, "[%{public}s:%{public}d]: " format, __func__, __LINE__, ##__VA_ARGS__)
+    (void)HiLog::Error(CAST_ENGINE_LABEL, "[%{public}s:%{public}d]: " format, __func__, __LINE__, ##__VA_ARGS__)
 #define CLOGI(format, ...) \
-    (void)HiLog::Info(CAST_ENGINE_LABEL, "[%{public}s:%{public}d]: " format, __func__, __LINE__, ##__VA_ARGS__)
+    (void)HiLog::Error(CAST_ENGINE_LABEL, "[%{public}s:%{public}d]: " format, __func__, __LINE__, ##__VA_ARGS__)
 #define CLOGW(format, ...) \
-    (void)HiLog::Warn(CAST_ENGINE_LABEL, "[%{public}s:%{public}d]: " format, __func__, __LINE__, ##__VA_ARGS__)
+    (void)HiLog::Error(CAST_ENGINE_LABEL, "[%{public}s:%{public}d]: " format, __func__, __LINE__, ##__VA_ARGS__)
 #define CLOGE(format, ...) \
     (void)HiLog::Error(CAST_ENGINE_LABEL, "[%{public}s:%{public}d]: " format, __func__, __LINE__, ##__VA_ARGS__)
 
