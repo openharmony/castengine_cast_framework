@@ -44,6 +44,7 @@
                 "ace_engine",
                 "napi",
                 "graphic_2d",
+                "graphic_surface",
                 "window_manager",
                 "player_framework",
                 "image_framework",
