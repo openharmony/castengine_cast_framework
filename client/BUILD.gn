@@ -53,7 +53,7 @@ ohos_static_library("cast_client_inner") {
     "hilog:libhilog",
     "ipc:ipc_core",
     "samgr:samgr_proxy",
-    "graphic_2d:surface",
+    "graphic_surface:surface",
     "image_framework:image_native",
   ]
 
