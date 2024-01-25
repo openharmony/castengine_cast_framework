@@ -63,7 +63,7 @@ ohos_static_library("cast_session") {
     "audio_framework:audio_client",
     "device_manager:devicemanagersdk",
     "input:libmmi-client",
-    "graphic_2d:surface",
+    "graphic_surface:surface",
     "ability_runtime:app_manager",
     "image_framework:image_native",
   ]
