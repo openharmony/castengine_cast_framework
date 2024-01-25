@@ -60,7 +60,7 @@ ohos_static_library("cast_session_stream") {
   external_deps = [
     "audio_framework:audio_client",
     "c_utils:utils",
-    "graphic_2d:surface",
+    "graphic_surface:surface",
     "hilog:libhilog",
     "hisysevent:libhisysevent",
     "player_framework:media_client",
