@@ -166,7 +166,7 @@ void DiscoveryManager::StartDmDiscovery()
     UpdateDeviceState();
     scanCount++;
     std::map<std::string, std::string> discoverParam{
-        { PARAM_KEY_META_TYPE, std::to_string(MetaNodeType::PROXY_CASTPLUS) } };
+        { PARAM_KEY_META_TYPE, std::to_string(5) } };
     std::map<std::string, std::string> filterOptions{
         { PARAM_KEY_FILTER_OPTIONS, DISCOVERY_TRUST_VALUE } };
     int32_t ret = DeviceManager::GetInstance().StartDiscovering(PKG_NAME, discoverParam, filterOptions,
