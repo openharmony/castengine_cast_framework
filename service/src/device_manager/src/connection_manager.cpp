@@ -354,7 +354,7 @@ bool ConnectionManager::BindTarget(const CastInnerRemoteDevice &dev)
             DeviceManager::GetInstance().UnbindTarget(PKG_NAME, targetId, unbindParam, nullptr);
         } else {
             unbindParam.insert(
-                std::pair<std::string, std::string>(PARAM_KEY_META_TYPE, std::to_string(MetaNodeType::PROXY_CASTPLUS)));
+                std::pair<std::string, std::string>(PARAM_KEY_META_TYPE, std::to_string(5)));
             DeviceManager::GetInstance().UnbindTarget(PKG_NAME, targetId, unbindParam, nullptr);
         }
         return false;
