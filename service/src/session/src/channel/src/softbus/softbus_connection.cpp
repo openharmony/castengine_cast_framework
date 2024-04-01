@@ -216,7 +216,6 @@ std::pair<bool, std::shared_ptr<SoftBusConnection>> SoftBusConnection::GetConnec
  */
 int SoftBusConnection::OnSendFileProcess(int sessionId, uint64_t bytesUpload, uint64_t bytesTotal)
 {
-    CLOGD("OnSendFileProcess invoked bytesUpload: %llu, bytesTotal: %llu", bytesUpload, bytesTotal);
     auto ret = GetConnection(sessionId);
     if (!ret.first) {
         CLOGE("OnSendFileProcess, Get Connection Failed, sessionId = %d.", sessionId);
@@ -285,8 +284,6 @@ int SoftBusConnection::OnReceiveFileStarted(int sessionId, const char *files, in
 int SoftBusConnection::OnReceiveFileProcess(int sessionId, const char *firstFile, uint64_t bytesUpload,
     uint64_t bytesTotal)
 {
-    CLOGD("OnReceiveFileProcess invoked, firstFile is: %s, bytesUpload: %llu, bytesTotal: %llu", firstFile, bytesUpload,
-        bytesTotal);
     return RET_OK;
 }
 
