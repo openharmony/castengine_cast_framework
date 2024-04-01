@@ -202,20 +202,13 @@ struct CastLocalFileChannelServer::LocalFileInfo CastLocalFileChannelServer::Fin
 int64_t CastLocalFileChannelServer::GetFileLengthByFd(int fd)
 {
     // This lseek may cause performance issues. Record the consumption time and print.
-    auto t1 = std::chrono::steady_clock::now();
 
     off64_t fileLen = lseek64(fd, 0, SEEK_END);
     if (fileLen < 0) {
         CLOGE("file seek error, errno %{public}s", strerror(errno));
         return -1;
     }
-
-    auto t2 = std::chrono::steady_clock::now();
-    auto cost = std::chrono::duration_cast<std::chrono::milliseconds>(t2 - t1);
-
     int64_t ret = static_cast<int64_t>(fileLen);
-    CLOGI("file length %lld, time cost %{public}llu ms", fileLen, static_cast<uint64_t>(cost.count()));
-
     return ret;
 }
 
@@ -326,16 +319,12 @@ void CastLocalFileChannelServer::ResponseFileDataRequest(const std::string &uri,
 
 void CastLocalFileChannelServer::ResponseFileRequest(const std::string &uri, int64_t start, int64_t end)
 {
-    CLOGD("file: %s start: %{public}lld end: %{public}lld", uri.c_str(), start, end);
-
     if (uri.empty()) {
-        CLOGE("Invalid request, %{public}lld - %{public}lld", start, end);
         return;
     }
 
     int64_t fileLen = FindFileLengthByUri(uri);
     if (fileLen <= 0) {
-        CLOGE("Invalid file: %s, len %{public}lld", uri.c_str(), fileLen);
         return;
     }
 
