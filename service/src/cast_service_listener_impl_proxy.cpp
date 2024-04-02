@@ -50,7 +50,6 @@ bool FillCastRemoteDevices(MessageParcel &data, const std::vector<CastRemoteDevi
         return false;
     }
     if (!data.WriteInt32(static_cast<int32_t>(size))) {
-        CLOGE("Failed to write the device size:%u", size);
         return false;
     }
     for (auto &device : devices) {
