@@ -40,4 +40,11 @@ ohos_shared_library("cast_engine_client") {
 
   subsystem_name = "castplus"
   part_name = "cast_engine"
+  part_name = "cast_engine"
+  sanitize = {
+      cfi = true
+      debug = false #调试模式可置为true
+  }
+  branch_protector_ret = "pac_ret" #加入 PAC 后向 CFI 开启选项
+  stack_protector_ret = true #软件后向CFI
 }
