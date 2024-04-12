@@ -56,11 +56,10 @@ ohos_shared_library("cast") {
   relative_install_dir = "module"
   subsystem_name = "castplus"
   part_name = "cast_engine"
-  part_name = "cast_engine"
   sanitize = {
       cfi = true
-      debug = false #调试模式可置为true
+      cfi_cross_dso = true
+      debug = false
   }
-  branch_protector_ret = "pac_ret" #加入 PAC 后向 CFI 开启选项
-  stack_protector_ret = true #软件后向CFI
+  branch_protector_ret = "pac_ret"
 }
