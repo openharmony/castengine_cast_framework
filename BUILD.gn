@@ -23,8 +23,16 @@ config("cast_engine_default_config") {
     "-O2",
     "-D_FORTIFY_SOURCE=2",
     "-fvisibility=hidden",
-    "-fvisibility-inlines-hidden"
+    "-fvisibility-inlines-hidden",
+    "-flto",
+    "-fsanitize=cfi",
+    "-fsanitize-cfi-cross-dso",
   ]
   cflags_cc = cflags
-  ldflags = [ "-Werror" ]
+  ldflags = [ 
+    "-Werror",
+    "-flto",
+    "-fsanitize=cfi",
+    "-fsanitize-cfi-cross-dso",
+   ]
 }
