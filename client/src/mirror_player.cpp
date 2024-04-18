@@ -59,7 +59,6 @@ int32_t MirrorPlayer::SetSurface(const std::string &surfaceId)
 
     sptr<Surface> surface = SurfaceUtils::GetInstance()->GetSurface(surfaceUniqueId);
     if (!surface) {
-        CLOGE("surface is null, surface uniqueId %llu", surfaceUniqueId);
         return CAST_ENGINE_ERROR;
     }
     sptr<IBufferProducer> producer = surface->GetProducer();

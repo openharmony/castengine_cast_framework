@@ -143,7 +143,6 @@ void CastLocalFileChannelClient::AddDataListener(std::shared_ptr<IDataListener> 
     }
     std::lock_guard<std::mutex> lock(listenerLock_);
     dataListeners_.push_back(dataListener);
-    CLOGD("listener count %{public}u", dataListeners_.size());
 }
 
 void CastLocalFileChannelClient::RemoveDataListener(std::shared_ptr<IDataListener> dataListener)
@@ -154,7 +153,6 @@ void CastLocalFileChannelClient::RemoveDataListener(std::shared_ptr<IDataListene
     }
     std::lock_guard<std::mutex> lock(listenerLock_);
     dataListeners_.remove(dataListener);
-    CLOGD("listener count %{public}u", dataListeners_.size());
 }
 
 bool CastLocalFileChannelClient::ProcessServerResponse(const uint8_t *buffer, unsigned int length,
