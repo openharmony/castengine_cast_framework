@@ -58,7 +58,11 @@ public:
     virtual int32_t Release() = 0;
     virtual int32_t NotifyEvent(EventId eventId, std::string &jsonParam) = 0;
     virtual int32_t SetCastMode(CastMode mode, std::string &jsonParam) = 0;
-    virtual void OnSessionEvent(const std::string &deviceId, const EventCode eventCode) {}
+    virtual void OnSessionEvent(const std::string &deviceId, const ReasonCode eventCode) {}
+    virtual int32_t GetRemoteDeviceInfo(std::string deviceId, CastRemoteDevice &remoteDevice)
+    {
+        return 0;
+    }
     virtual bool AddDevice(const CastInnerRemoteDevice &remoteDevice)
     {
         return false;
@@ -73,6 +77,10 @@ public:
         return CAST_ENGINE_ERROR;
     }
     virtual void SetSessionProtocolType(ProtocolType protocolType) {}
+    virtual uint8_t GetSessionState()
+    {
+        return 0;
+    }
 
 protected:
     enum {

@@ -186,24 +186,9 @@ bool CastSessionImpl::AddDevice(const CastInnerRemoteDevice &remoteDevice)
     }
 
     WaitSinkSetProperty();
-    if (property_.protocolType == ProtocolType::HICAR || property_.protocolType == ProtocolType::SUPER_LAUNCHER) {
+    if (property_.protocolType == ProtocolType::HICAR || property_.protocolType == ProtocolType::SUPER_LAUNCHER ||
+        property_.protocolType == ProtocolType::COOPERATION) {
         OtherAddDevice(remoteDevice);
-    } else if (property_.protocolType == ProtocolType::COOPERATION ||
-        property_.protocolType == ProtocolType::COOPERATION_LEGACY) {
-        CLOGI("cooperation scene protocolType:%x", static_cast<uint32_t>(property_.protocolType));
-        auto dmDevice = ConnectionManager::GetInstance().GetDmDeviceInfo(remoteDevice.deviceId);
-        if (remoteDevice.deviceId.compare(dmDevice.deviceId) != 0) {
-            CLOGE("Failed to get DmDeviceInfo");
-            return false;
-        }
-        std::string networkId;
-        if (!ConnectionManager::GetInstance().IsDeviceTrusted(remoteDevice.deviceId, networkId)) {
-            CLOGI("Is not a trusted device");
-            return false;
-        }
-        if (!CastDeviceDataManager::GetInstance().AddDevice(remoteDevice, dmDevice)) {
-            return false;
-        }
     } else if (!CastDeviceDataManager::GetInstance().UpdateDevice(remoteDevice)) {
         return false;
     }
@@ -213,10 +198,10 @@ bool CastSessionImpl::AddDevice(const CastInnerRemoteDevice &remoteDevice)
     }
 
     if (property_.protocolType == ProtocolType::COOPERATION ||
-        property_.protocolType == ProtocolType::COOPERATION_LEGACY ||
         property_.protocolType == ProtocolType::HICAR || property_.protocolType == ProtocolType::SUPER_LAUNCHER) {
         SendCastMessage(Message(MessageId::MSG_CONNECT, remoteDevice.deviceId));
     }
+    CLOGI("AddDevice out.");
     return true;
 }
 
@@ -592,7 +577,7 @@ void CastSessionImpl::InitRtspParamInfo(std::shared_ptr<CastRemoteDeviceInfo> re
         VtpType::VTP_NOT_SUPPORT_VIDEO);
     if (property_.protocolType == ProtocolType::CAST_PLUS_MIRROR ||
         property_.protocolType == ProtocolType::CAST_PLUS_STREAM ||
-        property_.protocolType == ProtocolType::CAST_COOPERATION) {
+        property_.protocolType == ProtocolType::COOPERATION) {
         rtspParamInfo_.SetAudioProperty(property_.audioProperty);
     }
 
@@ -714,14 +699,14 @@ std::pair<int, int> CastSessionImpl::GetMediaPort(ChannelType type, int port)
     if (!IsChannelClient(type)) {
         return (property_.protocolType == ProtocolType::CAST_PLUS_MIRROR ||
             property_.protocolType == ProtocolType::CAST_PLUS_STREAM ||
-            property_.protocolType == ProtocolType::CAST_COOPERATION) ?
+            property_.protocolType == ProtocolType::COOPERATION) ?
             std::pair<int, int> { INVALID_PORT, INVALID_PORT } :
             std::pair<int, int> { INVALID_PORT, UNNEEDED_PORT };
     }
 
     if (property_.protocolType == ProtocolType::CAST_PLUS_MIRROR ||
         property_.protocolType == ProtocolType::CAST_PLUS_STREAM ||
-        property_.protocolType == ProtocolType::CAST_COOPERATION) {
+        property_.protocolType == ProtocolType::COOPERATION) {
         if (!IsVtpUsed(type)) {
             // audio port is same as video base on tcp protocol, softbus don't care about the port.
             return { port, port };
@@ -850,7 +835,7 @@ bool CastSessionImpl::ProcessError(const Message &msg)
     std::lock_guard<std::mutex> lock(mutex_);
     auto &devices = remoteDeviceList_;
     for (auto it = devices.begin(); it != devices.end();) {
-        ChangeDeviceStateLocked(DeviceState::DISCONNECTED, it->remoteDevice.deviceId);
+        ChangeDeviceStateLocked(DeviceState::DISCONNECTED, it->remoteDevice.deviceId, msg.arg1_);
         ConnectionManager::GetInstance().DisconnectDevice(it->remoteDevice.deviceId);
         devices.erase(it++);
     }
@@ -1023,13 +1008,13 @@ bool CastSessionImpl::IsAllowTransferState(SessionState desiredState) const
     return true;
 }
 
-void CastSessionImpl::ChangeDeviceState(DeviceState state, const std::string &deviceId, const EventCode eventCode)
+void CastSessionImpl::ChangeDeviceState(DeviceState state, const std::string &deviceId, int32_t eventCode)
 {
     std::lock_guard<std::mutex> lock(mutex_);
     ChangeDeviceStateLocked(state, deviceId, eventCode);
 }
 
-void CastSessionImpl::ChangeDeviceStateLocked(DeviceState state, const std::string &deviceId, const EventCode eventCode)
+void CastSessionImpl::ChangeDeviceStateLocked(DeviceState state, const std::string &deviceId, int32_t eventCode)
 {
     auto deviceInfo = FindRemoteDeviceLocked(deviceId);
     if (!deviceInfo) {
@@ -1041,7 +1026,7 @@ void CastSessionImpl::ChangeDeviceStateLocked(DeviceState state, const std::stri
         DEVICE_STATE_STRING[static_cast<int>(state)].c_str(),
         DEVICE_STATE_STRING[static_cast<int>(deviceInfo->deviceState)].c_str(),
         deviceId.c_str(),
-        static_cast<int>(eventCode));
+        static_cast<ReasonCode>(eventCode));
     if (state == deviceInfo->deviceState) {
         return;
     }
@@ -1049,11 +1034,11 @@ void CastSessionImpl::ChangeDeviceStateLocked(DeviceState state, const std::stri
     UpdateRemoteDeviceStateLocked(deviceId, state);
 
     for (const auto &[pid, listener] : listeners_) {
-        listener->OnDeviceState(DeviceStateInfo { state, deviceId, eventCode });
+        listener->OnDeviceState(DeviceStateInfo { state, deviceId, static_cast<ReasonCode>(eventCode) });
     }
 }
 
-void CastSessionImpl::ReportDeviceStateInfo(DeviceState state, const std::string &deviceId, const EventCode eventCode)
+void CastSessionImpl::ReportDeviceStateInfo(DeviceState state, const std::string &deviceId, const ReasonCode eventCode)
 {
     CLOGI("ReportDeviceStateInfo in.");
     auto deviceInfo = FindRemoteDeviceLocked(deviceId);
@@ -1066,11 +1051,11 @@ void CastSessionImpl::ReportDeviceStateInfo(DeviceState state, const std::string
     }
 }
 
-void CastSessionImpl::OnSessionEvent(const std::string &deviceId, const EventCode eventCode)
+void CastSessionImpl::OnSessionEvent(const std::string &deviceId, const ReasonCode eventCode)
 {
     std::lock_guard<std::mutex> lock(mutex_);
     CLOGD("Session event: %{public}d", static_cast<int32_t>(eventCode));
-    if (static_cast<int32_t>(eventCode) < 0 or eventCode == EventCode::EVT_CANCEL_BY_SOURCE) {
+    if (static_cast<int32_t>(eventCode) < 0 or eventCode == ReasonCode::REASON_CANCEL_BY_SOURCE) {
         ConnectionManager::GetInstance().UpdateDeviceState(deviceId, RemoteDeviceState::FOUND);
         SendCastMessage(Message(MessageId::MSG_DISCONNECT, deviceId, eventCode));
     } else {

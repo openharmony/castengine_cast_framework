@@ -32,6 +32,8 @@ Message::Message(int what, int arg1) : Message(what, arg1, 0, 0) {}
 
 Message::Message(int what, int arg1, int arg2) : Message(what, arg1, arg2, 0) {}
 
+Message::Message(int what, int arg1, int arg2, std::string strArg) : Message(what, arg1, arg2, 0, strArg) {}
+
 Message::Message(int what, int arg1, std::string strArg) : Message(what, arg1, 0, 0, strArg) {}
 
 Message::Message(int what, int arg1, int arg2, long uptimeMillis) : Message(what, arg1, arg2, uptimeMillis, "") {}
@@ -73,7 +75,6 @@ Message &Message::operator=(const Message &msg)
     this->task_ = msg.task_;
     this->ptrArg_ = msg.ptrArg_;
     this->strArg_ = msg.strArg_;
-    this->eventCode_ = msg.eventCode_;
     return *this;
 }
 
@@ -86,7 +87,6 @@ Message::Message(const Message &msg)
     this->task_ = msg.task_;
     this->ptrArg_ = msg.ptrArg_;
     this->strArg_ = msg.strArg_;
-    this->eventCode_ = msg.eventCode_;
 }
 } // namespace CastEngineService
 } // namespace CastEngine

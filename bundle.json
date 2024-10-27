@@ -26,6 +26,7 @@
                 "hilog",
                 "hisysevent",
                 "hitrace",
+                "media_foundation",
                 "access_token",
                 "audio_framework",
                 "av_codec",
@@ -35,6 +36,8 @@
                 "safwk",
                 "samgr",
                 "c_utils",
+                "eventhandler",
+                "power_manager",
                 "dsoftbus",
                 "device_manager",
                 "common_event_service",
@@ -50,7 +53,14 @@
                 "image_framework",
                 "wifi",
                 "device_auth",
-                "eventhandler"
+                "device_info_manager",
+                "thermal_manager",
+                "screenlock_mgr",
+                "state_registry",
+                "core_service",
+                "call_manager",
+                "os_account",
+                "sharing_framework"
             ],
             "third_party":[
                 "glib",

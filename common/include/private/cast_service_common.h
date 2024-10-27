@@ -35,6 +35,7 @@ struct CastInnerRemoteDevice {
     TriggerType triggerType{ TriggerType::UNSPEC_TAG };
     std::string authData;
     int sessionId{ INVALID_ID };
+    int localCastSessionId{ INVALID_ID };
     ChannelType channelType{ ChannelType::SOFT_BUS };
     uint8_t sessionKey[16] = { 0 };
     uint32_t sessionKeyLength{ 0 };
@@ -42,7 +43,11 @@ struct CastInnerRemoteDevice {
     std::string localWifiIp;
     std::string wifiIp;
     uint16_t wifiPort = 0;
+    bool isWifiFresh = false;
+    bool isBleFresh = false;
     std::string customData;
+    uint32_t capabilityInfo = 0;
+    uint32_t mediumTypes{ 0 };
     int rtspPort{ INVALID_PORT };
     ProtocolType protocolType;
     std::string udid;
@@ -50,11 +55,19 @@ struct CastInnerRemoteDevice {
     std::string localIp;
     std::string remoteIp;
     std::string networkId;
+    std::string authVersion;
+    bool isLeagacy{ false };
+    CapabilityType capability{ CapabilityType::CAST_PLUS };
+    uint32_t dlnaDeviceId{ static_cast<uint32_t>(INVALID_ID) };
+    std::vector<std::string> drmCapabilities;
+    std::string dlnaDeviceModelNameStr;
+    std::string dlnaDeviceManufacturerStr;
 
     bool operator==(const CastInnerRemoteDevice &rhs) const
     {
         return deviceId == rhs.deviceId && deviceName == rhs.deviceName && bleMac == rhs.bleMac
-               && wifiIp == rhs.wifiIp && wifiPort == rhs.wifiPort && customData == rhs.customData;
+               && wifiIp == rhs.wifiIp && wifiPort == rhs.wifiPort && customData == rhs.customData
+			   && isWifiFresh == rhs.isWifiFresh && isBleFresh == rhs.isBleFresh;
     }
 
     bool operator!=(const CastInnerRemoteDevice &rhs) const

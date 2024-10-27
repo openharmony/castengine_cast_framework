@@ -38,7 +38,7 @@ private:                                                                        
         return ERR_FLATTEN_OBJECT;                        \
     }
 
-#define RETRUEN_IF_WRONG_TASK(code, data, reply, option)                      \
+#define RETURN_IF_WRONG_TASK(code, data, reply, option)                      \
     do {                                                                      \
         RETURN_IF_WRONG_INTERFACE_TOKEN(data);                                \
         if (taskMap_.count(code) == 0) {                                      \

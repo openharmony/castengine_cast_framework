@@ -163,16 +163,16 @@ void CastSessionImpl::ConnectManagerListenerImpl::NotifySessionEvent(const std::
         return;
     }
     switch (result) {
-        case ConnectEvent::AUTH_START:
+        case ConnectStageResult::AUTHING:
             session->SendCastMessage(Message(MessageId::MSG_AUTH, deviceId));
             break;
-        case ConnectEvent::AUTH_SUCCESS:
+        case ConnectStageResult::AUTH_SUCCESS:
             session->SendCastMessage(Message(MessageId::MSG_CONNECT, deviceId));
             break;
-        case ConnectEvent::CONNECT_START:
+        case ConnectStageResult::CONNECT_START:
             session->SendCastMessage(Message(MessageId::MSG_CONNECT, deviceId));
             break;
-        case ConnectEvent::DISCONNECT_START:
+        case ConnectStageResult::DISCONNECT_START:
             session->SendCastMessage(Message(MessageId::MSG_DISCONNECT, deviceId));
             break;
         default:
@@ -394,7 +394,7 @@ bool CastSessionImpl::ChannelManagerListenerImpl::IsMediaChannelReady()
     CLOGI("protocolType %d", session->property_.protocolType);
     if (session->property_.protocolType == ProtocolType::CAST_PLUS_MIRROR ||
         session->property_.protocolType == ProtocolType::CAST_PLUS_STREAM ||
-        session->property_.protocolType == ProtocolType::CAST_COOPERATION) {
+        session->property_.protocolType == ProtocolType::COOPERATION) {
         CLOGI("mediaState %d, both %d", mediaChannelState_, VIDEO_CHANNEL_CONNECTED | AUDIO_CHANNEL_CONNECTED);
         return mediaChannelState_ == (VIDEO_CHANNEL_CONNECTED | AUDIO_CHANNEL_CONNECTED);
     }

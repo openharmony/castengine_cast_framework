@@ -80,7 +80,7 @@ std::optional<VideoProperty> ReadVideoProperty(Parcel &parcel)
     property.videoHeight = static_cast<uint32_t>(parcel.ReadInt32());
     property.fps = static_cast<uint32_t>(parcel.ReadInt32());
     auto codecType = parcel.ReadInt32();
-    property.gop = static_cast<uint32_t>(parcel.ReadInt32());
+    property.gop = parcel.ReadInt32();
     property.bitrate = static_cast<uint32_t>(parcel.ReadInt32());
     property.minBitrate = static_cast<uint32_t>(parcel.ReadInt32());
     property.maxBitrate = static_cast<uint32_t>(parcel.ReadInt32());
@@ -123,6 +123,10 @@ const AudioProperty ReadAudioProperty(Parcel &parcel)
 
 int GetLocalFd(const std::string &url)
 {
+    if (url.empty()) {
+        CLOGE("url is empty.");
+        return INVALID_VALUE;
+    }
     char *nextPtr = nullptr;
     int fd = static_cast<int>(std::strtol(url.c_str(), &nextPtr, DECIMALISM));
     if (errno == ERANGE || *nextPtr != '\0') {
@@ -242,6 +246,7 @@ std::unique_ptr<MediaInfo> ReadMediaInfo(MessageParcel &parcel)
     mediaInfo->startPosition = parcel.ReadUint32();
     mediaInfo->duration = parcel.ReadUint32();
     mediaInfo->closingCreditsPosition = parcel.ReadUint32();
+    mediaInfo->drmType = parcel.ReadString();
 
     return mediaInfo;
 }
@@ -501,6 +506,10 @@ const OHNativeXcomponentTouchPoint ReadTouchPoint(Parcel &parcel)
 
 void ReadTouchPoints(Parcel &parcel, uint32_t numPoints, OHNativeXcomponentTouchPoint points[])
 {
+    if (numPoints > OH_MAX_TOUCH_POINTS_NUMBER) {
+        CLOGE("numPoints is invalid, numPoints:%{public}d", numPoints);
+        return;
+    }
     for (uint32_t i = 0; i < numPoints; i++) {
         points[i] = ReadTouchPoint(parcel);
     }
@@ -552,8 +561,10 @@ const OHNativeXcomponentKeyEvent ReadKeyEvent(Parcel &parcel)
 void ReadContentEvent(Parcel &parcel, OHNativeXcomponentContentEvent &contentEvent)
 {
     contentEvent.msgLen = parcel.ReadUint16();
-    if (strcpy_s(contentEvent.inputText, OH_MAX_CONTENT_LEN, parcel.ReadCString()) != EOK) {
-        CLOGE("Failed copy content to array");
+    int32_t err = memcpy_s(contentEvent.inputText,
+        OH_MAX_CONTENT_LEN, parcel.ReadBuffer(contentEvent.msgLen), contentEvent.msgLen);
+    if (err != 0) {
+        CLOGE("memcpy_s inputText failed, err = %{public}d.", err);
     }
 }
 
@@ -618,7 +629,7 @@ bool WriteDeviceStateInfo(Parcel &parcel, const DeviceStateInfo &stateInfo)
 {
     return parcel.WriteInt32(static_cast<int32_t>(stateInfo.deviceState)) &&
            parcel.WriteString(stateInfo.deviceId) &&
-           parcel.WriteInt32(static_cast<int32_t>(stateInfo.eventCode));
+           parcel.WriteInt32(static_cast<int32_t>(stateInfo.reasonCode));
 }
 
 std::unique_ptr<DeviceStateInfo> ReadDeviceStateInfo(Parcel &parcel)
@@ -642,8 +653,8 @@ std::unique_ptr<DeviceStateInfo> ReadDeviceStateInfo(Parcel &parcel)
     stateInfo->deviceId = deviceId;
 
     // Parse event code
-    int32_t eventCode = parcel.ReadInt32();
-    stateInfo->eventCode = static_cast<EventCode>(eventCode);
+    int32_t reasonCode = parcel.ReadInt32();
+    stateInfo->reasonCode = static_cast<ReasonCode>(reasonCode);
 
     return stateInfo;
 }

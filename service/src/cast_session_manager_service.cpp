@@ -58,7 +58,7 @@ int OnSessionOpened(int sessionId, int result)
             CLOGE("device is empty");
             return result;
         }
-        ConnectionManager::GetInstance().NotifySessionEvent(device->deviceId, ConnectEvent::DISCONNECT_START);
+        ConnectionManager::GetInstance().NotifySessionEvent(device->deviceId, ConnectStageResult::DISCONNECT_START);
         return result;
     }
     int role = GetSessionSide(sessionId);
@@ -203,8 +203,9 @@ public:
         std::vector<CastRemoteDevice> remoteDevices;
         for (const auto &device : devices) {
             remoteDevices.push_back(CastRemoteDevice{ device.deviceId, device.deviceName, device.deviceType,
-                device.subDeviceType, device.ipAddress, device.channelType,
-                CapabilityType::CAST_PLUS, device.networkId, "", 0, nullptr});
+                device.subDeviceType, device.ipAddress, device.channelType, device.capability,
+                device.capabilityInfo, device.networkId, "", 0, nullptr, device.isLeagacy, device.sessionId,
+                device.drmCapabilities, device.mediumTypes });
         }
         service->ReportDeviceFound(remoteDevices);
     }
@@ -254,7 +255,7 @@ public:
             CLOGE("Session addDevice fail");
             return false;
         }
-        ConnectionManager::GetInstance().NotifySessionEvent(device.deviceId, ConnectEvent::CONNECT_START);
+        ConnectionManager::GetInstance().NotifySessionEvent(device.deviceId, ConnectStageResult::CONNECT_START);
         return true;
     }
 
@@ -269,7 +270,7 @@ public:
         CLOGD("OnDeviceOffline out");
     }
 
-    void OnEvent(const std::string &deviceId, EventCode currentEventCode) override
+    void OnEvent(const std::string &deviceId, ReasonCode currentEventCode) override
     {
         auto service = service_.promote();
         if (!service) {

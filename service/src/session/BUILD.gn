@@ -20,6 +20,11 @@ config("cast_session_config") {
 }
 
 ohos_static_library("cast_session") {
+  sanitize = {
+    cfi = true
+    cfi_cross_dso = true
+    debug = false
+  }
   sources = [
     "src/cast_session_impl.cpp",
     "src/cast_session_impl_stub.cpp",
@@ -56,16 +61,22 @@ ohos_static_library("cast_session") {
   ]
 
   external_deps = [
+    "bundle_framework:appexecfwk_core",
     "c_utils:utils",
     "hilog:libhilog",
     "ipc:ipc_core",
     "player_framework:media_client",
     "audio_framework:audio_client",
     "device_manager:devicemanagersdk",
+    "init:libbegetutil",
     "input:libmmi-client",
     "graphic_surface:surface",
     "ability_runtime:app_manager",
     "image_framework:image_native",
+    "wifi:wifi_sdk",
+    "power_manager:powermgr_client",
+    "state_registry:tel_state_registry_api",
+    "core_service:tel_core_service_api",
   ]
 
   subsystem_name = "castplus"

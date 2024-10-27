@@ -51,6 +51,7 @@ ohos_shared_library("cast") {
     "napi:ace_napi",
     "image_framework:image",
     "image_framework:image_native",
+    "init:libbegetutil",
   ]
 
   relative_install_dir = "module"
