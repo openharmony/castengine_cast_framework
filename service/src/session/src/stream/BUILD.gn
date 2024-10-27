@@ -27,6 +27,11 @@ config("cast_session_stream_config") {
 }
 
 ohos_static_library("cast_session_stream") {
+  sanitize = {
+    cfi = true
+    cfi_cross_dso = true
+    debug = false
+  }
   sources = [
     "src/cast_stream_manager_client.cpp",
     "src/cast_stream_manager_server.cpp",
@@ -55,6 +60,7 @@ ohos_static_library("cast_session_stream") {
     "${cast_engine_service}/src/device_manager:cast_discovery",
     "${cast_engine_service}/src/session/src/channel:cast_session_channel",
     "${cast_engine_service}/src/session/src/utils:cast_session_utils",
+    "${cast_engine_service}/src/session/src/rtsp:cast_session_rtsp",
   ]
 
   external_deps = [
@@ -63,6 +69,7 @@ ohos_static_library("cast_session_stream") {
     "graphic_surface:surface",
     "hilog:libhilog",
     "hisysevent:libhisysevent",
+    "init:libbegetutil",
     "player_framework:media_client",
     "image_framework:image_native",
   ]

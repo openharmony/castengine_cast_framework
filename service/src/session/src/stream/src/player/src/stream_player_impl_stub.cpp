@@ -39,7 +39,7 @@ int StreamPlayerImplStub::OnRemoteRequest(uint32_t code, MessageParcel &data, Me
     if (!Permission::CheckPidPermission()) {
         return ERR_UNKNOWN_TRANSACTION;
     }
-    RETRUEN_IF_WRONG_TASK(code, data, reply, option);
+    RETURN_IF_WRONG_TASK(code, data, reply, option);
     return EXECUTE_SINGLE_STUB_TASK(code, data, reply);
 }
 

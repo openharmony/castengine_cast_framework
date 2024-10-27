@@ -193,9 +193,9 @@ napi_value ConvertDeviceStateInfoToJS(napi_env env, const DeviceStateInfo &state
     NAPI_CALL(env, napi_create_string_utf8(env, stateEvent.deviceId.c_str(), NAPI_AUTO_LENGTH, &deviceId));
     NAPI_CALL(env, napi_set_named_property(env, stateEventCallback, "deviceId", deviceId));
 
-    napi_value eventCode = nullptr;
-    NAPI_CALL(env, napi_create_int32(env, static_cast<int32_t>(stateEvent.eventCode), &eventCode));
-    NAPI_CALL(env, napi_set_named_property(env, stateEventCallback, "eventCode", eventCode));
+    napi_value reasonCode = nullptr;
+    NAPI_CALL(env, napi_create_int32(env, static_cast<int32_t>(stateEvent.reasonCode), &reasonCode));
+    NAPI_CALL(env, napi_set_named_property(env, stateEventCallback, "reasonCode", reasonCode));
 
     return stateEventCallback;
 }

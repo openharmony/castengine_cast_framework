@@ -146,49 +146,34 @@ void DeviceAuthWriteWrap(const std::string& funcName, int sceneType, const std::
             {"PEER_UDID", puid}});
 }
 
-void OnBindResultFailedWriteWrap(const std::string& funcName, int32_t result, const std::string& puid)
-{
-    auto errorCode = GetErrorCode(CAST_ENGINE_SYSTEM_ID, CAST_ENGINE_CAST_PLUS_MODULE_ID,
-        static_cast<uint16_t>(result));
-    HiSysEventWriteWrap(funcName, {
-            {"BIZ_SCENE", static_cast<int32_t>(GetBIZSceneType(
-                ConnectionManager::GetInstance().GetProtocolType()))},
-            {"BIZ_STATE", static_cast<int32_t>(BIZStateType::BIZ_STATE_END)},
-            {"BIZ_STAGE", static_cast<int32_t>(BIZSceneStage::DEVICE_AUTHENTICATION)},
-            {"STAGE_RES", static_cast<int32_t>(StageResType::STAGE_RES_FAILED)},
-            {"ERROR_CODE", errorCode}}, {
-            {"TO_CALL_PKG", DEVICE_MANAGER_NAME},
-            {"LOCAL_SESS_NAME", ""},
-            {"PEER_SESS_NAME", ""},
-            {"PEER_UDID", puid}});
-}
 } // namespace
 
 /*
 * User's unusual action or other event scenarios could cause changing of STATE or RESULT which delivered
 * by DM.
 */
-const std::map<int, EventCode> CastBindTargetCallback::EVENT_CODE_MAP = {
-    // ----- ON RESULT != 0 -----
+const std::map<int32_t, int32_t> CastBindTargetCallback::RESULT_REASON_MAP = {
     // SINK peer click distrust button during 3-state authentication.
-    { ERR_DM_AUTH_PEER_REJECT, EventCode::ERR_DISTRUST_BY_SINK },
+    { ERR_DM_AUTH_PEER_REJECT, REASON_DISTRUST_BY_SINK },
     // SINK peer click cancel button during pin code inputting.
-    { ERR_DM_BIND_USER_CANCEL_PIN_CODE_DISPLAY, EventCode::ERR_CANCEL_BY_SINK },
+    { ERR_DM_BIND_USER_CANCEL_PIN_CODE_DISPLAY, REASON_CANCEL_BY_SINK },
     // SOURCE peer input wrong pin code up to 3 times
-    { ERR_DM_BIND_PIN_CODE_ERROR, EventCode::ERR_PIN_CODE_RETRY_COUNT_EXCEEDED },
+    { ERR_DM_BIND_PIN_CODE_ERROR, REASON_PIN_CODE_OVER_RETRY },
     // SOURCE peer click cancel button during pin code inputting.
-    { ERR_DM_BIND_USER_CANCEL_ERROR, EventCode::EVT_CANCEL_BY_SOURCE },
-    // SINK peer PIN code window closed.
-    { ERR_DM_TIME_OUT, EventCode::ERR_SINK_TIMEOUT },
-    // ----- ON RESULT == 0 -----
+    { ERR_DM_BIND_USER_CANCEL_ERROR, REASON_CANCEL_BY_SOURCE },
+    // User interupt binding.
+    { STOP_BIND, REASON_STOP_BIND_BY_SOURCE }
+};
+
+const std::map<int32_t, int32_t> CastBindTargetCallback::STATUS_REASON_MAP = {
     // DEFAULT event
-    { DmAuthStatus::STATUS_DM_AUTH_DEFAULT, EventCode::DEFAULT_EVENT },
+    { DmAuthStatus::STATUS_DM_AUTH_DEFAULT, REASON_DEFAULT },
     // Sink peer click trust during 3-state authentication.
-    { DmAuthStatus::STATUS_DM_SHOW_PIN_INPUT_UI, EventCode::EVT_TRUST_BY_SINK },
-    // Build connection successfully.
-    { DmAuthStatus::STATUS_DM_AUTH_FINISH, EventCode::EVT_AUTHENTICATION_COMPLETED },
+    { DmAuthStatus::STATUS_DM_SHOW_PIN_INPUT_UI, REASON_TRUST_BY_SINK },
+    // input right pin code, so close input dialog and show connecting dialog
+    { DmAuthStatus::STATUS_DM_CLOSE_PIN_INPUT_UI, REASON_BIND_COMPLETED },
     // Waiting for user to click confirm
-    { DmAuthStatus::STATUS_DM_SHOW_AUTHORIZE_UI, EventCode::EVT_SHOW_AUTHORIZE_UI }
+    { DmAuthStatus::STATUS_DM_SHOW_AUTHORIZE_UI, REASON_SHOW_TRUST_SELECT_UI }
 };
 
 ConnectionManager &ConnectionManager::GetInstance()
@@ -199,7 +184,7 @@ ConnectionManager &ConnectionManager::GetInstance()
 
 void ConnectionManager::Init(std::shared_ptr<IConnectionManagerListener> listener)
 {
-    CLOGD("ConnectionManager init start");
+    CLOGI("ConnectionManager init start");
     if (listener == nullptr) {
         CLOGE("The input listener is null!");
         return;
@@ -222,10 +207,29 @@ void ConnectionManager::Init(std::shared_ptr<IConnectionManagerListener> listene
 
 void ConnectionManager::Deinit()
 {
-    CLOGD("Deinit start");
+    CLOGI("Deinit start");
     ResetListener();
     DisableDiscoverable();
     DeviceManager::GetInstance().UnRegisterDevStateCallback(PKG_NAME);
+}
+
+bool ConnectionManager::IsDeviceTrusted(const std::string &deviceId, std::string &networkId)
+{
+    std::vector<DmDeviceInfo> trustedDevices;
+    if (DeviceManager::GetInstance().GetTrustedDeviceList(PKG_NAME, "", trustedDevices) != DM_OK) {
+        CLOGE("Fail to get TrustedDeviceList from DM.");
+        return false;
+    }
+
+    for (const auto &device : trustedDevices) {
+        if (device.deviceId == deviceId) {
+            networkId = device.networkId;
+            CLOGI("Device: %{public}s has been trusted.", device.deviceId);
+            return true;
+        }
+    }
+
+    return false;
 }
 
 DmDeviceInfo ConnectionManager::GetDmDeviceInfo(const std::string &deviceId)
@@ -243,25 +247,6 @@ DmDeviceInfo ConnectionManager::GetDmDeviceInfo(const std::string &deviceId)
     }
     CLOGW("Can't find device");
     return {};
-}
-
-bool ConnectionManager::IsDeviceTrusted(const std::string &deviceId, std::string &networkId)
-{
-    std::vector<DmDeviceInfo> trustedDevices;
-    if (DeviceManager::GetInstance().GetTrustedDeviceList(PKG_NAME, "", trustedDevices) != DM_OK) {
-        CLOGE("GetTrustedDeviceList fail");
-        return false;
-    }
-
-    for (const auto &device : trustedDevices) {
-        CLOGV("Trusted device id(%s)", device.deviceId);
-        if (device.deviceId == deviceId) {
-            networkId = device.networkId;
-            return true;
-        }
-    }
-
-    return false;
 }
 
 void ConnectionManager::SetProtocolType(int protocols)
@@ -301,21 +286,9 @@ bool ConnectionManager::ConnectDevice(const CastInnerRemoteDevice &dev)
             (void)UpdateDeviceState(deviceId, RemoteDeviceState::FOUND);
             return false;
         }
-        NotifySessionEvent(deviceId, ConnectEvent::AUTH_START);
         (void)UpdateDeviceState(deviceId, RemoteDeviceState::CONNECTED);
         return true;
     }
-    NotifySessionEvent(deviceId, ConnectEvent::AUTH_START);
-    HiSysEventWriteWrap(__func__, {
-            {"BIZ_SCENE", GetBIZSceneType(GetProtocolType())},
-            {"BIZ_STATE", static_cast<int32_t>(BIZStateType::BIZ_STATE_BEGIN)},
-            {"BIZ_STAGE", static_cast<int32_t>(BIZSceneStage::DEVICE_AUTHENTICATION)},
-            {"STAGE_RES", static_cast<int32_t>(StageResType::STAGE_RES_IDLE)},
-            {"ERROR_CODE", CAST_RADAR_SUCCESS}}, {
-            {"TO_CALL_PKG", DEVICE_MANAGER_NAME},
-            {"LOCAL_SESS_NAME", ""}, {"PEER_SESS_NAME", ""},
-            {"PEER_UDID", GetAnonymousDeviceID(dev.deviceId)}});
-
     if (!BindTarget(dev)) {
         (void)UpdateDeviceState(deviceId, RemoteDeviceState::FOUND);
         return false;
@@ -662,7 +635,8 @@ void ConnectionManager::OnConsultSessionOpened(int transportId, bool isSource)
             if (ConnectionManager::GetInstance().IsHuaweiDevice(*device)) {
                 ConnectionManager::GetInstance().QueryP2PIp(*device);
             } else {
-                ConnectionManager::GetInstance().NotifySessionEvent((*device).deviceId, ConnectEvent::AUTH_SUCCESS);
+                ConnectionManager::GetInstance().NotifySessionEvent(
+                    (*device).deviceId, ConnectStageResult::AUTH_SUCCESS);
             }
             return;
         }
@@ -915,7 +889,7 @@ bool ConnectionManager::UpdateDeviceState(const std::string &deviceId, RemoteDev
     return CastDeviceDataManager::GetInstance().SetDeviceState(deviceId, state);
 }
 
-void ConnectionManager::ReportErrorByListener(const std::string &deviceId, EventCode currentEventCode)
+void ConnectionManager::ReportErrorByListener(const std::string &deviceId, ReasonCode currentEventCode)
 {
     std::lock_guard<std::mutex> lock(mutex_);
     if (!listener_) {
@@ -975,49 +949,34 @@ void CastBindTargetCallback::OnBindResult(const PeerTargetId &targetId, int32_t 
 {
     CLOGI("OnBindResult, device id:%s, content:%s, status: %{public}d, result: %{public}d", targetId.deviceId.c_str(),
         content.c_str(), status, result);
-    json authInfo;
-    if (authInfo.accept(content)) {
-        authInfo = json::parse(content, nullptr, false);
-        int action = -1;
-        if (authInfo.contains(KEY_BIND_TARGET_ACTION) && authInfo[KEY_BIND_TARGET_ACTION].is_number()) {
-            action = authInfo[KEY_BIND_TARGET_ACTION];
-        }
-        if (result == DM_OK && status == DmAuthStatus::STATUS_DM_AUTH_FINISH && action != -1) {
-            HandleBindAction(targetId, action, authInfo);
-            if (action != ACTION_CONNECT_DEVICE) {
-                CLOGI("bindtarget action %d handle finish, return", action);
-                return;
-            }
-        }
+    auto remote = CastDeviceDataManager::GetInstance().GetDeviceByDeviceId(targetId.deviceId);
+    if (remote == std::nullopt) {
+        CLOGE("Get remote device is empty");
+        return;
     }
 
-    EventCode currentEventCode;
-    // Non-zero RESULT as FIRST consideration, and STATE secondarily.
-    if (result != 0) {
-        CastEngineDfx::WriteErrorEvent(AUTHENTICATE_DEVICE_FAIL);
-        OnBindResultFailedWriteWrap(__func__, result, GetAnonymousDeviceID(targetId.deviceId));
-        currentEventCode = EVENT_CODE_MAP.count(result) ? EVENT_CODE_MAP.at(result) : EventCode::UNKNOWN_EVENT;
-    } else {
-        if (EVENT_CODE_MAP.count(status)) {
-            currentEventCode = EVENT_CODE_MAP.at(status);
-        } else {
-            CLOGI("unknown status %d, return ", status);
-            return;
-        }
-        HiSysEventWriteWrap(__func__, {
-                {"BIZ_SCENE", static_cast<int32_t>(GetBIZSceneType(
-                    ConnectionManager::GetInstance().GetProtocolType()))},
-                {"BIZ_STATE", static_cast<int32_t>(BIZStateType::BIZ_STATE_END)},
-                {"BIZ_STAGE", static_cast<int32_t>(BIZSceneStage::DEVICE_AUTHENTICATION)},
-                {"STAGE_RES", static_cast<int32_t>(StageResType::STAGE_RES_SUCCESS)},
-                {"ERROR_CODE", CAST_RADAR_SUCCESS}}, {
-                {"TO_CALL_PKG", DEVICE_MANAGER_NAME},
-                {"LOCAL_SESS_NAME", ""},
-                {"PEER_SESS_NAME", ""},
-                {"PEER_UDID", GetAnonymousDeviceID(targetId.deviceId)}});
+    json jsonInfo{};
+    if (json::accept(content)) {
+        jsonInfo = json::parse(content, nullptr, false);
     }
-    CLOGI("EventCode: %{public}d", static_cast<int32_t>(currentEventCode));
-    ConnectionManager::GetInstance().ReportErrorByListener(targetId.deviceId, currentEventCode);
+
+    int action = -1;
+    switch (status) {
+        case DmAuthStatus::STATUS_DM_AUTH_FINISH:
+            if (jsonInfo.contains(KEY_BIND_TARGET_ACTION) && jsonInfo[KEY_BIND_TARGET_ACTION].is_number()) {
+                action = jsonInfo[KEY_BIND_TARGET_ACTION];
+            }
+            return HandleBindAction(targetId, action, jsonInfo);
+        case DmAuthStatus::STATUS_DM_SHOW_PIN_INPUT_UI:
+        case DmAuthStatus::STATUS_DM_CLOSE_PIN_INPUT_UI:
+        case DmAuthStatus::STATUS_DM_SHOW_AUTHORIZE_UI:
+            return;
+        case DmAuthStatus::STATUS_DM_AUTH_DEFAULT:
+            return;
+        default:
+            CLOGW("unknow status %{public}d", status);
+            return;
+    }
 }
 
 void CastBindTargetCallback::HandleBindAction(const PeerTargetId &targetId, int action, const json &authInfo)
@@ -1076,7 +1035,7 @@ void CastBindTargetCallback::HandleConnectDeviceAction(const PeerTargetId &targe
             }
             result = CastDeviceDataManager::GetInstance().SetDeviceSessionKey(deviceId, sessionKey);
             CLOGD("auth version 1.0, set sessionkey result is %d", result);
-            ConnectionManager::GetInstance().NotifySessionEvent(deviceId, ConnectEvent::AUTH_SUCCESS);
+            ConnectionManager::GetInstance().NotifySessionEvent(deviceId, ConnectStageResult::AUTH_SUCCESS);
         } else {
             uint8_t sessionKey[SESSION_KEY_LENGTH] = {0};
             RAND_bytes(sessionKey, SESSION_KEY_LENGTH);
@@ -1119,7 +1078,7 @@ void CastBindTargetCallback::HandleQueryIpAction(const PeerTargetId &targetId, c
         remoteIp = authInfo[KEY_REMOTE_P2P_IP];
     }
     CastDeviceDataManager::GetInstance().SetDeviceIp(targetId.deviceId, localIp, remoteIp);
-    ConnectionManager::GetInstance().NotifySessionEvent(targetId.deviceId, ConnectEvent::AUTH_SUCCESS);
+    ConnectionManager::GetInstance().NotifySessionEvent(targetId.deviceId, ConnectStageResult::AUTH_SUCCESS);
 }
 
 void CastUnBindTargetCallback::OnUnbindResult(const PeerTargetId &targetId, int32_t result, std::string content)

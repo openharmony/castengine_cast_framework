@@ -30,7 +30,7 @@ DEFINE_CAST_ENGINE_LABEL("Cast-SessionImpl");
 int CastSessionImplStub::OnRemoteRequest(uint32_t code, MessageParcel &data, MessageParcel &reply,
     MessageOption &option)
 {
-    RETRUEN_IF_WRONG_TASK(code, data, reply, option);
+    RETURN_IF_WRONG_TASK(code, data, reply, option);
     return EXECUTE_SINGLE_STUB_TASK(code, data, reply);
 }
 

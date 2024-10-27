@@ -22,6 +22,11 @@ config("cast_session_utils_config") {
 }
 
 ohos_static_library("cast_session_utils") {
+  sanitize = {
+    cfi = true
+    cfi_cross_dso = true
+    debug = false
+  }
   sources = [
     "src/encrypt_decrypt.cpp",
     "src/handler.cpp",
@@ -47,10 +52,18 @@ ohos_static_library("cast_session_utils") {
 
   external_deps = [
     "access_token:libaccesstoken_sdk",
+    "access_token:libtokensetproc_shared",
     "c_utils:utils",
     "hilog:libhilog",
+    "init:libbegetutil",
     "ipc:ipc_core",
     "wifi:wifi_sdk",
+    "os_account:os_account_innerkits",
+    "os_account:libaccountkits",
+    "power_manager:powermgr_client",
+    "state_registry:tel_state_registry_api",
+    "core_service:tel_core_service_api",
+    "call_manager:tel_call_manager_api",
   ]
 
   subsystem_name = "castplus"

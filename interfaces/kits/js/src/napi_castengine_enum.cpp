@@ -178,18 +178,26 @@ static napi_value ExportEventCode(napi_env env)
     napi_value result = nullptr;
     NAPI_CALL(env, napi_create_object(env, &result));
 
-    (void)SetNamedProperty(env, result, "UNKNOWN_EVENT", static_cast<int32_t>(EventCode::UNKNOWN_EVENT));
-    (void)SetNamedProperty(env, result, "ERR_CONNECTION_FAILED", static_cast<int32_t>(
-        EventCode::ERR_CONNECTION_FAILED));
-    (void)SetNamedProperty(env, result, "ERR_PIN_CODE_RETRY_COUNT_EXCEEDED", static_cast<int32_t>(
-        EventCode::ERR_PIN_CODE_RETRY_COUNT_EXCEEDED));
-    (void)SetNamedProperty(env, result, "ERR_CANCEL_BY_SINK", static_cast<int32_t>(EventCode::ERR_CANCEL_BY_SINK));
-    (void)SetNamedProperty(env, result, "ERR_DISTRUST_BY_SINK", static_cast<int32_t>(EventCode::ERR_DISTRUST_BY_SINK));
-    (void)SetNamedProperty(env, result, "DEFAULT_EVENT", static_cast<int32_t>(EventCode::DEFAULT_EVENT));
-    (void)SetNamedProperty(env, result, "EVT_TRUST_BY_SINK", static_cast<int32_t>(EventCode::EVT_TRUST_BY_SINK));
-    (void)SetNamedProperty(env, result, "EVT_CANCEL_BY_SOURCE", static_cast<int32_t>(EventCode::EVT_CANCEL_BY_SOURCE));
-    (void)SetNamedProperty(env, result, "EVT_AUTHENTICATION_COMPLETED",
-        static_cast<int32_t>(EventCode::EVT_AUTHENTICATION_COMPLETED));
+    (void)SetNamedProperty(env, result, "REASON_DEFAULT", static_cast<int32_t>(ReasonCode::REASON_DEFAULT));
+    (void)SetNamedProperty(env, result, "REASON_TRUST_BY_SINK", static_cast<int32_t>(ReasonCode::REASON_TRUST_BY_SINK));
+    (void)SetNamedProperty(env, result, "REASON_CANCEL_BY_SOURCE",
+                           static_cast<int32_t>(ReasonCode::REASON_CANCEL_BY_SOURCE));
+    (void)SetNamedProperty(env, result, "REASON_BIND_COMPLETED",
+                           static_cast<int32_t>(ReasonCode::REASON_BIND_COMPLETED));
+    (void)SetNamedProperty(env, result, "REASON_SHOW_TRUST_SELECT_UI",
+                           static_cast<int32_t>(ReasonCode::REASON_SHOW_TRUST_SELECT_UI));
+    (void)SetNamedProperty(env, result, "REASON_STOP_BIND_BY_SOURCE",
+                           static_cast<int32_t>(ReasonCode::REASON_STOP_BIND_BY_SOURCE));
+    (void)SetNamedProperty(env, result, "REASON_PIN_CODE_OVER_RETRY",
+                           static_cast<int32_t>(ReasonCode::REASON_PIN_CODE_OVER_RETRY));
+    (void)SetNamedProperty(env, result, "REASON_CANCEL_BY_SINK",
+                           static_cast<int32_t>(ReasonCode::REASON_CANCEL_BY_SINK));
+    (void)SetNamedProperty(env, result, "REASON_DISTRUST_BY_SINK",
+                           static_cast<int32_t>(ReasonCode::REASON_DISTRUST_BY_SINK));
+    (void)SetNamedProperty(env, result, "REASON_USER_TIMEOUT", static_cast<int32_t>(ReasonCode::REASON_USER_TIMEOUT));
+    (void)SetNamedProperty(env, result, "REASON_DEVICE_IS_BUSY",
+                           static_cast<int32_t>(ReasonCode::REASON_DEVICE_IS_BUSY));
+
     NAPI_CALL(env, napi_object_freeze(env, result));
     return result;
 }
@@ -259,10 +267,8 @@ static napi_value ExportProtocolType(napi_env env)
     (void)SetNamedProperty(env, result, "MIRACAST", static_cast<int32_t>(ProtocolType::MIRACAST));
     (void)SetNamedProperty(env, result, "DLNA", static_cast<int32_t>(ProtocolType::DLNA));
     (void)SetNamedProperty(env, result, "COOPERATION", static_cast<int32_t>(ProtocolType::COOPERATION));
-    (void)SetNamedProperty(env, result, "COOPERATION_LEGACY", static_cast<int32_t>(ProtocolType::COOPERATION_LEGACY));
     (void)SetNamedProperty(env, result, "HICAR", static_cast<int32_t>(ProtocolType::HICAR));
     (void)SetNamedProperty(env, result, "SUPER_LAUNCHER", static_cast<int32_t>(ProtocolType::SUPER_LAUNCHER));
-    (void)SetNamedProperty(env, result, "CAST_COOPERATION", static_cast<int32_t>(ProtocolType::CAST_COOPERATION));
     NAPI_CALL(env, napi_object_freeze(env, result));
     return result;
 }
@@ -339,7 +345,7 @@ napi_status InitEnums(napi_env env, napi_value exports)
         DECLARE_NAPI_PROPERTY("SubDeviceType", ExportSubDeviceType(env)),
         DECLARE_NAPI_PROPERTY("TriggerType", ExportTriggerType(env)),
         DECLARE_NAPI_PROPERTY("DeviceState", ExportDeviceState(env)),
-        DECLARE_NAPI_PROPERTY("EventCode", ExportEventCode(env)),
+        DECLARE_NAPI_PROPERTY("ReasonCode", ExportEventCode(env)),
         DECLARE_NAPI_PROPERTY("ServiceStatus", ExportServiceStatus(env)),
         DECLARE_NAPI_PROPERTY("DeviceStatusState", ExportDeviceStatusState(env)),
         DECLARE_NAPI_PROPERTY("PropertyType", ExportPropertyType(env)),

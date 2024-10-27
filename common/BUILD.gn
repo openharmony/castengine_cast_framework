@@ -18,6 +18,11 @@ config("cast_engine_common_private_config") {
 }
 
 ohos_static_library("cast_engine_common_sources") {
+  sanitize = {
+    cfi = true
+    cfi_cross_dso = true
+    debug = false
+  }
   sources = [
     "src/cast_engine_common_helper.cpp",
     "src/cast_engine_dfx.cpp",
@@ -38,11 +43,14 @@ ohos_static_library("cast_engine_common_sources") {
   ]
 
   external_deps = [
+    "access_token:libtokensetproc_shared",
     "c_utils:utils",
     "hilog:libhilog",
     "hisysevent:libhisysevent",
     "ipc:ipc_core",
     "image_framework:image_native",
+    "init:libbegetutil",
+    "eventhandler:libeventhandler",
   ]
 
   subsystem_name = "castplus"

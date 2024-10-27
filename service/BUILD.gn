@@ -48,6 +48,7 @@ ohos_shared_library("cast_engine_service") {
     "graphic_surface:surface",
     "hilog:libhilog",
     "hisysevent:libhisysevent",
+    "init:libbegetutil",
     "input:libmmi-client",
     "ipc:ipc_core",
     "player_framework:media_client",
@@ -55,6 +56,9 @@ ohos_shared_library("cast_engine_service") {
     "samgr:samgr_proxy",
     "ability_runtime:app_manager",
     "image_framework:image_native",
+    "power_manager:powermgr_client",
+    "os_account:os_account_innerkits",
+    "bundle_framework:appexecfwk_core",
   ]
 
   subsystem_name = "castplus"
