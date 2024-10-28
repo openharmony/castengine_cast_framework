@@ -49,9 +49,7 @@ ohos_static_library("cast_client_inner") {
 
   public_configs = [ ":cast_client_config" ]
 
-  deps = [
-    "${cast_engine_common}:cast_engine_common_sources",
-  ]
+  deps = [ "${cast_engine_common}:cast_engine_common_sources" ]
 
   external_deps = [
     "c_utils:utils",
