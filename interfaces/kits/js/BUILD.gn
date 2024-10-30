@@ -15,7 +15,7 @@ import("//foundation/CastEngine/castengine_cast_framework/cast_engine.gni")
 config("cast_config") {
   include_dirs = [
     "include",
-    "${cast_engine_interfaces}/inner_api:cast_interfaces_config"
+    "${cast_engine_interfaces}/inner_api:cast_interfaces_config",
   ]
 }
 
@@ -47,20 +47,20 @@ ohos_shared_library("cast") {
 
   external_deps = [
     "hilog:libhilog",
-    "ipc:ipc_core",
-    "napi:ace_napi",
     "image_framework:image",
     "image_framework:image_native",
     "init:libbegetutil",
+    "ipc:ipc_core",
+    "napi:ace_napi",
   ]
 
   relative_install_dir = "module"
   subsystem_name = "castplus"
   part_name = "cast_engine"
   sanitize = {
-      cfi = true
-      cfi_cross_dso = true
-      debug = false
+    cfi = true
+    cfi_cross_dso = true
+    debug = false
   }
   branch_protector_ret = "pac_ret"
 }
