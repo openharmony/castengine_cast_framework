@@ -16,7 +16,8 @@ import("//foundation/CastEngine/castengine_cast_framework/cast_engine.gni")
 config("cast_session_config") {
   include_dirs = [
     "include",
-    "//third_party/jsoncpp/include", ]
+    "//third_party/jsoncpp/include",
+  ]
 }
 
 ohos_static_library("cast_session") {
@@ -53,30 +54,30 @@ ohos_static_library("cast_session") {
     "${cast_engine_service}/src/session/src/utils:cast_session_utils",
     "src/channel:cast_session_channel",
     "src/mirror:cast_session_mirror",
-    "src/stream:cast_session_stream",
     "src/rtsp:cast_session_rtsp",
+    "src/stream:cast_session_stream",
     "src/utils:cast_session_utils",
-    "//third_party/openssl:libcrypto_shared",
     "//third_party/jsoncpp:jsoncpp",
+    "//third_party/openssl:libcrypto_shared",
   ]
 
   external_deps = [
+    "ability_runtime:app_manager",
+    "audio_framework:audio_client",
     "bundle_framework:appexecfwk_core",
     "c_utils:utils",
-    "hilog:libhilog",
-    "ipc:ipc_core",
-    "player_framework:media_client",
-    "audio_framework:audio_client",
+    "core_service:tel_core_service_api",
     "device_manager:devicemanagersdk",
+    "graphic_surface:surface",
+    "hilog:libhilog",
+    "image_framework:image_native",
     "init:libbegetutil",
     "input:libmmi-client",
-    "graphic_surface:surface",
-    "ability_runtime:app_manager",
-    "image_framework:image_native",
-    "wifi:wifi_sdk",
+    "ipc:ipc_core",
+    "player_framework:media_client",
     "power_manager:powermgr_client",
     "state_registry:tel_state_registry_api",
-    "core_service:tel_core_service_api",
+    "wifi:wifi_sdk",
   ]
 
   subsystem_name = "castplus"
