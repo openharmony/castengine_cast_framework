@@ -28,12 +28,12 @@ ohos_static_library("cast_session_utils") {
     debug = false
   }
   sources = [
+    "src/cast_timer.cpp",
     "src/encrypt_decrypt.cpp",
     "src/handler.cpp",
     "src/message.cpp",
     "src/permission.cpp",
     "src/state_machine.cpp",
-    "src/cast_timer.cpp",
     "src/utils.cpp",
   ]
 
@@ -46,24 +46,24 @@ ohos_static_library("cast_session_utils") {
 
   deps = [
     "${cast_engine_common}:cast_engine_common_sources",
-    "//third_party/openssl:libcrypto_shared",
     "//third_party/glib:glib_packages",
+    "//third_party/openssl:libcrypto_shared",
   ]
 
   external_deps = [
     "access_token:libaccesstoken_sdk",
     "access_token:libtokensetproc_shared",
     "c_utils:utils",
+    "call_manager:tel_call_manager_api",
+    "core_service:tel_core_service_api",
     "hilog:libhilog",
     "init:libbegetutil",
     "ipc:ipc_core",
-    "wifi:wifi_sdk",
-    "os_account:os_account_innerkits",
     "os_account:libaccountkits",
+    "os_account:os_account_innerkits",
     "power_manager:powermgr_client",
     "state_registry:tel_state_registry_api",
-    "core_service:tel_core_service_api",
-    "call_manager:tel_call_manager_api",
+    "wifi:wifi_sdk",
   ]
 
   subsystem_name = "castplus"
