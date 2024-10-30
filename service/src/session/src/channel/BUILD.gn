@@ -14,7 +14,10 @@
 import("//foundation/CastEngine/castengine_cast_framework/cast_engine.gni")
 
 config("cast_session_channel_config") {
-  include_dirs = [ "include", "src/softbus" ]
+  include_dirs = [
+    "include",
+    "src/softbus",
+  ]
   cflags = [
     "-DPDT_MIRACAST",
     "-DFILLP_SERVER_SUPPORT",
@@ -66,10 +69,10 @@ ohos_static_library("cast_session_channel") {
 
   external_deps = [
     "c_utils:utils",
+    "device_manager:devicemanagersdk",
     "dsoftbus:softbus_client",
     "hilog:libhilog",
     "hisysevent:libhisysevent",
-    "device_manager:devicemanagersdk",
     "init:libbegetutil",
   ]
 
