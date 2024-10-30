@@ -38,27 +38,27 @@ ohos_static_library("cast_discovery") {
   public_configs = [ ":cast_discovery_config" ]
 
   deps = [
-   "${cast_engine_common}:cast_engine_common_sources",
-   "${cast_engine_service}/src/session/src/utils:cast_session_utils",
-   "//third_party/openssl:libcrypto_shared",
+    "${cast_engine_common}:cast_engine_common_sources",
+    "${cast_engine_service}/src/session/src/utils:cast_session_utils",
+    "//third_party/openssl:libcrypto_shared",
   ]
 
   external_deps = [
+    "ability_base:want",
+    "ability_runtime:extension_manager",
     "c_utils:utils",
+    "common_event_service:cesfwk_innerkits",
     "device_manager:devicemanagersdk",
     "dsoftbus:softbus_client",
+    "eventhandler:libeventhandler",
+    "graphic_surface:surface",
     "hilog:libhilog",
     "hisysevent:libhisysevent",
     "init:libbegetutil",
-    "eventhandler:libeventhandler",
-    "graphic_surface:surface",
+    "power_manager:powermgr_client",
+    "screenlock_mgr:screenlock_client",
     "sharing_framework:sharingwfd_client",
     "wifi:wifi_sdk",
-    "ability_base:want",
-    "ability_runtime:extension_manager",
-    "screenlock_mgr:screenlock_client",
-    "common_event_service:cesfwk_innerkits",
-    "power_manager:powermgr_client",
   ]
 
   subsystem_name = "castplus"
