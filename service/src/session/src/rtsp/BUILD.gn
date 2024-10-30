@@ -49,10 +49,10 @@ ohos_static_library("cast_session_rtsp") {
   ]
 
   external_deps = [
-    "hilog:libhilog",
-    "ipc:ipc_core",
     "device_manager:devicemanagersdk",
+    "hilog:libhilog",
     "init:libbegetutil",
+    "ipc:ipc_core",
   ]
 
   subsystem_name = "castplus"
