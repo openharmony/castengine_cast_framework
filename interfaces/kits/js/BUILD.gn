@@ -21,23 +21,23 @@ config("cast_config") {
 
 ohos_shared_library("cast") {
   sources = [
+    "src/napi_async_work.cpp",
+    "src/napi_callback.cpp",
     "src/napi_cast_session.cpp",
     "src/napi_cast_session_listener.cpp",
     "src/napi_cast_session_manager.cpp",
     "src/napi_cast_session_manager_listener.cpp",
+    "src/napi_castengine_enum.cpp",
     "src/napi_castengine_utils.cpp",
-    "src/native_module.cpp",
     "src/napi_mirror_player.cpp",
     "src/napi_stream_player.cpp",
     "src/napi_stream_player_listener.cpp",
-    "src/napi_callback.cpp",
-    "src/napi_async_work.cpp",
-    "src/napi_castengine_enum.cpp"
+    "src/native_module.cpp",
   ]
 
   configs = [
     ":cast_config",
-    "${cast_engine_root}:cast_engine_default_config"
+    "${cast_engine_root}:cast_engine_default_config",
   ]
 
   deps = [
