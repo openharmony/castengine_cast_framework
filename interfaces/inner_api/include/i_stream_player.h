@@ -48,6 +48,7 @@ public:
     virtual void OnPlayRequest(const MediaInfo &mediaInfo) = 0;
     virtual void OnImageChanged(std::shared_ptr<Media::PixelMap> pixelMap) = 0;
     virtual void OnAlbumCoverChanged(std::shared_ptr<Media::PixelMap> pixelMap) = 0;
+    virtual void OnAvailableCapabilityChanged(const StreamCapability &streamCapability) = 0;
 };
 
 class EXPORT IStreamPlayer {
@@ -76,6 +77,7 @@ public:
     virtual int32_t SetVolume(int volume) = 0;
     virtual int32_t SetMute(bool mute) = 0;
     virtual int32_t SetLoopMode(const LoopMode mode) = 0;
+    virtual int32_t SetAvailableCapability(const StreamCapability &streamCapability) = 0;
     virtual int32_t SetSpeed(const PlaybackSpeed speed) = 0;
     virtual int32_t GetPlayerStatus(PlayerStates &playerStates) = 0;
     virtual int32_t GetPosition(int &position) = 0;
@@ -83,6 +85,7 @@ public:
     virtual int32_t GetVolume(int &volume, int &maxVolume) = 0;
     virtual int32_t GetMute(bool &mute) = 0;
     virtual int32_t GetLoopMode(LoopMode &loopMode) = 0;
+    virtual int32_t GetAvailableCapability(StreamCapability &streamCapability) = 0;
     virtual int32_t GetPlaySpeed(PlaybackSpeed &playbackSpeed) = 0;
     virtual int32_t GetMediaInfoHolder(MediaInfoHolder &mediaInfoHolder) = 0;
     virtual int32_t Release() = 0;

@@ -40,13 +40,15 @@ public:
     virtual void OnDeviceOffline(const std::string &deviceId) = 0;
     virtual void OnSessionCreated(const sptr<ICastSessionImpl> &castSession) = 0;
     virtual void OnServiceDied() = 0;
+    virtual void OnLogEvent(int32_t eventId, int64_t param) = 0;
 
 protected:
     enum {
         ON_DEVICE_FOUND = 1,
         ON_DEVICE_OFFLINE,
         ON_SESSION_CREATE,
-        ON_SERVICE_DIE
+        ON_SERVICE_DIE,
+        ON_LOG_EVENT
     };
 };
 } // namespace CastEngine

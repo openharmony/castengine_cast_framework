@@ -46,6 +46,7 @@ public:
     void OnPlayRequest(const MediaInfo &mediaInfo) override;
     void OnImageChanged(std::shared_ptr<Media::PixelMap> pixelMap) override;
     void OnAlbumCoverChanged(std::shared_ptr<Media::PixelMap> pixelMap) override;
+    void OnAvailableCapabilityChanged(const StreamCapability &streamCapability) override;
 
 private:
     static inline BrokerDelegator<StreamPlayerListenerImplProxy> delegator_;

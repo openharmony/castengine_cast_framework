@@ -463,6 +463,21 @@ int32_t RemotePlayerController::SetLoopMode(const LoopMode mode)
     return CAST_ENGINE_SUCCESS;
 }
 
+int32_t RemotePlayerController::SetAvailableCapability(const StreamCapability &streamCapability)
+{
+    CLOGI("SetAvailableCapability in");
+    std::shared_ptr<ICastStreamManagerClient> targetCallback = callback_.lock();
+    if (!targetCallback) {
+        CLOGE("ICastStreamManagerClient is null");
+        return CAST_ENGINE_ERROR;
+    }
+    if (!targetCallback->NotifyPeerSetAvailableCapability(streamCapability)) {
+        CLOGE("NotifyPeerSetAvailableCapability failed");
+        return CAST_ENGINE_ERROR;
+    }
+    return CAST_ENGINE_SUCCESS;
+}
+
 int32_t RemotePlayerController::SetSpeed(const PlaybackSpeed speed)
 {
     HiSysEventWriteWrap(__func__, {
@@ -561,6 +576,18 @@ int32_t RemotePlayerController::GetLoopMode(LoopMode &loopMode)
         return CAST_ENGINE_ERROR;
     }
     loopMode = targetCallback->GetLoopMode();
+    return CAST_ENGINE_SUCCESS;
+}
+
+int32_t RemotePlayerController::GetAvailableCapability(StreamCapability &streamCapability)
+{
+    CLOGI("GetAvailableCapability in");
+    std::shared_ptr<ICastStreamManagerClient> targetCallback = callback_.lock();
+    if (!targetCallback) {
+        CLOGE("ICastStreamManagerClient is null");
+        return CAST_ENGINE_ERROR;
+    }
+    streamCapability = targetCallback->GetAvailableCapability();
     return CAST_ENGINE_SUCCESS;
 }
 

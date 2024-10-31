@@ -52,6 +52,7 @@ private:
     int32_t DoFastRewindTask(MessageParcel &data, MessageParcel &reply);
     int32_t DoSetVolumeTask(MessageParcel &data, MessageParcel &reply);
     int32_t DoSetLoopModeTask(MessageParcel &data, MessageParcel &reply);
+    int32_t DoSetAvailableCapabilityTask(MessageParcel &data, MessageParcel &reply);
     int32_t DoSetSpeedTask(MessageParcel &data, MessageParcel &reply);
     int32_t DoGetPlayerStatusTask(MessageParcel &data, MessageParcel &reply);
     int32_t DoGetPositionTask(MessageParcel &data, MessageParcel &reply);
@@ -61,6 +62,7 @@ private:
     int32_t DoGetPlaySpeedTask(MessageParcel &data, MessageParcel &reply);
     int32_t DoSetMuteTask(MessageParcel &data, MessageParcel &reply);
     int32_t DoGetLoopModeTask(MessageParcel &data, MessageParcel &reply);
+    int32_t DoGetAvailableCapabilityTask(MessageParcel &data, MessageParcel &reply);
     int32_t DoGetMediaInfoHolderTask(MessageParcel &data, MessageParcel &reply);
     int32_t DoReleaseTask(MessageParcel &data, MessageParcel &reply);
     int32_t RegisterListener(sptr<IStreamPlayerListenerImpl> listener) override;
@@ -81,6 +83,7 @@ private:
     int32_t SetVolume(int volume) override;
     int32_t SetMute(bool mute) override;
     int32_t SetLoopMode(const LoopMode mode) override;
+    int32_t SetAvailableCapability(const StreamCapability &streamCapability) override;
     int32_t SetSpeed(const PlaybackSpeed speed) override;
     int32_t GetPlayerStatus(PlayerStates &playerStates) override;
     int32_t GetPosition(int &position) override;
@@ -88,6 +91,7 @@ private:
     int32_t GetVolume(int &volume, int &maxVolume) override;
     int32_t GetMute(bool &mute) override;
     int32_t GetLoopMode(LoopMode &loopMode) override;
+    int32_t GetAvailableCapability(StreamCapability &streamCapability) override;
     int32_t GetPlaySpeed(PlaybackSpeed &playbackSpeed) override;
     int32_t GetMediaInfoHolder(MediaInfoHolder &mediaInfoHolder) override;
     int32_t Release() override;

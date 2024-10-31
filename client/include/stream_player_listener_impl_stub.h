@@ -53,6 +53,8 @@ private:
     int32_t DoOnPlayRequestTask(MessageParcel &data, MessageParcel &reply);
     int32_t DoOnImageChangedTask(MessageParcel &data, MessageParcel &reply);
     int32_t DoOnAlbumCoverChangedTask(MessageParcel &data, MessageParcel &reply);
+    int32_t DoOnAvailableCapabilityChangedTask(MessageParcel &data, MessageParcel &reply);
+
     void OnStateChanged(const PlayerStates playbackState, bool isPlayWhenReady) override;
     void OnPositionChanged(int position, int bufferPosition, int duration) override;
     void OnMediaItemChanged(const MediaInfo &mediaInfo) override;
@@ -68,6 +70,7 @@ private:
     void OnPlayRequest(const MediaInfo &mediaInfo) override;
     void OnImageChanged(std::shared_ptr<Media::PixelMap> pixelMap) override;
     void OnAlbumCoverChanged(std::shared_ptr<Media::PixelMap> pixelMap) override;
+    void OnAvailableCapabilityChanged(const StreamCapability &streamCapability) override;
 
     std::shared_ptr<IStreamPlayerListener> userListener_;
 };

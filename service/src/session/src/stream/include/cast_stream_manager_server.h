@@ -69,6 +69,7 @@ private:
     bool ProcessActionSetVolume(const json &data);
     bool ProcessActionSetMute(const json &data);
     bool ProcessActionSetRepeatMode(const json &data);
+    bool ProcessActionSetAvailableCapability(const json &data);
     bool ProcessActionSetSpeed(const json &data);
 
     std::shared_ptr<CastStreamPlayerManager> PlayerGetter();

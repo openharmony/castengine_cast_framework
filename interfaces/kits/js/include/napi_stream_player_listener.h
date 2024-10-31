@@ -51,6 +51,7 @@ public:
         EVENT_PLAY_REQUEST,
         EVENT_IMAGE_CHANGED,
         EVENT_ALBUM_COVER_CHANGED,
+        EVENT_AVAILABLE_CAPABILITY_CHANGED,
         EVENT_TYPE_MAX
     };
 
@@ -72,6 +73,7 @@ public:
     void OnPlayRequest(const MediaInfo &mediaInfo) override;
     void OnImageChanged(std::shared_ptr<Media::PixelMap> pixelMap) override;
     void OnAlbumCoverChanged(std::shared_ptr<Media::PixelMap> pixelMap) override;
+    void OnAvailableCapabilityChanged(const StreamCapability &streamCapability) override;
 
     napi_status AddCallback(napi_env env, int32_t event, napi_value callback);
     napi_status RemoveCallback(napi_env env, int32_t event, napi_value callback);

@@ -33,13 +33,6 @@ namespace CastEngine {
 namespace CastEngineClient {
 DEFINE_CAST_ENGINE_LABEL("Cast-Client-ServiceListener");
 
-int CastServiceListenerImplStub::OnRemoteRequest(uint32_t code, MessageParcel &data, MessageParcel &reply,
-    MessageOption &option)
-{
-    RETURN_IF_WRONG_TASK(code, data, reply, option);
-    return EXECUTE_SINGLE_STUB_TASK(code, data, reply);
-}
-
 CastServiceListenerImplStub::CastServiceListenerImplStub(std::shared_ptr<ICastSessionManagerListener> userListener)
     : userListener_(userListener)
 {
@@ -47,12 +40,14 @@ CastServiceListenerImplStub::CastServiceListenerImplStub(std::shared_ptr<ICastSe
     FILL_SINGLE_STUB_TASK(ON_DEVICE_OFFLINE, &CastServiceListenerImplStub::DoDeviceOfflineTask);
     FILL_SINGLE_STUB_TASK(ON_SESSION_CREATE, &CastServiceListenerImplStub::DoSessionCreateTask);
     FILL_SINGLE_STUB_TASK(ON_SERVICE_DIE, &CastServiceListenerImplStub::DoServiceDieTask);
+    FILL_SINGLE_STUB_TASK(ON_LOG_EVENT, &CastServiceListenerImplStub::DoOnLogEventTask);
 }
 
-int32_t CastServiceListenerImplStub::DoServiceDieTask(MessageParcel &data, MessageParcel &reply)
+int CastServiceListenerImplStub::OnRemoteRequest(uint32_t code, MessageParcel &data, MessageParcel &reply,
+    MessageOption &option)
 {
-    userListener_->OnServiceDied();
-    return ERR_NONE;
+    RETURN_IF_WRONG_TASK(code, data, reply, option);
+    return EXECUTE_SINGLE_STUB_TASK(code, data, reply);
 }
 
 bool CastServiceListenerImplStub::GetCastRemoteDevices(MessageParcel &data, std::vector<CastRemoteDevice> &deviceList)
@@ -91,7 +86,7 @@ bool CastServiceListenerImplStub::GetCastSession(MessageParcel &data, std::share
 
 int32_t CastServiceListenerImplStub::DoDeviceFoundTask(MessageParcel &data, MessageParcel &reply)
 {
-    CLOGI("DoOnDeviceStatusTask in");
+    CLOGI("%{public}s in", __func__);
     std::vector<CastRemoteDevice> remoteDevices;
     if (!GetCastRemoteDevices(data, remoteDevices)) {
         CLOGE("DoDeviceFoundTask, failed get remote devices info");
@@ -102,12 +97,24 @@ int32_t CastServiceListenerImplStub::DoDeviceFoundTask(MessageParcel &data, Mess
     return ERR_NONE;
 }
 
+int32_t CastServiceListenerImplStub::DoDeviceOfflineTask(MessageParcel &data, MessageParcel &reply)
+{
+    CLOGI("%{public}s in", __func__);
+    std::string deviceId = data.ReadString();
+    if (deviceId.empty()) {
+        CLOGE("%{public}s, failed get deviceId", __func__);
+        return ERR_INVALID_DATA;
+    }
+    userListener_->OnDeviceOffline(deviceId);
+    return ERR_NONE;
+}
+
 int32_t CastServiceListenerImplStub::DoSessionCreateTask(MessageParcel &data, MessageParcel &reply)
 {
-    CLOGI("DoSessionCreateTask in");
+    CLOGI("%{public}s in", __func__);
     std::shared_ptr<ICastSession> castSession;
     if (!GetCastSession(data, castSession)) {
-        CLOGE("DoSessionCreateTask, failed get cast session info");
+        CLOGE("%{public}s, failed get cast session info", __func__);
         return ERR_INVALID_DATA;
     }
     userListener_->OnSessionCreated(castSession);
@@ -115,21 +122,29 @@ int32_t CastServiceListenerImplStub::DoSessionCreateTask(MessageParcel &data, Me
     return ERR_NONE;
 }
 
-int32_t CastServiceListenerImplStub::DoDeviceOfflineTask(MessageParcel &data, MessageParcel &reply)
+int32_t CastServiceListenerImplStub::DoServiceDieTask(MessageParcel &data, MessageParcel &reply)
 {
-    CLOGI("DoDeviceOfflineTask in");
-    std::string deviceId = data.ReadString();
-    if (deviceId.empty()) {
-        CLOGE("DoDeviceOfflineTask, failed get deviceId");
-        return ERR_INVALID_DATA;
-    }
-    userListener_->OnDeviceOffline(deviceId);
+    userListener_->OnServiceDied();
+    return ERR_NONE;
+}
+
+int32_t CastServiceListenerImplStub::DoOnLogEventTask(MessageParcel &data, MessageParcel &reply)
+{
+    CLOGI("%{public}s in", __func__);
+    int32_t eventId = data.ReadInt32();
+    int64_t param = data.ReadInt64();
+    userListener_->OnLogEvent(eventId, param);
     return ERR_NONE;
 }
 
 void CastServiceListenerImplStub::OnDeviceFound(const std::vector<CastRemoteDevice> &deviceList)
 {
     static_cast<void>(deviceList);
+}
+
+void CastServiceListenerImplStub::OnDeviceOffline(const std::string &deviceId)
+{
+    static_cast<void>(deviceId);
 }
 
 void CastServiceListenerImplStub::OnSessionCreated(const sptr<ICastSessionImpl> &castSession)
@@ -139,9 +154,10 @@ void CastServiceListenerImplStub::OnSessionCreated(const sptr<ICastSessionImpl> 
 
 void CastServiceListenerImplStub::OnServiceDied() {}
 
-void CastServiceListenerImplStub::OnDeviceOffline(const std::string &deviceId)
+void CastServiceListenerImplStub::OnLogEvent(int32_t eventId, int64_t param)
 {
-    static_cast<void>(deviceId);
+    static_cast<void>(eventId);
+    static_cast<void>(param);
 }
 } // namespace CastEngineClient
 } // namespace CastEngine

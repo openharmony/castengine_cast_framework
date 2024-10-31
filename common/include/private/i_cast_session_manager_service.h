@@ -44,9 +44,10 @@ public:
     virtual int32_t SetLocalDevice(const CastLocalDevice &localDevice) = 0;
     virtual int32_t CreateCastSession(const CastSessionProperty &property, sptr<ICastSessionImpl> &castSession) = 0;
     virtual int32_t SetSinkSessionCapacity(int sessionCapacity) = 0;
-    virtual int32_t StartDiscovery(int protocols) = 0;
+    virtual int32_t StartDiscovery(int protocols, std::vector<std::string> drmSchemes) = 0;
     virtual int32_t SetDiscoverable(bool enable) = 0;
     virtual int32_t StopDiscovery() = 0;
+    virtual int32_t StartDeviceLogging(int32_t fd, uint32_t maxSize) = 0;
     virtual int32_t GetCastSession(std::string sessionId, sptr<ICastSessionImpl> &castSession) = 0;
 
 protected:
@@ -60,6 +61,7 @@ protected:
         START_DISCOVERY,
         SET_DISCOVERABLE,
         STOP_DISCOVERY,
+        START_DEVICE_LOGGING,
         GET_CAST_SESSION
     };
 };

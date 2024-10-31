@@ -252,6 +252,18 @@ bool CastStreamManagerClient::NotifyPeerSetRepeatMode(int mode)
     return SendControlAction(ACTION_SET_REPEAT_MODE, body);
 }
 
+bool CastStreamManagerClient::NotifyPeerSetAvailableCapability(const StreamCapability &streamCapability)
+{
+    CLOGD("NotifyPeerSetAvailableCapability in");
+    {
+        std::lock_guard<std::mutex> lock(eventMutex_);
+        availableCapability_ = streamCapability;
+    }
+    json body;
+    EncapStreamCapability(streamCapability, body);
+    return SendControlAction(ACTION_SET_AVAILABLE_CAPABILITY, body);
+}
+
 bool CastStreamManagerClient::NotifyPeerSetSpeed(int speed)
 {
     CLOGD("NotifyPeerSetSpeed in");
@@ -308,6 +320,13 @@ LoopMode CastStreamManagerClient::GetLoopMode()
     CLOGD("GetLoopMode in");
     std::lock_guard<std::mutex> lock(eventMutex_);
     return currentMode_;
+}
+
+StreamCapability CastStreamManagerClient::GetAvailableCapability()
+{
+    CLOGD("GetAvailableCapability in");
+    std::lock_guard<std::mutex> lock(eventMutex_);
+    return availableCapability_;
 }
 
 PlaybackSpeed CastStreamManagerClient::GetPlaySpeed()

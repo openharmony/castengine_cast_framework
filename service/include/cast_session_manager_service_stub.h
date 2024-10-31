@@ -44,6 +44,7 @@ private:
     int32_t DoStartDiscoveryTask(MessageParcel &data, MessageParcel &reply);
     int32_t DoSetDiscoverableTask(MessageParcel &data, MessageParcel &reply);
     int32_t DoStopDiscoveryTask(MessageParcel &data, MessageParcel &reply);
+    int32_t DoStartDeviceLoggingTask(MessageParcel &data, MessageParcel &reply);
     int32_t DoGetCastSessionTask(MessageParcel &data, MessageParcel &reply);
 };
 } // namespace CastEngineService

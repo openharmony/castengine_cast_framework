@@ -123,6 +123,27 @@ void CastServiceListenerImplProxy::OnDeviceOffline(const std::string &deviceId)
     CLOGD("send request");
     Remote()->SendRequest(ON_DEVICE_OFFLINE, data, reply, option);
 }
+void CastServiceListenerImplProxy::OnLogEvent(int32_t eventId, int64_t param)
+{
+    MessageParcel data, reply;
+    MessageOption option;
+    CLOGD("OnLogEvent in");
+
+    if (!data.WriteInterfaceToken(GetDescriptor())) {
+        CLOGE("Failed to write the interface token");
+        return;
+    }
+    if (!data.WriteInt32(eventId)) {
+        CLOGE("Failed to write the eventId:%d", eventId);
+        return;
+    }
+    if (!data.WriteInt64(param)) {
+        CLOGE("Failed to write the param:%lld", param);
+        return;
+    }
+    CLOGD("send request");
+    Remote()->SendRequest(ON_LOG_EVENT, data, reply, option);
+}
 } // namespace CastEngineService
 } // namespace CastEngine
 } // namespace OHOS

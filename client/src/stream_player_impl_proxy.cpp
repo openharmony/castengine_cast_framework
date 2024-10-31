@@ -341,7 +341,7 @@ int32_t StreamPlayerImplProxy::SetVolume(int volume)
         return CAST_ENGINE_ERROR;
     }
     if (!data.WriteInt32(volume)) {
-        CLOGE("Failed to write the position");
+        CLOGE("Failed to write the volume");
         return CAST_ENGINE_ERROR;
     }
     if (Remote()->SendRequest(SET_VOLUME, data, reply, option) != ERR_NONE) {
@@ -385,11 +385,33 @@ int32_t StreamPlayerImplProxy::SetLoopMode(const LoopMode mode)
         return CAST_ENGINE_ERROR;
     }
     if (!data.WriteInt32(static_cast<int32_t>(mode))) {
-        CLOGE("Failed to write the position");
+        CLOGE("Failed to write the mode");
         return CAST_ENGINE_ERROR;
     }
     if (Remote()->SendRequest(SET_LOOP_MODE, data, reply, option) != ERR_NONE) {
         CLOGE("Failed to send ipc request when set volume");
+        return CAST_ENGINE_ERROR;
+    }
+
+    return reply.ReadInt32();
+}
+
+int32_t StreamPlayerImplProxy::SetAvailableCapability(const StreamCapability &streamCapability)
+{
+    MessageParcel data;
+    MessageParcel reply;
+    MessageOption option;
+
+    if (!data.WriteInterfaceToken(GetDescriptor())) {
+        CLOGE("Failed to write the interface token");
+        return CAST_ENGINE_ERROR;
+    }
+    if (!WriteStreamCapability(data, streamCapability)) {
+        CLOGE("Failed to write the modeScope");
+        return CAST_ENGINE_ERROR;
+    }
+    if (Remote()->SendRequest(SET_AVAILABLE_CAPABILITY, data, reply, option) != ERR_NONE) {
+        CLOGE("Failed to send ipc request when set available capability");
         return CAST_ENGINE_ERROR;
     }
 
@@ -553,6 +575,28 @@ int32_t StreamPlayerImplProxy::GetLoopMode(LoopMode &loopMode)
     return errorCode;
 }
 
+int32_t StreamPlayerImplProxy::GetAvailableCapability(StreamCapability &streamCapability)
+{
+    MessageParcel data;
+    MessageParcel reply;
+    MessageOption option;
+
+    if (!data.WriteInterfaceToken(GetDescriptor())) {
+        CLOGE("Failed to write the interface token");
+        return CAST_ENGINE_ERROR;
+    }
+    if (Remote()->SendRequest(GET_AVAILABLE_CAPABILITY, data, reply, option) != ERR_NONE) {
+        CLOGE("Failed to send ipc request when get available capability");
+        return CAST_ENGINE_ERROR;
+    }
+
+    int32_t errorCode = reply.ReadInt32();
+    CHECK_AND_RETURN_RET_LOG(errorCode != CAST_ENGINE_SUCCESS, errorCode, "CastEngine Errors");
+    streamCapability = ReadStreamCapability(reply);
+
+    return errorCode;
+}
+
 int32_t StreamPlayerImplProxy::GetPlaySpeed(PlaybackSpeed &playbackSpeed)
 {
     MessageParcel data;
@@ -611,11 +655,11 @@ int32_t StreamPlayerImplProxy::Release()
 
     if (!data.WriteInterfaceToken(GetDescriptor())) {
         CLOGE("Failed to write the interface token");
-        return false;
+        return CAST_ENGINE_ERROR;
     }
     if (Remote()->SendRequest(RELEASE, data, reply, option) != ERR_NONE) {
         CLOGE("Failed to send ipc request when Releasing stream player");
-        return false;
+        return CAST_ENGINE_ERROR;
     }
 
     return reply.ReadInt32();
