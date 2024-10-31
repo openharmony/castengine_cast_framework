@@ -333,6 +333,26 @@ void StreamPlayerListenerImplProxy::OnAlbumCoverChanged(std::shared_ptr<Media::P
         CLOGE("Failed to send ipc request when reporting album cover changed");
     }
 }
+
+void StreamPlayerListenerImplProxy::OnAvailableCapabilityChanged(const StreamCapability &streamCapability)
+{
+    MessageParcel data;
+    MessageParcel reply;
+    MessageOption option;
+
+    if (!data.WriteInterfaceToken(GetDescriptor())) {
+        CLOGE("Failed to write the interface token");
+        return;
+    }
+    if (!WriteStreamCapability(data, streamCapability)) {
+        CLOGE("Failed to write the streamCapability");
+        return;
+    }
+    if (Remote()->SendRequest(ON_AVAILABLE_CAPABILITY_CHANGED, data, reply, option) != ERR_NONE) {
+        CLOGE("Failed to send ipc request when reporting streamCapability");
+        return;
+    }
+}
 } // namespace CastEngineService
 } // namespace CastEngine
 } // namespace OHOS

@@ -41,12 +41,17 @@ public:
         sptr<IRemoteObject::DeathRecipient> deathRecipient) override;
     int32_t UnregisterListener() override;
     int32_t Release() override;
-    int32_t SetLocalDevice(const CastLocalDevice &localDevice) override;
-    int32_t CreateCastSession(const CastSessionProperty &property, std::shared_ptr<ICastSession> &castSession) override;
-    int32_t SetSinkSessionCapacity(int sessionCapacity) override;
-    int32_t StartDiscovery(int protocols) override;
-    int32_t SetDiscoverable(bool enable) override;
+
+    int32_t StartDeviceLogging(int32_t fd, uint32_t maxSize) override;
+    int32_t StartDiscovery(int protocols, std::vector<std::string> drmSchemes) override;
     int32_t StopDiscovery() override;
+
+    int32_t CreateCastSession(const CastSessionProperty &property, std::shared_ptr<ICastSession> &castSession) override;
+
+    int32_t SetLocalDevice(const CastLocalDevice &localDevice) override;
+    int32_t SetSinkSessionCapacity(int sessionCapacity) override;
+    int32_t SetDiscoverable(bool enable) override;
+
     int32_t GetCastSession(std::string sessionId, std::shared_ptr<ICastSession> &castSession) override;
 
 private:

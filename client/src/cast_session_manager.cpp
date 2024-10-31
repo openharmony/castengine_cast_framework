@@ -20,11 +20,8 @@
 
 #include "cast_session_manager.h"
 
-#include <thread>
-
 #include "cast_engine_errors.h"
 #include "cast_engine_log.h"
-#include "cast_engine_service_load_callback.h"
 #include "cast_session_manager_adaptor.h"
 #include "cast_session_manager_service_proxy.h"
 #include "i_cast_session.h"
@@ -36,6 +33,9 @@ namespace OHOS {
 namespace CastEngine {
 namespace CastEngineClient {
 DEFINE_CAST_ENGINE_LABEL("Cast-Client-SessionManager");
+namespace {
+constexpr int WAIT_SERVICE_LOAD_TIME_OUT_SECOND = 2;
+}
 
 CastSessionManager::CastSessionManager()
 {
@@ -51,7 +51,7 @@ CastSessionManager &CastSessionManager::GetInstance()
 std::shared_ptr<ICastSessionManagerAdaptor> CastSessionManager::GetAdaptor()
 {
     CLOGI("in");
-    std::lock_guard<std::mutex> lock(mutex_);
+    std::unique_lock<std::mutex> lock(mutex_);
     if (adaptor_) {
         return adaptor_;
     }
@@ -66,29 +66,27 @@ std::shared_ptr<ICastSessionManagerAdaptor> CastSessionManager::GetAdaptor()
         CLOGE("Failed to new object");
         return nullptr;
     }
-
-    auto result = samgr->LoadSystemAbility(CAST_ENGINE_SA_ID, loadCallback);
-    if (result != ERR_OK) {
-        CLOGE("systemAbilityId: %d load failed, result code: %d", CAST_ENGINE_SA_ID, result);
-        return nullptr;
-    }
-
-    constexpr int32_t sleepTimeMs = 30;
-    constexpr int32_t retryTimes = 150; // The service startup timeout interval is 4s.
-    int32_t retryTime = 0;
-
-    sptr<IRemoteObject> object;
-    while ((object = samgr->CheckSystemAbility(CAST_ENGINE_SA_ID)) == nullptr && (retryTime < retryTimes)) {
-        std::this_thread::sleep_for(std::chrono::milliseconds(sleepTimeMs));
+    constexpr int32_t retryTimes = 5;
+    int retryTime = 0;
+    bool ret = false;
+    isNeedLoadService_ = true;
+    while (!ret && retryTime < retryTimes) {
         retryTime++;
+        if (isNeedLoadService_) {
+            auto result = samgr->LoadSystemAbility(CAST_ENGINE_SA_ID, loadCallback);
+            if (result != ERR_OK) {
+                CLOGE("systemAbilityId: %d load failed, result code: %d", CAST_ENGINE_SA_ID, result);
+                return nullptr;
+            }
+            isNeedLoadService_ = false;
+        }
+        ret = loadServiceCond_.wait_for(lock, std::chrono::seconds(WAIT_SERVICE_LOAD_TIME_OUT_SECOND),
+            [this] { return (adaptor_ != nullptr); });
     }
-    if (object == nullptr) {
-        CLOGE("Failed to get cast engine manager");
+    if (!ret) {
+        CLOGE("wait service loaded timeout");
         return nullptr;
     }
-
-    auto proxy = iface_cast<CastSessionManagerServiceProxy>(object);
-    adaptor_ = std::make_shared<CastSessionManagerAdaptor>(proxy);
     return adaptor_;
 }
 
@@ -99,21 +97,37 @@ int32_t CastSessionManager::RegisterListener(std::shared_ptr<ICastSessionManager
         CLOGE("Failed to init due to the null listener");
         return CAST_ENGINE_ERROR;
     }
-    auto adaptor = GetAdaptor();
-    if (!adaptor) {
-        return CAST_ENGINE_ERROR;
-    }
-    sptr<CastEngineServiceDeathRecipient> deathRecipient(
-        new (std::nothrow) CastEngineServiceDeathRecipient(listener));
-    if (!deathRecipient) {
-        CLOGE("Death recipient malloc failed");
-        return CAST_ENGINE_ERROR;
-    }
-    if (adaptor->RegisterListener(listener, deathRecipient) == CAST_ENGINE_SUCCESS) {
-        std::lock_guard<std::mutex> lock(mutex_);
-        deathRecipient_ = deathRecipient;
-        return CAST_ENGINE_SUCCESS;
-    }
+    constexpr int32_t sleepTimeMs = 200;
+    constexpr int32_t retryTimes = 1;
+    int retryTime = 0;
+    bool retry = false;
+    do {
+        retry = false;
+        auto adaptor = GetAdaptor();
+        if (!adaptor) {
+            return CAST_ENGINE_ERROR;
+        }
+        sptr<CastEngineServiceDeathRecipient> deathRecipient(
+            new (std::nothrow) CastEngineServiceDeathRecipient(listener));
+        if (!deathRecipient) {
+            CLOGE("Death recipient malloc failed");
+            return CAST_ENGINE_ERROR;
+        }
+        int32_t ret = adaptor->RegisterListener(listener, deathRecipient);
+        if (ret == CAST_ENGINE_SUCCESS) {
+            std::lock_guard<std::mutex> lock(mutex_);
+            deathRecipient_ = deathRecipient;
+            return CAST_ENGINE_SUCCESS;
+        }
+        if (ret == ERR_SERVICE_IS_UNLOADING && retryTime < retryTimes) {
+            CLOGI("cast service is unloading, wait and retry angain");
+            std::this_thread::sleep_for(std::chrono::milliseconds(sleepTimeMs));
+            retry = true;
+            retryTime++;
+            std::lock_guard<std::mutex> lock(mutex_);
+            adaptor_ = nullptr;
+        }
+    } while (retry);
     return CAST_ENGINE_ERROR;
 }
 
@@ -165,11 +179,11 @@ int32_t CastSessionManager::SetSinkSessionCapacity(int sessionCapacity)
     return adaptor ? adaptor->SetSinkSessionCapacity(sessionCapacity) : CAST_ENGINE_ERROR;
 }
 
-int32_t CastSessionManager::StartDiscovery(int protocols)
+int32_t CastSessionManager::StartDiscovery(int protocols, std::vector<std::string> drmSchemes)
 {
     CLOGD("in");
     auto adaptor = GetAdaptor();
-    return adaptor ? adaptor->StartDiscovery(protocols) : CAST_ENGINE_ERROR;
+    return adaptor ? adaptor->StartDiscovery(protocols, drmSchemes) : CAST_ENGINE_ERROR;
 }
 
 int32_t CastSessionManager::SetDiscoverable(bool enable)
@@ -186,6 +200,13 @@ int32_t CastSessionManager::StopDiscovery()
     return adaptor ? adaptor->StopDiscovery() : CAST_ENGINE_ERROR;
 }
 
+int32_t CastSessionManager::StartDeviceLogging(int32_t fd, uint32_t maxSize)
+{
+    CLOGI("in");
+    auto adaptor = GetAdaptor();
+    return adaptor ? adaptor->StartDeviceLogging(fd, maxSize) : CAST_ENGINE_ERROR;
+}
+
 int32_t CastSessionManager::GetCastSession(std::string sessionId, std::shared_ptr<ICastSession> &castSession)
 {
     CLOGI("in");
@@ -196,9 +217,9 @@ int32_t CastSessionManager::GetCastSession(std::string sessionId, std::shared_pt
 void CastSessionManager::ReleaseClientResources()
 {
     CLOGD("Release client resources");
-    std::lock_guard<std::mutex> lock(mutex_);
     std::shared_ptr<ICastSessionManagerListener> listener;
     {
+        std::lock_guard<std::mutex> lock(mutex_);
         if (!!deathRecipient_) {
             listener = deathRecipient_->GetListener();
         }

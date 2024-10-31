@@ -45,6 +45,8 @@ CastStreamManagerServer::CastStreamManagerServer(std::shared_ptr<ICastStreamList
         { ACTION_FAST_REWIND, [this](const json &data) { return ProcessActionFastRewind(data); } },
         { ACTION_SET_VOLUME, [this](const json &data) { return ProcessActionSetVolume(data); } },
         { ACTION_SET_REPEAT_MODE, [this](const json &data) { return ProcessActionSetRepeatMode(data); } },
+        { ACTION_SET_AVAILABLE_CAPABILITY,
+        [this](const json &data) { return ProcessActionSetAvailableCapability(data); } },
         { ACTION_SET_SPEED, [this](const json &data) { return ProcessActionSetSpeed(data); } }
     };
     streamListener_ = listener;
@@ -411,6 +413,21 @@ bool CastStreamManagerServer::ProcessActionSetRepeatMode(const json &data)
     RETURN_FALSE_IF_PARSE_NUMBER_WRONG(mode, data, KEY_MODE);
     CLOGI("mode:%{public}d", mode);
     return player->SetLoopMode(static_cast<LoopMode>(mode));
+}
+
+bool CastStreamManagerServer::ProcessActionSetAvailableCapability(const json &data)
+{
+    auto player = PlayerGetter();
+    if (!player) {
+        CLOGE("player is nullptr");
+        return false;
+    }
+    StreamCapability streamCapability{};
+    if (!ParseStreamCapability(data, streamCapability)) {
+        CLOGE("ParseStreamCapability failed");
+        return false;
+    }
+    return player->InnerSetAvailableCapability(streamCapability);
 }
 
 bool CastStreamManagerServer::ProcessActionSetSpeed(const json &data)

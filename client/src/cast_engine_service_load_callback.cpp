@@ -19,14 +19,14 @@
 #include "cast_engine_log.h"
 #include "cast_engine_common.h"
 #include "system_ability_definition.h"
-#include "cast_engine_service_load_callback.h"
+#include "cast_session_manager.h"
 
 namespace OHOS {
 namespace CastEngine {
 namespace CastEngineClient {
 DEFINE_CAST_ENGINE_LABEL("Cast-Client-LoadServiceCallback");
 
-void CastEngineServiceLoadCallback::OnLoadSystemAbilitySuccess(int32_t systemAbilityId,
+void CastSessionManager::CastEngineServiceLoadCallback::OnLoadSystemAbilitySuccess(int32_t systemAbilityId,
     const sptr<IRemoteObject> &remoteObject)
 {
     CLOGI("In systemAbilityId: %d", systemAbilityId);
@@ -40,11 +40,11 @@ void CastEngineServiceLoadCallback::OnLoadSystemAbilitySuccess(int32_t systemAbi
     }
 }
 
-void CastEngineServiceLoadCallback::OnLoadSystemAbilityFail(int32_t systemAbilityId)
+void CastSessionManager::CastEngineServiceLoadCallback::OnLoadSystemAbilityFail(int32_t systemAbilityId)
 {
     CLOGI("In systemAbilityId: %d.", systemAbilityId);
     if (systemAbilityId != CAST_ENGINE_SA_ID) {
-        CLOGE("Start aystemabilityId is not sinkSAId!");
+        CLOGE("Start systemAbilityId is not sinkSAId!");
         return;
     }
 }

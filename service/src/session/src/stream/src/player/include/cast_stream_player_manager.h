@@ -54,6 +54,8 @@ public:
     int32_t SetVolume(int volume) override;
     int32_t SetMute(bool mute) override;
     int32_t SetLoopMode(const LoopMode mode) override;
+    int32_t SetAvailableCapability(const StreamCapability &streamCapability) override;
+    int32_t InnerSetAvailableCapability(const StreamCapability &streamCapability);
     int32_t SetSpeed(const PlaybackSpeed speed) override;
     int32_t GetPlayerStatus(PlayerStates &playerStates) override;
     int32_t GetPosition(int &position) override;
@@ -61,6 +63,7 @@ public:
     int32_t GetVolume(int &volume, int &maxVolume) override;
     int32_t GetMute(bool &mute) override;
     int32_t GetLoopMode(LoopMode &loopMode) override;
+    int32_t GetAvailableCapability(StreamCapability &streamCapability) override;
     int32_t GetPlaySpeed(PlaybackSpeed &playbackSpeed) override;
     int32_t GetMediaInfoHolder(MediaInfoHolder &mediaInfoHolder) override;
     int32_t Release() override;
@@ -80,7 +83,27 @@ private:
     std::atomic<bool> isReceivePlayCommand_{ false };
     std::atomic<bool> isReady_{ false };
     sptr<Surface> surface_;
+    StreamCapability availableCapability_{};
+    enum StreamActionId {
+        INIT,
+        LOAD,
+        PLAY,
+        PAUSE,
+        NEXT,
+        PREVIOUS,
+        SEEK,
+        FASTFORWARD,
+        FASTREWIND,
+        SET_VOLUME,
+        SET_MUTE,
+        SET_LOOP_MODE,
+    };
 };
+
+#define MOCK_TEST_PLAYER_ERROR(action) \
+    if (MockPlayerError(action)) {  \
+        return CAST_ENGINE_ERROR;   \
+    }
 } // namespace CastEngineService
 } // namespace CastEngine
 } // namespace OHOS

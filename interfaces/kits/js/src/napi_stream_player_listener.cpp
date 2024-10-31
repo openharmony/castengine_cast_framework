@@ -133,6 +133,11 @@ void NapiStreamPlayerListener::OnLoopModeChanged(const LoopMode loopMode)
     CLOGD("OnLoopModeChanged finish");
 }
 
+void NapiStreamPlayerListener::OnAvailableCapabilityChanged(const StreamCapability &streamCapability)
+{
+    CLOGD("OnAvailableCapabilityChanged finish");
+}
+
 void NapiStreamPlayerListener::OnPlaySpeedChanged(const PlaybackSpeed speed)
 {
     CLOGD("OnPlaySpeedChanged start");

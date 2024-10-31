@@ -59,7 +59,7 @@ int32_t CastSessionManagerServiceProxy::UnregisterListener()
         return CAST_ENGINE_ERROR;
     }
     int32_t ret = Remote()->SendRequest(UNREGISTER_LISTENER, data, reply, option);
-    if (ret == ERR_UNKNOWN_TRANSACTION) {
+    if (ret == ERR_NO_PERMISSION) {
         CLOGE("No permission when unregistering listener");
         return ERR_NO_PERMISSION;
     } else if (ret != ERR_NONE) {
@@ -81,41 +81,11 @@ int32_t CastSessionManagerServiceProxy::Release()
         return CAST_ENGINE_ERROR;
     }
     int32_t ret = Remote()->SendRequest(RELEASE, data, reply, option);
-    if (ret == ERR_UNKNOWN_TRANSACTION) {
+    if (ret == ERR_NO_PERMISSION) {
         CLOGE("No permission when Releasing the cast service");
         return ERR_NO_PERMISSION;
     } else if (ret != ERR_NONE) {
         CLOGE("Failed to send ipc request when Releasing the cast service");
-        return CAST_ENGINE_ERROR;
-    }
-
-    return reply.ReadInt32();
-}
-
-int32_t CastSessionManagerServiceProxy::SetLocalDevice(const CastLocalDevice &localDevice)
-{
-    MessageParcel data;
-    MessageParcel reply;
-    MessageOption option;
-
-    if (!data.WriteInterfaceToken(GetDescriptor())) {
-        CLOGE("Failed to write the interface token");
-        return CAST_ENGINE_ERROR;
-    }
-    if (!WriteCastLocalDevice(data, localDevice)) {
-        CLOGE("Failed to write cast local device");
-        return CAST_ENGINE_ERROR;
-    }
-
-    int32_t ret = Remote()->SendRequest(SET_LOCAL_DEVICE, data, reply, option);
-    if (ret == ERR_UNKNOWN_TRANSACTION) {
-        CLOGE("No permission when setting local device");
-        return ERR_NO_PERMISSION;
-    } else if (ret == ERR_INVALID_DATA) {
-        CLOGE("Invalid parameter when setting local device");
-        return ERR_INVALID_PARAM;
-    } else if (ret != ERR_NONE) {
-        CLOGE("Failed to send ipc request when setting local device");
         return CAST_ENGINE_ERROR;
     }
 
@@ -139,7 +109,7 @@ int32_t CastSessionManagerServiceProxy::CreateCastSession(const CastSessionPrope
     }
 
     int32_t ret = Remote()->SendRequest(CREATE_CAST_SESSION, data, reply, option);
-    if (ret == ERR_UNKNOWN_TRANSACTION) {
+    if (ret == ERR_NO_PERMISSION) {
         CLOGE("No permission when creating cast session");
         return ERR_NO_PERMISSION;
     } else if (ret == ERR_INVALID_DATA) {
@@ -162,6 +132,36 @@ int32_t CastSessionManagerServiceProxy::CreateCastSession(const CastSessionPrope
     return errorCode;
 }
 
+int32_t CastSessionManagerServiceProxy::SetLocalDevice(const CastLocalDevice &localDevice)
+{
+    MessageParcel data;
+    MessageParcel reply;
+    MessageOption option;
+
+    if (!data.WriteInterfaceToken(GetDescriptor())) {
+        CLOGE("Failed to write the interface token");
+        return CAST_ENGINE_ERROR;
+    }
+    if (!WriteCastLocalDevice(data, localDevice)) {
+        CLOGE("Failed to write cast local device");
+        return CAST_ENGINE_ERROR;
+    }
+
+    int32_t ret = Remote()->SendRequest(SET_LOCAL_DEVICE, data, reply, option);
+    if (ret == ERR_NO_PERMISSION) {
+        CLOGE("No permission when setting local device");
+        return ERR_NO_PERMISSION;
+    } else if (ret == ERR_INVALID_DATA) {
+        CLOGE("Invalid parameter when setting local device");
+        return ERR_INVALID_PARAM;
+    } else if (ret != ERR_NONE) {
+        CLOGE("Failed to send ipc request when setting local device");
+        return CAST_ENGINE_ERROR;
+    }
+
+    return reply.ReadInt32();
+}
+
 int32_t CastSessionManagerServiceProxy::SetSinkSessionCapacity(int sessionCapacity)
 {
     MessageParcel data;
@@ -178,41 +178,11 @@ int32_t CastSessionManagerServiceProxy::SetSinkSessionCapacity(int sessionCapaci
     }
 
     int32_t ret = Remote()->SendRequest(SET_SINK_SESSION_CAPACITY, data, reply, option);
-    if (ret == ERR_UNKNOWN_TRANSACTION) {
+    if (ret == ERR_NO_PERMISSION) {
         CLOGE("No permission when setting sink session capacity");
         return ERR_NO_PERMISSION;
     } else if (ret != ERR_NONE) {
         CLOGE("Failed to send ipc request when setting sink session capacity");
-        return CAST_ENGINE_ERROR;
-    }
-
-    return reply.ReadInt32();
-}
-
-int32_t CastSessionManagerServiceProxy::StartDiscovery(int protocols)
-{
-    MessageParcel data;
-    MessageParcel reply;
-    MessageOption option;
-
-    if (!data.WriteInterfaceToken(GetDescriptor())) {
-        CLOGE("Failed to write the interface token");
-        return CAST_ENGINE_ERROR;
-    }
-    if (!data.WriteInt32(protocols)) {
-        CLOGE("Failed to write the protocol type");
-        return CAST_ENGINE_ERROR;
-    }
-
-    int32_t ret = Remote()->SendRequest(START_DISCOVERY, data, reply, option);
-    if (ret == ERR_UNKNOWN_TRANSACTION) {
-        CLOGE("No permission when starting discovery");
-        return ERR_NO_PERMISSION;
-    } else if (ret == ERR_INVALID_DATA) {
-        CLOGE("Invalid parameter when starting discovery");
-        return ERR_INVALID_PARAM;
-    } else if (ret != ERR_NONE) {
-        CLOGE("Failed to send ipc request when starting discovery");
         return CAST_ENGINE_ERROR;
     }
 
@@ -235,11 +205,51 @@ int32_t CastSessionManagerServiceProxy::SetDiscoverable(bool enable)
     }
 
     int32_t ret = Remote()->SendRequest(SET_DISCOVERABLE, data, reply, option);
-    if (ret == ERR_UNKNOWN_TRANSACTION) {
+    if (ret == ERR_NO_PERMISSION) {
         CLOGE("No permission when setting discoverable");
         return ERR_NO_PERMISSION;
     } else if (ret != ERR_NONE) {
         CLOGE("Failed to send ipc request when setting discoverable");
+        return CAST_ENGINE_ERROR;
+    }
+
+    return reply.ReadInt32();
+}
+
+int32_t CastSessionManagerServiceProxy::StartDiscovery(int protocols, std::vector<std::string> drmSchemes)
+{
+    MessageParcel data;
+    MessageParcel reply;
+    MessageOption option;
+
+    if (!data.WriteInterfaceToken(GetDescriptor())) {
+        CLOGE("Failed to write the interface token");
+        return CAST_ENGINE_ERROR;
+    }
+    if (!data.WriteInt32(protocols)) {
+        CLOGE("Failed to write the protocol type");
+        return CAST_ENGINE_ERROR;
+    }
+    if (!data.WriteUint32(drmSchemes.size())) {
+        CLOGE("Failed to write the size of drm scheme");
+        return CAST_ENGINE_ERROR;
+    }
+    for (auto iter = drmSchemes.begin(); iter != drmSchemes.end(); iter++) {
+        if (!data.WriteString(*iter)) {
+            CLOGE("Failed to write the drm scheme");
+            return CAST_ENGINE_ERROR;
+        }
+    }
+
+    int32_t ret = Remote()->SendRequest(START_DISCOVERY, data, reply, option);
+    if (ret == ERR_NO_PERMISSION) {
+        CLOGE("No permission when starting discovery");
+        return ERR_NO_PERMISSION;
+    } else if (ret == ERR_INVALID_DATA) {
+        CLOGE("Invalid parameter when starting discovery");
+        return ERR_INVALID_PARAM;
+    } else if (ret != ERR_NONE) {
+        CLOGE("Failed to send ipc request when starting discovery");
         return CAST_ENGINE_ERROR;
     }
 
@@ -258,8 +268,8 @@ int32_t CastSessionManagerServiceProxy::StopDiscovery()
     }
 
     int32_t ret = Remote()->SendRequest(STOP_DISCOVERY, data, reply, option);
-    if (ret == ERR_UNKNOWN_TRANSACTION) {
-        CLOGE("No permission when setting discoverable");
+    if (ret == ERR_NO_PERMISSION) {
+        CLOGE("No permission when stop discoverable");
         return ERR_NO_PERMISSION;
     } else if (ret != ERR_NONE) {
         CLOGE("Failed to send ipc request when setting discoverable");
@@ -267,6 +277,39 @@ int32_t CastSessionManagerServiceProxy::StopDiscovery()
     }
 
     return reply.ReadInt32();
+}
+
+int32_t CastSessionManagerServiceProxy::StartDeviceLogging(int32_t fd, uint32_t maxSize)
+{
+    MessageParcel data;
+    MessageParcel reply;
+    MessageOption option;
+
+    if (!data.WriteInterfaceToken(GetDescriptor())) {
+        CLOGE("Failed to write the interface token");
+        return CAST_ENGINE_ERROR;
+    }
+    (void)data.WriteFileDescriptor(fd);
+    if (!data.WriteUint32(maxSize)) {
+        CLOGE("Failed to write maxSize");
+        return CAST_ENGINE_ERROR;
+    }
+
+    int32_t ret = Remote()->SendRequest(START_DEVICE_LOGGING, data, reply, option);
+    if (ret == ERR_NO_PERMISSION) {
+        CLOGE("No permission when starting device logging");
+        return ERR_NO_PERMISSION;
+    } else if (ret != ERR_NONE) {
+        CLOGE("Failed to send ipc request when starting device logging");
+        return CAST_ENGINE_ERROR;
+    }
+
+    return reply.ReadInt32();
+}
+
+sptr<IRemoteObject> CastSessionManagerServiceProxy::GetSessionManagerService()
+{
+    return this->AsObject();
 }
 
 int32_t CastSessionManagerServiceProxy::GetCastSession(std::string sessionId, sptr<ICastSessionImpl> &castSession)
@@ -297,11 +340,6 @@ int32_t CastSessionManagerServiceProxy::GetCastSession(std::string sessionId, sp
     castSession = iface_cast<ICastSessionImpl>(object);
 
     return errorCode;
-}
-
-sptr<IRemoteObject> CastSessionManagerServiceProxy::GetSessionManagerService()
-{
-    return this->AsObject();
 }
 } // namespace CastEngineClient
 } // namespace CastEngine
