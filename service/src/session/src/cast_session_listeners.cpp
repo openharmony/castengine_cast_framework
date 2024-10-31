@@ -154,9 +154,10 @@ void CastSessionImpl::RtspListenerImpl::NotifyEventChange(int moduleId, int even
     session->ProcessRtspEvent(moduleId, event, param);
 }
 
-void CastSessionImpl::ConnectManagerListenerImpl::NotifySessionEvent(const std::string &deviceId, int result)
+void CastSessionImpl::ConnectManagerListenerImpl::NotifyConnectStage(const std::string &deviceId, int result,
+    int32_t reasonCode )
 {
-    CLOGD("NotifySessionEvent in");
+    CLOGD("NotifyConnectStage in");
     auto session = session_.promote();
     if (!session) {
         CLOGE("session is nullptr");
@@ -164,16 +165,14 @@ void CastSessionImpl::ConnectManagerListenerImpl::NotifySessionEvent(const std::
     }
     switch (result) {
         case ConnectStageResult::AUTHING:
-            session->SendCastMessage(Message(MessageId::MSG_AUTH, deviceId));
+            session->SendCastMessage(Message(MessageId::MSG_AUTHING, reasonCode, deviceId));
             break;
         case ConnectStageResult::AUTH_SUCCESS:
-            session->SendCastMessage(Message(MessageId::MSG_CONNECT, deviceId));
-            break;
         case ConnectStageResult::CONNECT_START:
             session->SendCastMessage(Message(MessageId::MSG_CONNECT, deviceId));
             break;
         case ConnectStageResult::DISCONNECT_START:
-            session->SendCastMessage(Message(MessageId::MSG_DISCONNECT, deviceId));
+            session->SendCastMessage(Message(MessageId::MSG_DISCONNECT, reasonCode, deviceId));
             break;
         default:
             CLOGW("unsupported result: %d", result);

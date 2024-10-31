@@ -43,6 +43,8 @@ using CastSessionRtsp::DeviceTypeParamInfo;
 using CastSessionRtsp::VtpType;
 
 namespace {
+constexpr int SESSION_KEY_LENGTH = 16;
+
 void ProcessConnectWriteWrap(const std::string& funcName,
     ProtocolType protocolType, int sceneType, const std::string& puid)
 {
@@ -149,14 +151,38 @@ int32_t CastSessionImpl::UnregisterListener()
 
 int32_t CastSessionImpl::AddDevice(const CastRemoteDevice &remoteDevice)
 {
-    CLOGI("sessionId_ %{public}d", sessionId_);
+    CLOGI("sessionId %{public}d, remote sessionId:%{public}d, protocol %{public}d", sessionId_, remoteDevice.sessionId,
+        property_.protocolType);
+    if (property_.protocolType == ProtocolType::COOPERATION ||
+        property_.protocolType == ProtocolType::SUPER_LAUNCHER || property_.protocolType == ProtocolType::HICAR) {
+        CastInnerRemoteDevice remote = {
+            .deviceId = remoteDevice.deviceId, .deviceName = remoteDevice.deviceName,
+            .deviceType = remoteDevice.deviceType, .subDeviceType = remoteDevice.subDeviceType,
+            .ipAddress = remoteDevice.ipAddress, .sessionId = sessionId_,
+            .channelType = remoteDevice.channelType, .networkId = remoteDevice.networkId,
+            .isLeagacy = remoteDevice.isLeagacy,
+        };
+        if (property_.protocolType == ProtocolType::HICAR) {
+            remote.sessionKeyLength = remoteDevice.sessionKeyLength;
+            if (memcpy_s(remote.sessionKey, SESSION_KEY_LENGTH, remoteDevice.sessionKey,
+                         remoteDevice.sessionKeyLength) != 0) {
+                return CAST_ENGINE_ERROR;
+            }
+        }
+        if (property_.endType == EndType::CAST_SINK) {
+            remote.sessionId = remoteDevice.sessionId;
+        }
+        remote.localCastSessionId = sessionId_;
+        return AddDevice(remote) ? CAST_ENGINE_SUCCESS : CAST_ENGINE_ERROR;
+    }
+
     auto remote = CastDeviceDataManager::GetInstance().GetDeviceByDeviceId(remoteDevice.deviceId);
     if (remote == std::nullopt) {
         return CAST_ENGINE_ERROR;
     }
     remote->sessionId = sessionId_;
     remote->subDeviceType = remoteDevice.subDeviceType;
-    if (!AddDevice(*remote) || !ConnectionManager::GetInstance().ConnectDevice(*remote)) {
+    if (!AddDevice(*remote) || !ConnectionManager::GetInstance().ConnectDevice(*remote, property_.protocolType)) {
         CLOGE("AddDevice or ConnectDevice fail");
         return CAST_ENGINE_ERROR;
     }
@@ -612,6 +638,16 @@ std::string CastSessionImpl::GetCurrentRemoteDeviceId()
     return remoteDeviceList_.front().remoteDevice.deviceId;
 }
 
+bool CastSessionImpl::ProcessAuth(const std::string &deviceId)
+{
+    auto remoteDeviceInfo = FindRemoteDevice(deviceId);
+    if (remoteDeviceInfo == nullptr) {
+        CLOGE("remote device is null");
+        return false;
+    }
+    return ConnectionManager::GetInstance().ConnectDevice(remoteDeviceInfo->remoteDevice, property_.protocolType);
+}
+
 int CastSessionImpl::ProcessConnect(const Message &msg)
 {
     UpdateRemoteDeviceInfoFromCastDeviceDataManager(msg.strArg_);
@@ -977,6 +1013,21 @@ void CastSessionImpl::UpdateRemoteDeviceInfoFromCastDeviceDataManager(const std:
     }
 }
 
+void CastSessionImpl::DisconnectPhysicalLink(const std::string &deviceId)
+{
+    std::lock_guard<std::mutex> lock(mutex_);
+    for (auto it = remoteDeviceList_.begin(); it != remoteDeviceList_.end(); it++) {
+        if (it->remoteDevice.deviceId == deviceId) {
+            CLOGI("Start to remove remote device:%{public}s", Utils::Mask(deviceId).c_str());
+            if (property_.protocolType == ProtocolType::CAST_PLUS_MIRROR ||
+                property_.protocolType == ProtocolType::CAST_PLUS_STREAM) {
+                ConnectionManager::GetInstance().DisconnectDevice(deviceId);
+            }
+            return;
+        }
+    }
+}
+
 void CastSessionImpl::RemoveRemoteDevice(const std::string &deviceId)
 {
     std::lock_guard<std::mutex> lock(mutex_);
@@ -1059,7 +1110,7 @@ void CastSessionImpl::OnSessionEvent(const std::string &deviceId, const ReasonCo
         ConnectionManager::GetInstance().UpdateDeviceState(deviceId, RemoteDeviceState::FOUND);
         SendCastMessage(Message(MessageId::MSG_DISCONNECT, deviceId, eventCode));
     } else {
-        SendCastMessage(Message(MessageId::MSG_AUTH, deviceId, eventCode));
+        SendCastMessage(Message(MessageId::MSG_START_AUTH, deviceId, eventCode));
     }
 }
 

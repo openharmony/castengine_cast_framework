@@ -39,6 +39,8 @@ public:
     bool SendCastMessage(int what, int arg1);
     bool SendCastMessage(int what, int arg1, int arg2);
     bool SendCastMessageDelayed(int what, long uptimeMillis);
+    bool SendCastMessageDelayed(int what, long uptimeMillis, std::string deviceId);
+    bool SendCastMessageDelayed(int what, int arg1, long uptimeMillis, std::string deviceId);
     void RemoveMessage(const Message &msg);
     void RemoveCallbackAndMessages();
     void StopSafty(bool stopSafty);

@@ -129,8 +129,8 @@ napi_value NapiAsyncWork::Enqueue(napi_env env, std::shared_ptr<NapiAsyncTask> n
                 task->complete = nullptr;
             }
             GenerateOutput(task);
-        },
-        reinterpret_cast<void *>(napiAsyncTask.get()), &napiAsyncTask->work);
+            task->hold.reset(); // release napiAsyncTask.
+        }, reinterpret_cast<void *>(napiAsyncTask.get()), &napiAsyncTask->work);
     NAPI_CALL(napiAsyncTask->env, napi_queue_async_work(napiAsyncTask->env, napiAsyncTask->work));
     napiAsyncTask->hold = napiAsyncTask; // save crossing-thread ctxt.
     return promise;
@@ -171,7 +171,6 @@ void NapiAsyncWork::GenerateOutput(NapiAsyncTask *napiAsyncTask)
     } else {
         CallJSFunc(napiAsyncTask->env, napiAsyncTask->callbackRef, RESULT_ALL, result);
     }
-    napiAsyncTask->hold.reset(); // release napiAsyncTask.
 }
 } // namespace CastEngineClient
 } // namespace CastEngine

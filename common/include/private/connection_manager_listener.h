@@ -28,7 +28,7 @@ class IConnectManagerSessionListener {
 public:
     virtual ~IConnectManagerSessionListener() {}
 
-    virtual void NotifySessionEvent(const std::string &deviceId, int result) = 0;
+    virtual void NotifyConnectStage(const std::string &deviceId, int result, int32_t reasonCode) = 0;
 };
 } // namespace CastEngineService
 } // namespace CastEngine

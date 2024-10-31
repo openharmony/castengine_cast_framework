@@ -21,6 +21,7 @@
 
 #include <map>
 #include <memory>
+#include <mutex>
 #include <list>
 #include "napi/native_api.h"
 #include "napi/native_node_api.h"
@@ -62,6 +63,9 @@ private:
     static napi_status OffDeviceOffline(napi_env env, napi_value callback);
 
     static napi_status RegisterNativeSessionManagerListener();
+    static napi_status UnRegisterNativeSessionManagerListener();
+
+    static std::mutex mutex_;
     static std::map<std::string, std::pair<OnEventHandlerType, OffEventHandlerType>> eventHandlers_;
     static std::shared_ptr<NapiCastSessionManagerListener> listener_;
 };

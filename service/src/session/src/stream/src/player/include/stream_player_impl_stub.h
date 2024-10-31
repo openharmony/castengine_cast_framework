@@ -64,6 +64,7 @@ private:
     int32_t DoGetLoopModeTask(MessageParcel &data, MessageParcel &reply);
     int32_t DoGetAvailableCapabilityTask(MessageParcel &data, MessageParcel &reply);
     int32_t DoGetMediaInfoHolderTask(MessageParcel &data, MessageParcel &reply);
+    int32_t DoProvideKeyResponseTask(MessageParcel &data, MessageParcel &reply);
     int32_t DoReleaseTask(MessageParcel &data, MessageParcel &reply);
     int32_t RegisterListener(sptr<IStreamPlayerListenerImpl> listener) override;
     std::shared_ptr<IStreamPlayerImpl> PlayerImplGetter();
@@ -94,6 +95,7 @@ private:
     int32_t GetAvailableCapability(StreamCapability &streamCapability) override;
     int32_t GetPlaySpeed(PlaybackSpeed &playbackSpeed) override;
     int32_t GetMediaInfoHolder(MediaInfoHolder &mediaInfoHolder) override;
+    int32_t ProvideKeyResponse(const std::string &mediaId, const std::vector<uint8_t> &response) override;
     int32_t Release() override;
 
     std::mutex dataMutex_;

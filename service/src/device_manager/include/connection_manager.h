@@ -93,7 +93,7 @@ public:
     void OnConsultDataReceived(int transportId, const void *data, unsigned int dataLen);
     void OnConsultSessionOpened(int transportId, bool isSource);
 
-    bool ConnectDevice(const CastInnerRemoteDevice &dev);
+    bool ConnectDevice(const CastInnerRemoteDevice &dev, const ProtocolType &protocolType);
     void DisconnectDevice(const std::string &deviceId);
 
     bool UpdateDeviceState(const std::string &deviceId, RemoteDeviceState state);
@@ -104,7 +104,7 @@ public:
     std::unique_ptr<CastLocalDevice> GetLocalDeviceInfo();
     void NotifySessionIsReady(int transportId);
     void NotifyDeviceIsOffline(const std::string &deviceId);
-    bool NotifySessionEvent(const std::string &deviceId, int result);
+    bool NotifyConnectStage(const CastInnerRemoteDevice &device, int result, int32_t reasonCode = REASON_DEFAULT);
     void ReportErrorByListener(const std::string &deviceId, ReasonCode currentEventCode);
     void UpdateGrabState(bool changeState, int32_t sessionId);
     void SetSessionListener(std::shared_ptr<IConnectManagerSessionListener> listener);

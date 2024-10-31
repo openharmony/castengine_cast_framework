@@ -514,7 +514,7 @@ bool WriteKeyEvent(Parcel &parcel, const OHNativeXcomponentKeyEvent &keyEvent)
 
 bool WriteContentEvent(Parcel &parcel, const OHNativeXcomponentContentEvent &contentEvent)
 {
-    return parcel.WriteUint16(contentEvent.msgLen) && parcel.WriteCString(contentEvent.inputText);
+    return parcel.WriteUint16(contentEvent.msgLen) && parcel.WriteBuffer(contentEvent.inputText, contentEvent.msgLen);
 }
 
 bool WriteFocusEvent(Parcel &parcel, const OHNativeXcomponentFocusEvent &focusEvent)

@@ -71,7 +71,7 @@ sptr<IStreamPlayerIpc> CastStreamManagerServer::CreateStreamPlayer(const std::fu
         return nullptr;
     }
     player->SetSessionCallbackForRelease(releaseCallback);
-    auto streamPlayer = new StreamPlayerImplStub(player);
+    auto streamPlayer = new (std::nothrow) StreamPlayerImplStub(player);
     if (streamPlayer == nullptr) {
         CLOGE("streamPlayer is null");
         return nullptr;

@@ -128,7 +128,7 @@ napi_status NapiStreamPlayer::CreateNapiStreamPlayer(napi_env env, std::shared_p
         return napi_generic_failure;
     }
 
-    NapiStreamPlayer *napiStreamPlayer = new NapiStreamPlayer(player);
+    NapiStreamPlayer *napiStreamPlayer = new (std::nothrow) NapiStreamPlayer(player);
     if (napiStreamPlayer == nullptr) {
         CLOGE("napiStreamPlayer is nullptr");
         return napi_generic_failure;
@@ -1669,11 +1669,13 @@ napi_value NapiStreamPlayer::Release(napi_env env, napi_callback_info info)
 
 std::shared_ptr<NapiStreamPlayerListener> NapiStreamPlayer::NapiListenerGetter()
 {
+    std::lock_guard<std::mutex> lock(mutex_);
     return listener_;
 }
 
 void NapiStreamPlayer::NapiListenerSetter(std::shared_ptr<NapiStreamPlayerListener> listener)
 {
+    std::lock_guard<std::mutex> lock(mutex_);
     listener_ = listener;
 }
 } // namespace CastEngineClient

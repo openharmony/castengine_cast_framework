@@ -32,13 +32,13 @@ static napi_status SetNamedProperty(napi_env env, napi_value &obj, const std::st
 {
     napi_value property = nullptr;
     napi_status status = napi_create_int32(env, value, &property);
-    if (status != napi_ok) {
+    if (status != napi_ok || property == nullptr) {
         CLOGE("napi_create_int32 failed");
         return status;
     }
     status = napi_set_named_property(env, obj, name.c_str(), property);
     if (status != napi_ok) {
-        CLOGD("napi_set_named_property failed");
+        CLOGE("napi_set_named_property failed");
         return status;
     }
     return status;
@@ -121,6 +121,9 @@ static napi_value ExportDeviceType(napi_env env)
                            static_cast<int32_t>(DeviceType::DEVICE_SUPER_LAUNCHER));
     (void)SetNamedProperty(env, result, "DEVICE_CAR_MULTI_SCREEN_PLAY",
                            static_cast<int32_t>(DeviceType::DEVICE_CAR_MULTI_SCREEN_PLAY));
+    (void)SetNamedProperty(env, result, "DEVICE_MIRACAST",
+                           static_cast<int32_t>(DeviceType::DEVICE_MIRACAST));
+
     NAPI_CALL(env, napi_object_freeze(env, result));
     return result;
 }
@@ -166,6 +169,9 @@ static napi_value ExportDeviceState(napi_env env)
     (void)SetNamedProperty(env, result, "DISCONNECTING", static_cast<int32_t>(DeviceState::DISCONNECTING));
     (void)SetNamedProperty(env, result, "DISCONNECTED", static_cast<int32_t>(DeviceState::DISCONNECTED));
     (void)SetNamedProperty(env, result, "STREAM", static_cast<int32_t>(DeviceState::STREAM));
+    (void)SetNamedProperty(env, result, "MIRROR_TO_UI", static_cast<int32_t>(DeviceState::MIRROR_TO_UI));
+    (void)SetNamedProperty(env, result, "UI_TO_MIRROR", static_cast<int32_t>(DeviceState::UI_TO_MIRROR));
+    (void)SetNamedProperty(env, result, "UICAST", static_cast<int32_t>(DeviceState::UICAST));
     (void)SetNamedProperty(env, result, "AUTHING", static_cast<int32_t>(DeviceState::AUTHING));
     (void)SetNamedProperty(env, result, "DEVICE_STATE_MAX", static_cast<int32_t>(DeviceState::DEVICE_STATE_MAX));
 

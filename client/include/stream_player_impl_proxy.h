@@ -33,11 +33,12 @@ public:
 
     int32_t RegisterListener(sptr<IStreamPlayerListenerImpl> listener) override;
     int32_t UnregisterListener() override;
-    int32_t SetSurface(sptr<IBufferProducer> producer) override;
+
     int32_t Load(const MediaInfo &mediaInfo) override;
     int32_t Play(const MediaInfo &mediaInfo) override;
     int32_t Play(int index) override;
     int32_t Play() override;
+
     int32_t Pause() override;
     int32_t Stop() override;
     int32_t Next() override;
@@ -45,6 +46,9 @@ public:
     int32_t Seek(int position) override;
     int32_t FastForward(int delta) override;
     int32_t FastRewind(int delta) override;
+    int32_t Release() override;
+
+    int32_t SetSurface(sptr<IBufferProducer> producer) override;
     int32_t SetVolume(int volume) override;
     int32_t SetMute(bool mute) override;
     int32_t SetLoopMode(const LoopMode mode) override;
@@ -60,7 +64,8 @@ public:
     int32_t GetAvailableCapability(StreamCapability &streamCapability) override;
     int32_t GetPlaySpeed(PlaybackSpeed &playbackSpeed) override;
     int32_t GetMediaInfoHolder(MediaInfoHolder &mediaInfoHolder) override;
-    int32_t Release() override;
+
+    int32_t ProvideKeyResponse(const std::string &mediaId, const std::vector<uint8_t> &response) override;
 
 private:
     static const int GET_FAILED = -1;

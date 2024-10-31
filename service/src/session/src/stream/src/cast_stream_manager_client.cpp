@@ -61,7 +61,8 @@ CastStreamManagerClient::CastStreamManagerClient(std::shared_ptr<ICastStreamList
         { ACTION_PREVIOUS_REQUEST, [this](const json &data) { return ProcessActionPreviousRequest(data); } },
         { ACTION_SEEK_DONE, [this](const json &data) { return ProcessActionSeekDone(data); } },
         { ACTION_END_OF_STREAM, [this](const json &data) { return ProcessActionEndOfStream(data); } },
-        { ACTION_PLAY_REQUEST, [this](const json &data) { return ProcessActionPlayRequest(data); } }
+        { ACTION_PLAY_REQUEST, [this](const json &data) { return ProcessActionPlayRequest(data); } },
+        { ACTION_KEY_REQUEST, [this](const json &data) { return ProcessActionKeyRequest(data); } }
     };
     streamListener_ = listener;
     timer_ = std::make_shared<CastTimer>();
@@ -94,7 +95,7 @@ sptr<IStreamPlayerIpc> CastStreamManagerClient::CreateStreamPlayer(const std::fu
         return nullptr;
     }
     player->SetSessionCallbackForRelease(releaseCallback);
-    auto streamPlayer = new StreamPlayerImplStub(player);
+    auto streamPlayer = new (std::nothrow) StreamPlayerImplStub(player);
     if (streamPlayer == nullptr) {
         CLOGE("streamPlayer is null");
         return nullptr;
@@ -270,6 +271,20 @@ bool CastStreamManagerClient::NotifyPeerSetSpeed(int speed)
     json body;
     body[KEY_SPEED] = speed;
     return SendControlAction(ACTION_SET_SPEED, body);
+}
+
+bool CastStreamManagerClient::NotifyPeerKeyResponse(const std::string &mediaId, const std::vector<uint8_t> &response)
+{
+    CLOGD("NotifyPeerKeyResponse in");
+    json body;
+    body[KEY_MEDIA_ID] = mediaId;
+    char charArray[response.size()];
+    for (size_t i = 0; i < response.size(); i++) {
+        charArray[i] = static_cast<char>(response[i]);
+    }
+    std::string str(charArray, sizeof(charArray));
+    body[KEY_RESPONSE_KEY] = str;
+    return SendControlAction(ACTION_PROVIDE_KEY_RESPONSE, body);
 }
 
 PlayerStates CastStreamManagerClient::GetPlayerStatus()
@@ -696,6 +711,31 @@ bool CastStreamManagerClient::ProcessActionPlayRequest(const json &data)
     }
     playerListener->OnPlayRequest(mediaInfoHolder.mediaInfoList.front());
     CLOGI("ProcessActionPlayRequest out");
+    return true;
+}
+
+bool CastStreamManagerClient::ProcessActionKeyRequest(const json &data)
+{
+    auto playerListener = PlayerListenerGetter();
+    if (!playerListener) {
+        CLOGE("playerListener is nullptr");
+        return false;
+    }
+    std::string mediaId;
+    RETURN_FALSE_IF_PARSE_STRING_WRONG(mediaId, data, KEY_MEDIA_ID);
+    std::string keyRequestDataStr;
+    RETURN_FALSE_IF_PARSE_STRING_WRONG(keyRequestDataStr, data, KEY_REQUEST_KEY);
+    uint32_t requestSize = static_cast<uint32_t>(keyRequestDataStr.length());
+    if (requestSize == 0) {
+        CLOGE("invalid buffer, requestSize = %{public}u", requestSize);
+        return false;
+    }
+    std::vector<uint8_t> keyRequest(requestSize);
+    for (uint32_t i = 0; i < requestSize; i++) {
+        keyRequest[i] = static_cast<uint8_t>(keyRequestDataStr[i]);
+    }
+    playerListener->OnKeyRequest(mediaId, keyRequest);
+    CLOGI("ProcessActionKeyRequest out");
     return true;
 }
 } // namespace CastEngineService

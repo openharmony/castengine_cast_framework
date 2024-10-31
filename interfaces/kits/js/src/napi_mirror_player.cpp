@@ -26,6 +26,7 @@
 #include "napi_castengine_utils.h"
 #include "napi_mirror_player.h"
 #include "napi_async_work.h"
+#include "pixel_map_napi.h"
 
 using namespace OHOS::CastEngine::CastEngineClient;
 using namespace std;
@@ -45,7 +46,9 @@ void NapiMirrorPlayer::DefineMirrorPlayerJSClass(napi_env env)
         DECLARE_NAPI_FUNCTION("setAppInfo", SetAppInfo),
         DECLARE_NAPI_FUNCTION("setSurface", SetSurface),
         DECLARE_NAPI_FUNCTION("release", Release),
-        DECLARE_NAPI_FUNCTION("resizeVirtualScreen", ResizeVirtualScreen)
+        DECLARE_NAPI_FUNCTION("resizeVirtualScreen", ResizeVirtualScreen),
+        DECLARE_NAPI_FUNCTION("setCastRoute", SetCastRoute),
+        DECLARE_NAPI_FUNCTION("getScreenshot", GetScreenshot)
     };
 
     napi_value mirrorPlayer = nullptr;
@@ -93,7 +96,7 @@ napi_status NapiMirrorPlayer::CreateNapiMirrorPlayer(napi_env env, shared_ptr<IM
         return napi_generic_failure;
     }
 
-    NapiMirrorPlayer *napiMirrorPlayer = new NapiMirrorPlayer(player);
+    NapiMirrorPlayer *napiMirrorPlayer = new (std::nothrow) NapiMirrorPlayer(player);
     if (napiMirrorPlayer == nullptr) {
         CLOGE("NapiMirrorPlayer is nullptr");
         return napi_generic_failure;
@@ -387,6 +390,94 @@ napi_value NapiMirrorPlayer::ResizeVirtualScreen(napi_env env, napi_callback_inf
 
     auto complete = [env](napi_value &output) { output = GetUndefinedValue(env); };
     return NapiAsyncWork::Enqueue(env, napiAsyntask, "ResizeVirtualScreen", executor, complete);
+}
+
+napi_value NapiMirrorPlayer::SetCastRoute(napi_env env, napi_callback_info info)
+{
+    struct ConcreteTask : public NapiAsyncTask {
+        bool remote_;
+    };
+
+    auto napiAsyntask = std::make_shared<ConcreteTask>();
+    if (napiAsyntask == nullptr) {
+        CLOGE("Create NapiAsyncTask failed");
+        return GetUndefinedValue(env);
+    }
+
+    auto inputParser = [env, napiAsyntask](size_t argc, napi_value *argv) {
+        constexpr size_t expectedArgc = 1;
+        CHECK_ARGS_RETURN_VOID(napiAsyntask, argc == expectedArgc, "invalid arguments",
+            NapiErrors::errcode_[ERR_INVALID_PARAM]);
+        napi_valuetype expectedTypes[expectedArgc] = { napi_boolean };
+        bool isParamsTypeValid = CheckJSParamsType(env, argv, expectedArgc, expectedTypes);
+        CHECK_ARGS_RETURN_VOID(napiAsyntask, isParamsTypeValid, "invalid arguments",
+            NapiErrors::errcode_[ERR_INVALID_PARAM]);
+        napiAsyntask->remote_ = ParseBool(env, argv[0]);
+    };
+
+    napiAsyntask->GetJSInfo(env, info, inputParser);
+    auto executor = [napiAsyntask]() {
+        auto *napiPlayer = reinterpret_cast<NapiMirrorPlayer *>(napiAsyntask->native);
+        CHECK_ARGS_RETURN_VOID(napiAsyntask, napiPlayer != nullptr, "napiPlayer is null",
+            NapiErrors::errcode_[CAST_ENGINE_ERROR]);
+        shared_ptr<IMirrorPlayer> mirrorPlayer = napiPlayer->GetMirrorPlayer();
+        CHECK_ARGS_RETURN_VOID(napiAsyntask, mirrorPlayer, "IMirrorPlayer is null",
+            NapiErrors::errcode_[CAST_ENGINE_ERROR]);
+        int32_t ret = mirrorPlayer->SetCastRoute(napiAsyntask->remote_);
+        if (ret != CAST_ENGINE_SUCCESS) {
+            if (ret == ERR_NO_PERMISSION) {
+                napiAsyntask->errMessage = "SetCastRoute failed : no permission";
+            } else if (ret == ERR_INVALID_PARAM) {
+                napiAsyntask->errMessage = "SetCastRoute failed : invalid parameters";
+            } else {
+                napiAsyntask->errMessage = "SetCastRoute failed : native server exception";
+            }
+            napiAsyntask->status = napi_generic_failure;
+            napiAsyntask->errCode = NapiErrors::errcode_[ret];
+        }
+    };
+
+    auto complete = [env](napi_value &output) { output = GetUndefinedValue(env); };
+    return NapiAsyncWork::Enqueue(env, napiAsyntask, "SetCastRoute", executor, complete);
+}
+
+napi_value NapiMirrorPlayer::GetScreenshot(napi_env env, napi_callback_info info)
+{
+    struct ConcreteTask : public NapiAsyncTask {
+        std::shared_ptr<Media::PixelMap> screenShot_;
+    };
+
+    auto napiAsyntask = std::make_shared<ConcreteTask>();
+    if (napiAsyntask == nullptr) {
+        CLOGE("Create NapiAsyncTask failed");
+        return GetUndefinedValue(env);
+    }
+
+    napiAsyntask->GetJSInfo(env, info);
+    auto executor = [napiAsyntask]() {
+        auto *napiPlayer = reinterpret_cast<NapiMirrorPlayer *>(napiAsyntask->native);
+        CHECK_ARGS_RETURN_VOID(
+            napiAsyntask, napiPlayer != nullptr, "napiPlayer is null", NapiErrors::errcode_[CAST_ENGINE_ERROR]);
+        shared_ptr<IMirrorPlayer> mirrorPlayer = napiPlayer->GetMirrorPlayer();
+        CHECK_ARGS_RETURN_VOID(
+            napiAsyntask, mirrorPlayer, "IMirrorPlayer is null", NapiErrors::errcode_[CAST_ENGINE_ERROR]);
+        int32_t ret = mirrorPlayer->GetScreenshot(napiAsyntask->screenShot_);
+        if (ret != CAST_ENGINE_SUCCESS) {
+            if (ret == ERR_NO_PERMISSION) {
+                napiAsyntask->errMessage = "GetScreenshot failed : no permission";
+            } else if (ret == ERR_INVALID_PARAM) {
+                napiAsyntask->errMessage = "GetScreenshot failed : invalid parameters";
+            } else {
+                napiAsyntask->errMessage = "GetScreenshot failed : native server exception";
+            }
+            napiAsyntask->status = napi_generic_failure;
+            napiAsyntask->errCode = NapiErrors::errcode_[ret];
+        }
+    };
+    auto complete = [env, napiAsyntask](napi_value &output) {
+        output = Media::PixelMapNapi::CreatePixelMap(env, napiAsyntask->screenShot_);
+    };
+    return NapiAsyncWork::Enqueue(env, napiAsyntask, "GetScreenshot", executor, complete);
 }
 } // namespace CastEngineClient
 } // namespace CastEngine

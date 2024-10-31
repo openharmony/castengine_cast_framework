@@ -109,6 +109,8 @@ protected:
     const std::string KEY_CAPABILITY_SUPPORT_4K = "SUPPORT_4K";
     const std::string KEY_CAPABILITY_SUPPORT_DRM = "DRM_CAPABILITY";
     const std::string KEY_CAPABILITY_DRM_PROPERTIES = "DRM_PROPERTIES_CAPABILITY";
+    const std::string KEY_REQUEST_KEY = "REQUEST_KEY";
+    const std::string KEY_RESPONSE_KEY = "RESPONSE_KEY";
 
     const std::string ACTION_PLAY = "play";
     const std::string ACTION_LOAD = "load";
@@ -125,6 +127,7 @@ protected:
     const std::string ACTION_SET_REPEAT_MODE = "setRepeatMode";
     const std::string ACTION_SET_AVAILABLE_CAPABILITY = "setAvailableCapability";
     const std::string ACTION_SET_SPEED = "setSpeed";
+    const std::string ACTION_PROVIDE_KEY_RESPONSE = "provideKeyResponse";
     const std::string ACTION_PLAYER_STATUS_CHANGED = "onPlayerStatusChanged";
     const std::string ACTION_POSITION_CHANGED = "onPositionChanged";
     const std::string ACTION_MEDIA_ITEM_CHANGED = "onMediaItemChanged";
@@ -137,6 +140,7 @@ protected:
     const std::string ACTION_SEEK_DONE = "onSeekDone";
     const std::string ACTION_END_OF_STREAM = "onEndOfStream";
     const std::string ACTION_PLAY_REQUEST = "onPlayRequest";
+    const std::string ACTION_KEY_REQUEST = "onKeyRequest";
 
     void Handle();
     bool SendControlAction(const std::string &action, const json &dataBody = "{}");

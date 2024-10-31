@@ -58,7 +58,6 @@ int OnSessionOpened(int sessionId, int result)
             CLOGE("device is empty");
             return result;
         }
-        ConnectionManager::GetInstance().NotifySessionEvent(device->deviceId, ConnectStageResult::DISCONNECT_START);
         return result;
     }
     int role = GetSessionSide(sessionId);
@@ -256,7 +255,6 @@ public:
             CLOGE("Session addDevice fail");
             return false;
         }
-        ConnectionManager::GetInstance().NotifySessionEvent(device.deviceId, ConnectStageResult::CONNECT_START);
         return true;
     }
 
