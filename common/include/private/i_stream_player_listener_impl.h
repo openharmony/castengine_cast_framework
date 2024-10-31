@@ -50,6 +50,7 @@ public:
     virtual void OnPlayRequest(const MediaInfo &mediaInfo) = 0;
     virtual void OnImageChanged(std::shared_ptr<Media::PixelMap> pixelMap) = 0;
     virtual void OnAlbumCoverChanged(std::shared_ptr<Media::PixelMap> pixelMap) = 0;
+    virtual void OnKeyRequest(const std::string &mediaId, const std::vector<uint8_t> &keyRequestData) = 0;
     virtual void OnAvailableCapabilityChanged(const StreamCapability &streamCapability) = 0;
 
 protected:
@@ -69,6 +70,7 @@ protected:
         ON_PLAY_REQUEST,
         ON_IMAGE_CHANGED,
         ON_ALBUM_COVER_CHANGED,
+        ON_KEY_REQUEST,
         ON_AVAILABLE_CAPABILITY_CHANGED,
     };
 };

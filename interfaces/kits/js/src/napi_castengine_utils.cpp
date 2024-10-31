@@ -170,16 +170,6 @@ napi_value ConvertDeviceListToJS(napi_env env, const vector<CastRemoteDevice> &d
     return devicesList;
 }
 
-napi_value ConvertCastSessionToJS(napi_env env, const shared_ptr<ICastSession> &castSession)
-{
-    napi_value napiCastSession;
-    NapiCastSession::CreateNapiCastSession(env, castSession, napiCastSession);
-    if (napiCastSession == nullptr) {
-        CLOGE("napiCastSession is null");
-    }
-    return napiCastSession;
-}
-
 napi_value ConvertDeviceStateInfoToJS(napi_env env, const DeviceStateInfo &stateEvent)
 {
     napi_value stateEventCallback = nullptr;
@@ -439,7 +429,8 @@ bool Equals(napi_env env, napi_value value, napi_ref copy)
     return isEquals;
 }
 
-napi_status GetRefByCallback(napi_env env, std::list<napi_ref> callbackList, napi_value callback, napi_ref &callbackRef)
+napi_status GetRefByCallback(napi_env env, std::list<napi_ref> &callbackList,
+    napi_value callback, napi_ref &callbackRef)
 {
     for (auto ref = callbackList.begin(); ref != callbackList.end(); ++ref) {
         if (Equals(env, callback, *ref)) {
@@ -477,6 +468,16 @@ napi_value ConvertCastRemoteDeviceToJS(napi_env env, const CastRemoteDevice &cas
     napi_value networkId = nullptr;
     NAPI_CALL(env, napi_create_string_utf8(env, castRemoteDevice.networkId.c_str(), NAPI_AUTO_LENGTH, &networkId));
     NAPI_CALL(env, napi_set_named_property(env, result, "networkId", networkId));
+    napi_value isLeagacy = nullptr;
+    NAPI_CALL(env, napi_get_boolean(env, castRemoteDevice.isLeagacy, &isLeagacy));
+    NAPI_CALL(env, napi_set_named_property(env, result, "isLeagacy", isLeagacy));
+    napi_value mediumTypes = nullptr;
+    NAPI_CALL(env, napi_create_int32(env, static_cast<int32_t>(castRemoteDevice.mediumTypes), &mediumTypes));
+    NAPI_CALL(env, napi_set_named_property(env, result, "mediumTypes", mediumTypes));
+    napi_value protocolCapabilities = nullptr;
+    NAPI_CALL(env,
+        napi_create_int32(env, static_cast<int32_t>(castRemoteDevice.protocolCapabilities), &protocolCapabilities));
+    NAPI_CALL(env, napi_set_named_property(env, result, "protocolCapabilities", protocolCapabilities));
     return result;
 }
 

@@ -51,12 +51,22 @@ inline constexpr bool DEBUG = true;
 #define CLOGE(format, ...) \
     (void)HiLog::Error(CAST_ENGINE_LABEL, "[%{public}s:%{public}d]: " format, __func__, __LINE__, ##__VA_ARGS__)
 
+#undef CHECK_AND_RETURN_RET_LOG
 #define CHECK_AND_RETURN_RET_LOG(cond, ret, fmt, ...)  \
     do {                                               \
         if (cond) {                                    \
             CLOGE(fmt, ##__VA_ARGS__);                 \
             return ret;                                \
         }                                              \
+    } while (0)
+
+#undef CHECK_AND_RETURN_LOG
+#define CHECK_AND_RETURN_LOG(cond, fmt, ...)     \
+    do {                                         \
+        if (!(cond)) {                           \
+            CLOGE(fmt, ##__VA_ARGS__);           \
+            return;                              \
+        }                                        \
     } while (0)
 } // namespace CastEngine
 } // namespace OHOS

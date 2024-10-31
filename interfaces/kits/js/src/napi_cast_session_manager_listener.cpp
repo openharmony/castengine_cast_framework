@@ -35,19 +35,16 @@ DEFINE_CAST_ENGINE_LABEL("Cast-Napi-SessionManagerListener");
 NapiCastSessionManagerListener::~NapiCastSessionManagerListener()
 {
     CLOGD("destrcutor in");
-    ClearCallback(callback_->GetEnv());
 }
 
-void NapiCastSessionManagerListener::HandleEvent(int32_t event, NapiArgsGetter getter)
+void NapiCastSessionManagerListener::HandleEvent(int32_t event, NapiArgsGetter &getter)
 {
     std::lock_guard<std::mutex> lockGuard(lock_);
-    if (callbacks_[event].empty()) {
-        CLOGE("not register callback event=%{public}d", event);
+    if (!callback_) {
+        CLOGE("callback_ is nullptr, event:%{public}d", event);
         return;
     }
-    for (auto ref = callbacks_[event].begin(); ref != callbacks_[event].end(); ++ref) {
-        callback_->Call(*ref, getter);
-    }
+    callback_->HandleEvent(event, getter);
 }
 
 void NapiCastSessionManagerListener::OnDeviceFound(const std::vector<CastRemoteDevice> &deviceList)
@@ -78,7 +75,12 @@ void NapiCastSessionManagerListener::OnSessionCreated(const std::shared_ptr<ICas
     CLOGD("OnSessionCreated start");
     NapiArgsGetter napiArgsGetter = [castSession](napi_env env, int &argc, napi_value *argv) {
         argc = CALLBACK_ARGC_ONE;
-        argv[0] = ConvertCastSessionToJS(env, castSession);
+        napi_value napiCastSession;
+        NapiCastSession::CreateNapiCastSession(env, castSession, napiCastSession);
+        if (napiCastSession == nullptr) {
+            CLOGE("napiCastSession is null");
+        }
+        argv[0] = napiCastSession;
     };
     HandleEvent(EVENT_SESSION_CREATE, napiArgsGetter);
     CLOGD("OnSessionCreated finish");
@@ -98,21 +100,7 @@ void NapiCastSessionManagerListener::OnServiceDied()
 napi_status NapiCastSessionManagerListener::AddCallback(napi_env env, int32_t event, napi_value callback)
 {
     CLOGI("Add callback %{public}d", event);
-    constexpr int initialRefCount = 1;
-    napi_ref ref = nullptr;
-    if (GetRefByCallback(env, callbacks_[event], callback, ref) != napi_ok) {
-        CLOGE("get callback reference failed");
-        return napi_generic_failure;
-    }
-    if (ref != nullptr) {
-        CLOGD("callback has been registered");
-        return napi_ok;
-    }
-    napi_status status = napi_create_reference(env, callback, initialRefCount, &ref);
-    if (status != napi_ok) {
-        CLOGE("napi_create_reference failed");
-        return status;
-    }
+    std::lock_guard<std::mutex> lockGuard(lock_);
     if (callback_ == nullptr) {
         callback_ = std::make_shared<NapiCallback>(env);
         if (callback_ == nullptr) {
@@ -120,50 +108,28 @@ napi_status NapiCastSessionManagerListener::AddCallback(napi_env env, int32_t ev
             return napi_generic_failure;
         }
     }
-    callbacks_[event].push_back(ref);
-    return napi_ok;
+    return callback_->AddCallback(env, event, callback);
 }
 
 napi_status NapiCastSessionManagerListener::RemoveCallback(napi_env env, int32_t event, napi_value callback)
 {
-    if (callback == nullptr) {
-        for (auto &callbackRef : callbacks_[event]) {
-            napi_status ret = napi_delete_reference(env, callbackRef);
-            if (ret != napi_ok) {
-                CLOGE("delete callback reference failed");
-                return ret;
-            }
-        }
-        callbacks_[event].clear();
+    CLOGI("Remove callback %{public}d", event);
+    std::lock_guard<std::mutex> lockGuard(lock_);
+    if (!callback_) {
+        CLOGE("callback_ is nullptr");
         return napi_ok;
     }
-    napi_ref ref = nullptr;
-    if (GetRefByCallback(env, callbacks_[event], callback, ref) != napi_ok) {
-        CLOGE("get callback reference failed");
-        return napi_generic_failure;
-    }
-    if (ref != nullptr) {
-        CLOGD("callback has been remove");
-        return napi_ok;
-    }
-    callbacks_[event].remove(ref);
-    return napi_delete_reference(env, ref);
+    return callback_->RemoveCallback(env, event, callback);
 }
 
-napi_status NapiCastSessionManagerListener::ClearCallback(napi_env env)
+bool NapiCastSessionManagerListener::IsCallbackListEmpty()
 {
-    for (auto &callback : callbacks_) {
-        for (auto &callbackRef : callback) {
-            napi_status ret = napi_delete_reference(env, callbackRef);
-            if (ret != napi_ok) {
-                CLOGE("delete callback reference failed");
-                return ret;
-            }
-        }
-        callback.clear();
+    std::lock_guard<std::mutex> lockGuard(lock_);
+    if (!callback_) {
+        CLOGE("callback_ is nullptr");
+        return true;
     }
-
-    return napi_ok;
+    return callback_->IsCallbackListEmpty();
 }
 } // namespace CastEngineClient
 } // namespace CastEngine
