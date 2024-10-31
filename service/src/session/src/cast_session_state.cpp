@@ -123,21 +123,29 @@ bool CastSessionImpl::DisconnectedState::HandleMessage(const Message &msg)
     MessageId msgId = static_cast<MessageId>(msg.what_);
     std::string deviceId = msg.strArg_;
     switch (msgId) {
-        case MessageId::MSG_AUTH:
+        case MessageId::MSG_START_AUTH:
+                session->ChangeDeviceState(DeviceState::AUTHING, deviceId);
+                session->RemoveMessage(Message(static_cast<int>(MessageId::MSG_CONNECT_TIMEOUT)));
+                session->SendCastMessageDelayed(MessageId::MSG_CONNECT_TIMEOUT, TIMEOUT_CONNECT, deviceId);
                 session->TransferTo(session->authingState_);
+                session->ProcessAuth(deviceId);
             break;
         case MessageId::MSG_CONNECT:
             if (session->ProcessConnect(msg) >= 0) {
                 session->ChangeDeviceState(DeviceState::CONNECTING, deviceId);
-                session->SendCastMessageDelayed(MessageId::MSG_CONNECT_TIMEOUT, TIMEOUT_CONNECT);
+                session->SendCastMessageDelayed(MessageId::MSG_CONNECT_TIMEOUT, TIMEOUT_CONNECT, deviceId);
                 session->TransferTo(session->connectingState_);
             } else {
                 // Connection failed
                 session->ChangeDeviceState(DeviceState::DISCONNECTED, deviceId);
             }
             break;
+        case MessageId::MSG_DISCONNECT:
+            session->DisconnectPhysicalLink(deviceId);
+            session->RemoveRemoteDevice(deviceId);
+            break;
         default:
-            CLOGW("unsupported msg: %s, in disconnected state", MESSAGE_ID_STRING[msgId].c_str());
+            CLOGW("unsupported msg: %{public}s, in disconnected state", MESSAGE_ID_STRING[msgId].c_str());
             return false;
     }
     return true;
@@ -170,7 +178,8 @@ bool CastSessionImpl::AuthingState::HandleMessage(const Message &msg)
             int port = session->ProcessConnect(msg);
             if (port >= 0) {
                 session->ChangeDeviceState(DeviceState::CONNECTING, deviceId);
-                session->SendCastMessageDelayed(MessageId::MSG_CONNECT_TIMEOUT, TIMEOUT_CONNECT);
+                session->RemoveMessage(Message(static_cast<int>(MessageId::MSG_CONNECT_TIMEOUT)));
+                session->SendCastMessageDelayed(MessageId::MSG_CONNECT_TIMEOUT, TIMEOUT_CONNECT, deviceId);
                 session->TransferTo(session->connectingState_);
                 session->SendConsultData(deviceId, port);
             } else {
@@ -179,18 +188,23 @@ bool CastSessionImpl::AuthingState::HandleMessage(const Message &msg)
             break;
         }
         case MessageId::MSG_DISCONNECT:
-        case MessageId::MSG_CONNECT_TIMEOUT:
             session->ProcessDisconnect(msg);
+            session->TransferTo(session->disconnectingState_);
             session->ChangeDeviceState(DeviceState::DISCONNECTED, deviceId, msg.arg1_);
             session->RemoveRemoteDevice(deviceId);
-            session->TransferTo(session->disconnectingState_);
             break;
         case MessageId::MSG_ERROR:
             session->ProcessError(msg);
             session->TransferTo(session->disconnectingState_);
             break;
-        case MessageId::MSG_AUTH:
+        case MessageId::MSG_AUTHING:
             session->ChangeDeviceState(DeviceState::AUTHING, deviceId, msg.arg1_);
+            if (msg.arg1_ == REASON_SHOW_TRUST_SELECT_UI || msg.arg1_ == REASON_TRUST_BY_SINK) {
+                session->RemoveMessage(Message(static_cast<int>(MessageId::MSG_CONNECT_TIMEOUT)));
+                int waitTimeout =
+                    (msg.arg1_ == REASON_SHOW_TRUST_SELECT_UI ? TIMEOUT_WAIT_CONFIRM : TIMEOUT_WAIT_INPUT_PIN_CODE);
+                session->SendCastMessageDelayed(MessageId::MSG_CONNECT_TIMEOUT, msg.arg1_, waitTimeout, deviceId);
+            }
             break;
         default:
             CLOGW("unsupported msg: %{public}s, in authing state", MESSAGE_ID_STRING[msgId].c_str());

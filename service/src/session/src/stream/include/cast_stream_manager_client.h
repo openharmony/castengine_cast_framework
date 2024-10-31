@@ -60,6 +60,7 @@ public:
     bool NotifyPeerSetRepeatMode(int mode) override;
     bool NotifyPeerSetAvailableCapability(const StreamCapability &streamCapability) override;
     bool NotifyPeerSetSpeed(int speed) override;
+    bool NotifyPeerKeyResponse(const std::string &mediaId, const std::vector<uint8_t> &response) override;
     PlayerStates GetPlayerStatus() override;
     int GetPosition() override;
     int GetDuration() override;
@@ -84,6 +85,7 @@ private:
     bool ProcessActionSeekDone(const json &data);
     bool ProcessActionEndOfStream(const json &data);
     bool ProcessActionPlayRequest(const json &data);
+    bool ProcessActionKeyRequest(const json &data);
 
     sptr<IStreamPlayerListenerImpl> PlayerListenerGetter();
     bool AutoUpdateCurPosition();

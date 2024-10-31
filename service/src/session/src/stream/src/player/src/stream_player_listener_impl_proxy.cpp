@@ -334,6 +334,43 @@ void StreamPlayerListenerImplProxy::OnAlbumCoverChanged(std::shared_ptr<Media::P
     }
 }
 
+void StreamPlayerListenerImplProxy::OnKeyRequest(const std::string &mediaId, const std::vector<uint8_t> &keyRequestData)
+{
+    CHECK_AND_RETURN_LOG(keyRequestData.size() > 0, "The size of keyRequestData < 0");
+    MessageParcel data;
+    MessageParcel reply;
+    MessageOption option;
+    auto len = keyRequestData.size();
+    if (len > data.GetDataCapacity()) {
+        CLOGD("SetDataCapacity totalSize: %u", len);
+        data.SetMaxCapacity(len + len);
+        data.SetDataCapacity(len);
+    }
+
+    if (!data.WriteInterfaceToken(GetDescriptor())) {
+        CLOGE("Failed to write the interface token");
+        return;
+    }
+    if (!data.WriteString(mediaId)) {
+        CLOGE("Failed to write mediaId");
+        return;
+    }
+    if (!data.WriteInt32(keyRequestData.size())) {
+        CLOGE("Write keyRequestData size failed");
+        return;
+    }
+    if (len != 0) {
+        if (!data.WriteBuffer(keyRequestData.data(), len)) {
+            CLOGE("write keyRequestData failed");
+            return;
+        }
+    }
+    if (Remote()->SendRequest(ON_KEY_REQUEST, data, reply, option) != ERR_NONE) {
+        CLOGE("Failed to send ipc request when reporting key request data");
+        return;
+    }
+}
+
 void StreamPlayerListenerImplProxy::OnAvailableCapabilityChanged(const StreamCapability &streamCapability)
 {
     MessageParcel data;

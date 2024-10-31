@@ -65,6 +65,7 @@ public:
     static int32_t StringToInt(const std::string &str);
     static std::string GetWifiIp();
     static bool IsArrayAllZero(const uint8_t *input, int length);
+    static std::string Mask(const std::string &str);
 
     static bool Base64Encode(const std::string &source, std::string &encoded);
     static bool Base64Decode(const std::string &encoded, std::string &decoded);
@@ -75,7 +76,11 @@ private:
     static const std::string BASE64_CHARS;
     static inline bool IsBase64(unsigned char c);
     static const int DECIMALISM = 10;
+    static const int HEXADECIMALISM = 16;
     static std::string ConvertIpv4Address(unsigned int addressIpv4);
+    constexpr static int MASK_MIN_LEN = 2;
+    constexpr static int MASK_PRINT_PREFIX_LEN = 4;
+    constexpr static int MASK_PRINT_POSTFIX_LEN = 2;
 };
 
 inline constexpr char SANDBOX_PATH[] = "/data/service/el1/public/cast_engine_service";

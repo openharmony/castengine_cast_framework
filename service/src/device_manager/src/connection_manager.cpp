@@ -259,7 +259,7 @@ int ConnectionManager::GetProtocolType() const
     return protocolType_;
 }
 
-bool ConnectionManager::ConnectDevice(const CastInnerRemoteDevice &dev)
+bool ConnectionManager::ConnectDevice(const CastInnerRemoteDevice &dev, const ProtocolType &protocolType)
 {
     DeviceDiscoveryWriteWrap(__func__, GetAnonymousDeviceID(dev.deviceId));
 
@@ -634,9 +634,6 @@ void ConnectionManager::OnConsultSessionOpened(int transportId, bool isSource)
 
             if (ConnectionManager::GetInstance().IsHuaweiDevice(*device)) {
                 ConnectionManager::GetInstance().QueryP2PIp(*device);
-            } else {
-                ConnectionManager::GetInstance().NotifySessionEvent(
-                    (*device).deviceId, ConnectStageResult::AUTH_SUCCESS);
             }
             return;
         }
@@ -916,18 +913,6 @@ int32_t ConnectionManager::SetSessionProtocolType(int sessionId, ProtocolType pr
     return listener_->SetSessionProtocolType(sessionId, protocolType);
 }
 
-bool ConnectionManager::NotifySessionEvent(const std::string &deviceId, int result)
-{
-    CLOGI("NotifySessionEvent in");
-    std::lock_guard<std::mutex> lock(mutex_);
-    if (sessionListener_ == nullptr) {
-        CLOGE("sessionListener is NULL");
-        return false;
-    }
-    sessionListener_->NotifySessionEvent(deviceId, result);
-    return true;
-}
-
 void ConnectionManager::NotifyDeviceIsOffline(const std::string &deviceId)
 {
     CLOGI("NotifyDeviceIsOffline in");
@@ -1035,7 +1020,6 @@ void CastBindTargetCallback::HandleConnectDeviceAction(const PeerTargetId &targe
             }
             result = CastDeviceDataManager::GetInstance().SetDeviceSessionKey(deviceId, sessionKey);
             CLOGD("auth version 1.0, set sessionkey result is %d", result);
-            ConnectionManager::GetInstance().NotifySessionEvent(deviceId, ConnectStageResult::AUTH_SUCCESS);
         } else {
             uint8_t sessionKey[SESSION_KEY_LENGTH] = {0};
             RAND_bytes(sessionKey, SESSION_KEY_LENGTH);
@@ -1078,7 +1062,6 @@ void CastBindTargetCallback::HandleQueryIpAction(const PeerTargetId &targetId, c
         remoteIp = authInfo[KEY_REMOTE_P2P_IP];
     }
     CastDeviceDataManager::GetInstance().SetDeviceIp(targetId.deviceId, localIp, remoteIp);
-    ConnectionManager::GetInstance().NotifySessionEvent(targetId.deviceId, ConnectStageResult::AUTH_SUCCESS);
 }
 
 void CastUnBindTargetCallback::OnUnbindResult(const PeerTargetId &targetId, int32_t result, std::string content)

@@ -17,13 +17,9 @@
  */
 
 #include <memory>
-#include "napi/native_api.h"
-#include "napi/native_node_api.h"
 #include "cast_engine_log.h"
 #include "cast_engine_common.h"
-#include "oh_remote_control_event.h"
 #include "i_cast_session.h"
-#include "cast_session_manager.h"
 #include "napi_castengine_utils.h"
 #include "napi_cast_session_listener.h"
 #include "napi_cast_session.h"
@@ -60,7 +56,8 @@ void NapiCastSession::DefineCastSessionJSClass(napi_env env)
         DECLARE_NAPI_FUNCTION("createMirrorPlayer", CreateMirrorPlayer),
         DECLARE_NAPI_FUNCTION("createStreamPlayer", CreateStreamPlayer),
         DECLARE_NAPI_FUNCTION("setCastMode", SetCastMode),
-        DECLARE_NAPI_FUNCTION("release", Release)
+        DECLARE_NAPI_FUNCTION("release", Release),
+        DECLARE_NAPI_FUNCTION("getRemoteDeviceInfo", GetRemoteDeviceInfo),
     };
 
     napi_value castSession = nullptr;
@@ -108,7 +105,7 @@ napi_status NapiCastSession::CreateNapiCastSession(napi_env env, shared_ptr<ICas
         return napi_generic_failure;
     }
 
-    NapiCastSession *napiCastSession = new NapiCastSession(session);
+    NapiCastSession *napiCastSession = new (std::nothrow) NapiCastSession(session);
     if (napiCastSession == nullptr) {
         CLOGE("NapiCastSession is nullptr");
         return napi_generic_failure;
@@ -654,13 +651,66 @@ napi_value NapiCastSession::Release(napi_env env, napi_callback_info info)
     return NapiAsyncWork::Enqueue(env, napiAsyntask, "Release", executor, complete);
 }
 
+napi_value NapiCastSession::GetRemoteDeviceInfo(napi_env env, napi_callback_info info)
+{
+    CLOGD("Start to get remote deviceInfo in");
+    struct ConcreteTask : public NapiAsyncTask {
+        string sessionId_;
+        CastRemoteDevice castRemoteDevice_;
+    };
+    auto napiAsyntask = std::make_shared<ConcreteTask>();
+    if (napiAsyntask == nullptr) {
+        CLOGE("Create NapiAsyncTask failed");
+        return GetUndefinedValue(env);
+    }
+
+    auto inputParser = [env, napiAsyntask](size_t argc, napi_value *argv) {
+        constexpr size_t expectedArgc = 1;
+        CHECK_ARGS_RETURN_VOID(napiAsyntask, argc == expectedArgc, "invalid arguments",
+            NapiErrors::errcode_[ERR_INVALID_PARAM]);
+        napi_valuetype expectedTypes[expectedArgc] = { napi_string };
+        bool isParamsTypeValid = CheckJSParamsType(env, argv, expectedArgc, expectedTypes);
+        CHECK_ARGS_RETURN_VOID(napiAsyntask, isParamsTypeValid, "invalid arguments",
+            NapiErrors::errcode_[ERR_INVALID_PARAM]);
+        napiAsyntask->sessionId_ = ParseString(env, argv[0]);
+    };
+
+    napiAsyntask->GetJSInfo(env, info, inputParser);
+    auto executor = [napiAsyntask]() {
+        auto *napiSession = reinterpret_cast<NapiCastSession *>(napiAsyntask->native);
+        CHECK_ARGS_RETURN_VOID(napiAsyntask, napiSession != nullptr, "napiSession is null",
+            NapiErrors::errcode_[CAST_ENGINE_ERROR]);
+        shared_ptr<ICastSession> castSession = napiSession->GetCastSession();
+        CHECK_ARGS_RETURN_VOID(napiAsyntask, castSession, "ICastSession is null",
+            NapiErrors::errcode_[CAST_ENGINE_ERROR]);
+        int32_t ret = castSession->GetRemoteDeviceInfo(napiAsyntask->sessionId_, napiAsyntask->castRemoteDevice_);
+        if (ret != CAST_ENGINE_SUCCESS) {
+            if (ret == ERR_NO_PERMISSION) {
+                napiAsyntask->errMessage = "GetRemoteDeviceInfo failed : no permission";
+            } else if (ret == ERR_INVALID_PARAM) {
+                napiAsyntask->errMessage = "GetRemoteDeviceInfo failed : invalid parameters";
+            } else {
+                napiAsyntask->errMessage = "GetRemoteDeviceInfo failed : native server exception";
+            }
+            napiAsyntask->status = napi_generic_failure;
+            napiAsyntask->errCode = NapiErrors::errcode_[ret];
+        }
+    };
+    auto complete = [env, napiAsyntask](napi_value &output) {
+        output = ConvertCastRemoteDeviceToJS(env, napiAsyntask->castRemoteDevice_);
+    };
+    return NapiAsyncWork::Enqueue(env, napiAsyntask, "GetRemoteDeviceInfo", executor, complete);
+}
+
 std::shared_ptr<NapiCastSessionListener> NapiCastSession::NapiListenerGetter()
 {
+    std::lock_guard<std::mutex> lock(mutex_);
     return listener_;
 }
 
 void NapiCastSession::NapiListenerSetter(std::shared_ptr<NapiCastSessionListener> listener)
 {
+    std::lock_guard<std::mutex> lock(mutex_);
     listener_ = listener;
 }
 } // namespace CastEngineClient

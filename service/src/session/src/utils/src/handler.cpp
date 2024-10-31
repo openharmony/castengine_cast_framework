@@ -120,6 +120,28 @@ bool Handler::SendCastMessageDelayed(int what, long uptimeMillis)
     return SendCastMessage(msg);
 }
 
+bool Handler::SendCastMessageDelayed(int what, long uptimeMillis, std::string deviceId)
+{
+    if (uptimeMillis < 0 || deviceId.empty()) {
+        return false;
+    }
+
+    Message msg(what, deviceId);
+    msg.SetWhen(uptimeMillis);
+    return SendCastMessage(msg);
+}
+
+bool Handler::SendCastMessageDelayed(int what, int arg1, long uptimeMillis, std::string deviceId)
+{
+    if (uptimeMillis < 0 || deviceId.empty()) {
+        return false;
+    }
+
+    Message msg(what, arg1, deviceId);
+    msg.SetWhen(uptimeMillis);
+    return SendCastMessage(msg);
+}
+
 void Handler::RemoveMessage(const Message &msg)
 {
     std::unique_lock<std::mutex> lock(queueMutex_);
