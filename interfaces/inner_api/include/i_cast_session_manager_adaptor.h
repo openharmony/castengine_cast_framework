@@ -45,9 +45,10 @@ public:
     virtual int32_t CreateCastSession(const CastSessionProperty &property,
         std::shared_ptr<ICastSession> &castSession) = 0;
     virtual int32_t SetSinkSessionCapacity(int sessionCapacity) = 0;
-    virtual int32_t StartDiscovery(int protocols) = 0;
+    virtual int32_t StartDiscovery(int protocols, std::vector<std::string> drmSchemes) = 0;
     virtual int32_t SetDiscoverable(bool enable) = 0;
     virtual int32_t StopDiscovery() = 0;
+    virtual int32_t StartDeviceLogging(int32_t fd, uint32_t maxSize) = 0;
     virtual int32_t GetCastSession(std::string sessionId, std::shared_ptr<ICastSession> &castSession) = 0;
 };
 } // namespace CastEngine

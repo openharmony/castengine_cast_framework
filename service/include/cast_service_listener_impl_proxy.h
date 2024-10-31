@@ -37,7 +37,7 @@ public:
     void OnDeviceOffline(const std::string &deviceId) override;
     void OnSessionCreated(const sptr<ICastSessionImpl> &castSession) override;
     void OnServiceDied() override;
-
+    void OnLogEvent(int32_t eventId, int64_t param) override;
 private:
     static inline BrokerDelegator<CastServiceListenerImplProxy> delegator_;
 };

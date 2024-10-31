@@ -61,6 +61,7 @@ int32_t StreamPlayer::SetSurface(const std::string &surfaceId)
 
     sptr<Surface> surface = SurfaceUtils::GetInstance()->GetSurface(surfaceUniqueId);
     if (!surface) {
+        CLOGE("surface is null, surface uniqueId %" PRIu64, surfaceUniqueId);
         return CAST_ENGINE_ERROR;
     }
     sptr<IBufferProducer> producer = surface->GetProducer();
@@ -141,6 +142,11 @@ int32_t StreamPlayer::SetLoopMode(const LoopMode mode)
     return proxy_ ? proxy_->SetLoopMode(mode) : CAST_ENGINE_ERROR;
 }
 
+int32_t StreamPlayer::SetAvailableCapability(const StreamCapability &streamCapability)
+{
+    return proxy_ ? proxy_->SetAvailableCapability(streamCapability) : CAST_ENGINE_ERROR;
+}
+
 int32_t StreamPlayer::SetSpeed(const PlaybackSpeed speed)
 {
     return proxy_ ? proxy_->SetSpeed(speed) : CAST_ENGINE_ERROR;
@@ -174,6 +180,11 @@ int32_t StreamPlayer::GetMute(bool &mute)
 int32_t StreamPlayer::GetLoopMode(LoopMode &loopMode)
 {
     return proxy_ ? proxy_->GetLoopMode(loopMode) : CAST_ENGINE_ERROR;
+}
+
+int32_t StreamPlayer::GetAvailableCapability(StreamCapability &streamCapability)
+{
+    return proxy_ ? proxy_->GetAvailableCapability(streamCapability) : CAST_ENGINE_ERROR;
 }
 
 int32_t StreamPlayer::GetPlaySpeed(PlaybackSpeed &playbackSpeed)

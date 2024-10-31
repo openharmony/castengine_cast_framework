@@ -54,6 +54,8 @@ StreamPlayerListenerImplStub::StreamPlayerListenerImplStub(std::shared_ptr<IStre
     FILL_SINGLE_STUB_TASK(ON_PLAY_REQUEST, &StreamPlayerListenerImplStub::DoOnPlayRequestTask);
     FILL_SINGLE_STUB_TASK(ON_IMAGE_CHANGED, &StreamPlayerListenerImplStub::DoOnImageChangedTask);
     FILL_SINGLE_STUB_TASK(ON_ALBUM_COVER_CHANGED, &StreamPlayerListenerImplStub::DoOnAlbumCoverChangedTask);
+    FILL_SINGLE_STUB_TASK(ON_AVAILABLE_CAPABILITY_CHANGED,
+        &StreamPlayerListenerImplStub::DoOnAvailableCapabilityChangedTask);
 }
 
 StreamPlayerListenerImplStub::~StreamPlayerListenerImplStub()
@@ -223,6 +225,14 @@ int32_t StreamPlayerListenerImplStub::DoOnAlbumCoverChangedTask(MessageParcel &d
     return ERR_NONE;
 }
 
+int32_t StreamPlayerListenerImplStub::DoOnAvailableCapabilityChangedTask(MessageParcel &data, MessageParcel &reply)
+{
+    static_cast<void>(reply);
+    auto streamCapability = ReadStreamCapability(data);
+    userListener_->OnAvailableCapabilityChanged(streamCapability);
+
+    return ERR_NONE;
+}
 void StreamPlayerListenerImplStub::OnStateChanged(const PlayerStates playbackState, bool isPlayWhenReady)
 {
     static_cast<void>(playbackState);
@@ -300,6 +310,11 @@ void StreamPlayerListenerImplStub::OnImageChanged(std::shared_ptr<Media::PixelMa
 void StreamPlayerListenerImplStub::OnAlbumCoverChanged(std::shared_ptr<Media::PixelMap> pixelMap)
 {
     static_cast<void>(pixelMap);
+}
+
+void StreamPlayerListenerImplStub::OnAvailableCapabilityChanged(const StreamCapability &streamCapability)
+{
+    static_cast<void>(streamCapability);
 }
 } // namespace CastEngineClient
 } // namespace CastEngine

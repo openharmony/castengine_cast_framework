@@ -590,6 +590,26 @@ int32_t CastStreamPlayerManager::SetLoopMode(const LoopMode mode)
     return CAST_ENGINE_SUCCESS;
 }
 
+int32_t CastStreamPlayerManager::InnerSetAvailableCapability(const StreamCapability &streamCapability)
+{
+    CLOGD("InnerSetAvailableCapability in");
+    if (!callback_) {
+        CLOGE("callback_ is null");
+        return CAST_ENGINE_ERROR;
+    }
+    callback_->OnAvailableCapabilityChanged(streamCapability);
+    std::lock_guard<std::mutex> lock(mutex_);
+    availableCapability_ = streamCapability;
+    CLOGD("InnerSetAvailableCapability out");
+    return CAST_ENGINE_SUCCESS;
+}
+
+int32_t CastStreamPlayerManager::SetAvailableCapability(const StreamCapability &streamCapability)
+{
+    CLOGW("Don't support SetAvailableCapability");
+    return CAST_ENGINE_ERROR;
+}
+
 int32_t CastStreamPlayerManager::SetSpeed(const PlaybackSpeed speed)
 {
     HiSysEventWriteWrap(__func__, {
@@ -698,6 +718,18 @@ int32_t CastStreamPlayerManager::GetLoopMode(LoopMode &loopMode)
         return CAST_ENGINE_ERROR;
     }
     loopMode = player_->GetLoopMode();
+    return CAST_ENGINE_SUCCESS;
+}
+
+int32_t CastStreamPlayerManager::GetAvailableCapability(StreamCapability &streamCapability)
+{
+    CLOGD("GetAvailableCapability in");
+    if (!player_) {
+        CLOGE("player_ is null");
+        return CAST_ENGINE_ERROR;
+    }
+    std::lock_guard<std::mutex> lock(mutex_);
+    streamCapability = availableCapability_;
     return CAST_ENGINE_SUCCESS;
 }
 

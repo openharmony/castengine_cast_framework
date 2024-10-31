@@ -17,6 +17,12 @@ config("cast_session_config") {
   include_dirs = [
     "include",
     "//third_party/jsoncpp/include",
+    "//foundation/communication/wifi/wifi/interfaces/kits/c",
+    "//foundation/CastEngine/castengine_wifi_display/interfaces/innerkits/native/wfd/include",
+    "//foundation/CastEngine/castengine_wifi_display/services/impl/scene/wfd",
+    "//foundation/CastEngine/castengine_wifi_display/services",
+    "//foundation/CastEngine/castengine_wifi_display/services/interaction/ipc_codec",
+    "//foundation/CastEngine/castengine_wifi_display/frameworks/innerkitsimpl/native/wfd",
   ]
 }
 

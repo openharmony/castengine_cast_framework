@@ -187,6 +187,7 @@ void CastSessionManagerService::OnStop()
 
 namespace {
 using namespace OHOS::DistributedHardware;
+constexpr int AV_SESSION_UID = 6700;
 
 class DiscoveryManagerListener : public IDiscoveryManagerListener {
 public:
@@ -528,10 +529,10 @@ int32_t CastSessionManagerService::SetSinkSessionCapacity(int sessionCapacity)
     return CAST_ENGINE_SUCCESS;
 }
 
-int32_t CastSessionManagerService::StartDiscovery(int protocols)
+int32_t CastSessionManagerService::StartDiscovery(int protocols, std::vector<std::string> drmSchemes)
 {
     static_cast<void>(protocols);
-    CLOGD("StartDiscovery in, protocolType = %d", protocols);
+    CLOGI("StartDiscovery in, protocolType = %{public}d, drm shcheme size = %{public}zu", protocols, drmSchemes.size());
     SharedRLock lock(mutex_);
     if (!Permission::CheckPidPermission()) {
         return ERR_NO_PERMISSION;
@@ -542,7 +543,7 @@ int32_t CastSessionManagerService::StartDiscovery(int protocols)
 
 int32_t CastSessionManagerService::StopDiscovery()
 {
-    CLOGD("StopDiscovery in");
+    CLOGI("StopDiscovery in");
     SharedRLock lock(mutex_);
     if (!Permission::CheckPidPermission()) {
         return ERR_NO_PERMISSION;
@@ -551,9 +552,23 @@ int32_t CastSessionManagerService::StopDiscovery()
     return CAST_ENGINE_SUCCESS;
 }
 
+int32_t CastSessionManagerService::StartDeviceLogging(int32_t fd, uint32_t maxSize)
+{
+    CLOGI("StartDeviceLogging in");
+    if (IPCSkeleton::GetCallingUid() != AV_SESSION_UID) {
+        if (fd >= 0) {
+            close(fd);
+        }
+        return static_cast<int32_t>(LogCodeId::UID_MISMATCH);
+    }
+
+    // 待实现 DfxCastEngineStartDeviceLogging 
+    return CAST_ENGINE_ERROR;
+}
+
 int32_t CastSessionManagerService::SetDiscoverable(bool enable)
 {
-    CLOGD("SetDiscoverable in, enable = %{public}d", enable);
+    CLOGI("SetDiscoverable in, enable = %{public}d", enable);
     SharedRLock lock(mutex_);
     if (!Permission::CheckPidPermission()) {
         return ERR_NO_PERMISSION;

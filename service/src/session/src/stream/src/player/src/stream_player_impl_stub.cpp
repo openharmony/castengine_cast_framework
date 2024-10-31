@@ -33,11 +33,11 @@ int StreamPlayerImplStub::OnRemoteRequest(uint32_t code, MessageParcel &data, Me
     MessageOption &option)
 {
     if (!Permission::CheckStreamPermission()) {
-        return ERR_UNKNOWN_TRANSACTION;
+        return ERR_NO_PERMISSION;
     }
 
     if (!Permission::CheckPidPermission()) {
-        return ERR_UNKNOWN_TRANSACTION;
+        return ERR_NO_PERMISSION;
     }
     RETURN_IF_WRONG_TASK(code, data, reply, option);
     return EXECUTE_SINGLE_STUB_TASK(code, data, reply);
@@ -63,12 +63,14 @@ StreamPlayerImplStub::StreamPlayerImplStub(std::shared_ptr<IStreamPlayerImpl> st
     FILL_SINGLE_STUB_TASK(SET_VOLUME, &StreamPlayerImplStub::DoSetVolumeTask);
     FILL_SINGLE_STUB_TASK(SET_MUTE, &StreamPlayerImplStub::DoSetMuteTask);
     FILL_SINGLE_STUB_TASK(SET_LOOP_MODE, &StreamPlayerImplStub::DoSetLoopModeTask);
+    FILL_SINGLE_STUB_TASK(SET_AVAILABLE_CAPABILITY, &StreamPlayerImplStub::DoSetAvailableCapabilityTask);
     FILL_SINGLE_STUB_TASK(SET_SPEED, &StreamPlayerImplStub::DoSetSpeedTask);
     FILL_SINGLE_STUB_TASK(GET_PLAYER_STATUS, &StreamPlayerImplStub::DoGetPlayerStatusTask);
     FILL_SINGLE_STUB_TASK(GET_POSITION, &StreamPlayerImplStub::DoGetPositionTask);
     FILL_SINGLE_STUB_TASK(GET_DURATION, &StreamPlayerImplStub::DoGetDurationTask);
     FILL_SINGLE_STUB_TASK(GET_VOLUME, &StreamPlayerImplStub::DoGetVolumeTask);
     FILL_SINGLE_STUB_TASK(GET_LOOP_MODE, &StreamPlayerImplStub::DoGetLoopModeTask);
+    FILL_SINGLE_STUB_TASK(GET_AVAILABLE_CAPABILITY, &StreamPlayerImplStub::DoGetAvailableCapabilityTask);
     FILL_SINGLE_STUB_TASK(GET_PLAY_SPEED, &StreamPlayerImplStub::DoGetPlaySpeedTask);
     FILL_SINGLE_STUB_TASK(GET_MEDIA_INFO_HOLDER, &StreamPlayerImplStub::DoGetMediaInfoHolderTask);
     FILL_SINGLE_STUB_TASK(RELEASE, &StreamPlayerImplStub::DoReleaseTask);
@@ -278,6 +280,17 @@ int32_t StreamPlayerImplStub::DoSetLoopModeTask(MessageParcel &data, MessageParc
     return ERR_NONE;
 }
 
+int32_t StreamPlayerImplStub::DoSetAvailableCapabilityTask(MessageParcel &data, MessageParcel &reply)
+{
+    StreamCapability streamCapability = ReadStreamCapability(data);
+    if (!reply.WriteInt32(SetAvailableCapability(streamCapability))) {
+        CLOGE("Failed to write streamCapability value");
+        return IPC_STUB_WRITE_PARCEL_ERR;
+    }
+
+    return ERR_NONE;
+}
+
 int32_t StreamPlayerImplStub::DoSetSpeedTask(MessageParcel &data, MessageParcel &reply)
 {
     int speed = data.ReadInt32();
@@ -411,6 +424,23 @@ int32_t StreamPlayerImplStub::DoGetLoopModeTask(MessageParcel &data, MessageParc
     int32_t loopMode = static_cast<int32_t>(mode);
     if (!reply.WriteInt32(loopMode)) {
         CLOGE("Failed to write mode:%{public}d", loopMode);
+        return IPC_STUB_WRITE_PARCEL_ERR;
+    }
+
+    return ERR_NONE;
+}
+
+int32_t StreamPlayerImplStub::DoGetAvailableCapabilityTask(MessageParcel &data, MessageParcel &reply)
+{
+    static_cast<void>(data);
+    StreamCapability streamCapability{};
+    int32_t ret = GetAvailableCapability(streamCapability);
+    if (!reply.WriteInt32(ret)) {
+        CLOGE("Failed to write ret:%{public}d", ret);
+        return IPC_STUB_WRITE_PARCEL_ERR;
+    }
+    if (!WriteStreamCapability(reply, streamCapability)) {
+        CLOGE("Failed to write streamCapability");
         return IPC_STUB_WRITE_PARCEL_ERR;
     }
 
@@ -621,6 +651,16 @@ int32_t StreamPlayerImplStub::SetLoopMode(const LoopMode mode)
     return streamPlayerImpl->SetLoopMode(mode);
 }
 
+int32_t StreamPlayerImplStub::SetAvailableCapability(const StreamCapability &streamCapability)
+{
+    auto streamPlayerImpl = PlayerImplGetter();
+    if (!streamPlayerImpl) {
+        CLOGE("playerImpl is nullptr");
+        return CAST_ENGINE_ERROR;
+    }
+    return streamPlayerImpl->SetAvailableCapability(streamCapability);
+}
+
 int32_t StreamPlayerImplStub::SetSpeed(const PlaybackSpeed speed)
 {
     auto streamPlayerImpl = PlayerImplGetter();
@@ -689,6 +729,16 @@ int32_t StreamPlayerImplStub::GetLoopMode(LoopMode &loopMode)
         return CAST_ENGINE_ERROR;
     }
     return streamPlayerImpl->GetLoopMode(loopMode);
+}
+
+int32_t StreamPlayerImplStub::GetAvailableCapability(StreamCapability &streamCapability)
+{
+    auto streamPlayerImpl = PlayerImplGetter();
+    if (!streamPlayerImpl) {
+        CLOGE("playerImpl is nullptr");
+        return CAST_ENGINE_ERROR;
+    }
+    return streamPlayerImpl->GetAvailableCapability(streamCapability);
 }
 
 int32_t StreamPlayerImplStub::GetPlaySpeed(PlaybackSpeed &playbackSpeed)

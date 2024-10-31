@@ -50,6 +50,7 @@ public:
     virtual void OnPlayRequest(const MediaInfo &mediaInfo) = 0;
     virtual void OnImageChanged(std::shared_ptr<Media::PixelMap> pixelMap) = 0;
     virtual void OnAlbumCoverChanged(std::shared_ptr<Media::PixelMap> pixelMap) = 0;
+    virtual void OnAvailableCapabilityChanged(const StreamCapability &streamCapability) = 0;
 
 protected:
     enum {
@@ -67,7 +68,8 @@ protected:
         ON_END_OF_STREAM,
         ON_PLAY_REQUEST,
         ON_IMAGE_CHANGED,
-        ON_ALBUM_COVER_CHANGED
+        ON_ALBUM_COVER_CHANGED,
+        ON_AVAILABLE_CAPABILITY_CHANGED,
     };
 };
 } // namespace CastEngine

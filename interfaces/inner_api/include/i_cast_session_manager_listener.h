@@ -37,6 +37,7 @@ public:
     virtual void OnDeviceOffline(const std::string &deviceId) = 0;
     virtual void OnSessionCreated(const std::shared_ptr<ICastSession> &castSession) = 0;
     virtual void OnServiceDied() = 0;
+    virtual void OnLogEvent(int32_t eventId, int64_t param) {};
 };
 } // namespace CastEngine
 } // namespace OHOS

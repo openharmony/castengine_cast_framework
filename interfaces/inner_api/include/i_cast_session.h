@@ -61,6 +61,7 @@ public:
     virtual int32_t NotifyEvent(EventId eventId, std::string &jsonParam) = 0;
     virtual int32_t SetCastMode(CastMode mode, std::string &jsonParam) = 0;
     virtual int32_t Release() = 0;
+    virtual int32_t GetRemoteDeviceInfo(std::string deviceId, CastRemoteDevice &remoteDevice) = 0;
 };
 } // namespace CastEngine
 } // namespace OHOS
