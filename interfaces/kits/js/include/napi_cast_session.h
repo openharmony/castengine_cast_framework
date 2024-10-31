@@ -70,6 +70,7 @@ private:
     static napi_value CreateStreamPlayer(napi_env env, napi_callback_info info);
     static napi_value SetCastMode(napi_env env, napi_callback_info info);
     static napi_value Release(napi_env env, napi_callback_info info);
+    static napi_value GetRemoteDeviceInfo(napi_env env, napi_callback_info info);
 
     static napi_value OnEvent(napi_env env, napi_callback_info info);
     static napi_value OffEvent(napi_env env, napi_callback_info info);

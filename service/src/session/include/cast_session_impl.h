@@ -76,7 +76,7 @@ class CastSessionImpl::ConnectManagerListenerImpl : public IConnectManagerSessio
 public:
     explicit ConnectManagerListenerImpl(sptr<CastSessionImpl> session) : session_(session) {}
 
-    void NotifySessionEvent(const std::string &deviceId, int result) override;
+    void NotifyConnectStage(const std::string &deviceId, int result, int32_t reasonCode) override;
 
 private:
     wptr<CastSessionImpl> session_;

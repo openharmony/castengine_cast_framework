@@ -167,6 +167,7 @@ private:
     bool TransferTo(std::shared_ptr<BaseState> state);
     bool IsAllowTransferState(SessionState desiredState) const;
     std::string GetCurrentRemoteDeviceId();
+    bool ProcessAuth(const std::string &deviceId);
     int ProcessConnect(const Message &msg);
     bool ProcessSetUp(const Message &msg);
     bool ProcessSetUpSuccess(const Message &msg);
@@ -182,6 +183,7 @@ private:
     bool IsSupportFeature(const std::set<int> &featureSet, int supportFeature);
     bool IsConnected() const;
     bool SendEventChange(int moduleId, int event, const std::string &param);
+    void DisconnectPhysicalLink(const std::string &deviceId);
     void RemoveRemoteDevice(const std::string &deviceId);
     bool AddRemoteDevice(const CastRemoteDeviceInfo &remoteDeviceInfo);
     std::shared_ptr<ChannelRequest> BuildChannelRequest(const std::string &remoteDeviceId, bool isSupportVtp,

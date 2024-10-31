@@ -137,7 +137,7 @@ enum EXPORT ReasonCode {
     // user no action, so timeout
     REASON_USER_TIMEOUT = 10008,
     // Peer device is busy
-    REASON_DEVICE_IS_BUSY = 10009
+    REASON_DEVICE_IS_BUSY = 10009,
 };
 
 const EXPORT std::array<std::string, static_cast<size_t>(DeviceState::DEVICE_STATE_MAX)> DEVICE_STATE_STRING = {

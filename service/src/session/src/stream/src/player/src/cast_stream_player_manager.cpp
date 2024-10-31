@@ -757,6 +757,12 @@ int32_t CastStreamPlayerManager::GetMediaInfoHolder(MediaInfoHolder &mediaInfoHo
     return CAST_ENGINE_ERROR;
 }
 
+int32_t CastStreamPlayerManager::ProvideKeyResponse(const std::string &mediaId, const std::vector<uint8_t> &response)
+{
+    CLOGW("Don't support GetMediaInfoHolder");
+    return CAST_ENGINE_ERROR;
+}
+
 int32_t CastStreamPlayerManager::Release()
 {
     Stop();

@@ -61,7 +61,8 @@ private:
     static napi_value SetSurface(napi_env env, napi_callback_info info);
     static napi_value Release(napi_env env, napi_callback_info info);
     static napi_value ResizeVirtualScreen(napi_env env, napi_callback_info info);
-
+    static napi_value SetCastRoute(napi_env env, napi_callback_info info);
+    static napi_value GetScreenshot(napi_env env, napi_callback_info info);
     std::mutex mutex_;
     std::shared_ptr<IMirrorPlayer> mirrorPlayer_;
     static thread_local napi_ref consRef_;

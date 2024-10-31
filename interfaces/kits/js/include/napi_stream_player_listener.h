@@ -51,6 +51,7 @@ public:
         EVENT_PLAY_REQUEST,
         EVENT_IMAGE_CHANGED,
         EVENT_ALBUM_COVER_CHANGED,
+        EVENT_KEY_REQUEST,
         EVENT_AVAILABLE_CAPABILITY_CHANGED,
         EVENT_TYPE_MAX
     };
@@ -73,18 +74,17 @@ public:
     void OnPlayRequest(const MediaInfo &mediaInfo) override;
     void OnImageChanged(std::shared_ptr<Media::PixelMap> pixelMap) override;
     void OnAlbumCoverChanged(std::shared_ptr<Media::PixelMap> pixelMap) override;
+    void OnKeyRequest(const std::string &mediaId, const std::vector<uint8_t> &keyRequestData) override;
     void OnAvailableCapabilityChanged(const StreamCapability &streamCapability) override;
 
     napi_status AddCallback(napi_env env, int32_t event, napi_value callback);
     napi_status RemoveCallback(napi_env env, int32_t event, napi_value callback);
 
 private:
-    void HandleEvent(int32_t event, NapiArgsGetter getter);
-    napi_status ClearCallback(napi_env env);
+    void HandleEvent(int32_t event, NapiArgsGetter &getter);
 
     std::mutex lock_;
     std::shared_ptr<NapiCallback> callback_;
-    std::list<napi_ref> callbacks_[EVENT_TYPE_MAX] {};
 };
 } // namespace CastEngineClient
 } // namespace CastEngine

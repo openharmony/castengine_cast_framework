@@ -79,7 +79,6 @@ double JsObjectToDouble(napi_env env, napi_value &object, const char *fieldStr);
 int64_t JsObjectToInt64(napi_env env, napi_value &object, const char *fieldStr);
 
 napi_value ConvertDeviceListToJS(napi_env env, const std::vector<CastRemoteDevice> &devices);
-napi_value ConvertCastSessionToJS(napi_env env, const std::shared_ptr<ICastSession> &castSession);
 napi_value ConvertDeviceStateInfoToJS(napi_env env, const DeviceStateInfo &stateEvent);
 napi_value ConvertMediaInfoToJS(napi_env env, const MediaInfo &mediaInfo);
 napi_value ConvertMediaInfoHolderToJS(napi_env env, const MediaInfoHolder &mediaInfoHolder);
@@ -100,7 +99,7 @@ bool CheckJSParamsType(napi_env env, napi_value argv[], size_t expectedArgc, nap
 void CallJSFunc(napi_env env, napi_ref func, size_t argc, napi_value argv[]);
 napi_value GetUndefinedValue(napi_env env);
 bool Equals(napi_env env, napi_value value, napi_ref copy);
-napi_status GetRefByCallback(napi_env env, std::list<napi_ref> callbackList, napi_value callback,
+napi_status GetRefByCallback(napi_env env, std::list<napi_ref> &callbackList, napi_value callback,
     napi_ref &callbackRef);
 } // namespace CastEngineClient
 } // namespace CastEngine

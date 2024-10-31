@@ -37,6 +37,7 @@ namespace CastEngineClient {
 DEFINE_CAST_ENGINE_LABEL("Cast-Napi-SessionManager");
 
 std::shared_ptr<NapiCastSessionManagerListener> NapiCastSessionManager::listener_;
+std::mutex NapiCastSessionManager::mutex_;
 
 std::map<std::string, std::pair<NapiCastSessionManager::OnEventHandlerType,
     NapiCastSessionManager::OffEventHandlerType>>
@@ -299,12 +300,14 @@ napi_value NapiCastSessionManager::OffEvent(napi_env env, napi_callback_info inf
     if (it->second.second(env, argv[1]) != napi_ok) {
         CLOGE("event name invalid");
     }
+    UnRegisterNativeSessionManagerListener();
 
     return GetUndefinedValue(env);
 }
 
 napi_status NapiCastSessionManager::OnServiceDied(napi_env env, napi_value callback)
 {
+    std::lock_guard<std::mutex> lock(mutex_);
     if (!listener_) {
         CLOGE("cast session manager callback is null");
         return napi_generic_failure;
@@ -317,6 +320,7 @@ napi_status NapiCastSessionManager::OnServiceDied(napi_env env, napi_value callb
 
 napi_status NapiCastSessionManager::OnDeviceFound(napi_env env, napi_value callback)
 {
+    std::lock_guard<std::mutex> lock(mutex_);
     if (!listener_) {
         CLOGE("cast session manager callback is null");
         return napi_generic_failure;
@@ -329,6 +333,7 @@ napi_status NapiCastSessionManager::OnDeviceFound(napi_env env, napi_value callb
 
 napi_status NapiCastSessionManager::OnSessionCreated(napi_env env, napi_value callback)
 {
+    std::lock_guard<std::mutex> lock(mutex_);
     if (!listener_) {
         CLOGE("cast session manager callback is null");
         return napi_generic_failure;
@@ -341,6 +346,7 @@ napi_status NapiCastSessionManager::OnSessionCreated(napi_env env, napi_value ca
 
 napi_status NapiCastSessionManager::OnDeviceOffline(napi_env env, napi_value callback)
 {
+    std::lock_guard<std::mutex> lock(mutex_);
     if (!listener_) {
         CLOGE("cast session manager callback is null");
         return napi_generic_failure;
@@ -353,6 +359,7 @@ napi_status NapiCastSessionManager::OnDeviceOffline(napi_env env, napi_value cal
 
 napi_status NapiCastSessionManager::OffServiceDie(napi_env env, napi_value callback)
 {
+    std::lock_guard<std::mutex> lock(mutex_);
     if (!listener_) {
         CLOGE("cast session manager callback is null");
         return napi_generic_failure;
@@ -365,6 +372,7 @@ napi_status NapiCastSessionManager::OffServiceDie(napi_env env, napi_value callb
 
 napi_status NapiCastSessionManager::OffDeviceFound(napi_env env, napi_value callback)
 {
+    std::lock_guard<std::mutex> lock(mutex_);
     if (!listener_) {
         CLOGE("cast session manager callback is null");
         return napi_generic_failure;
@@ -377,6 +385,7 @@ napi_status NapiCastSessionManager::OffDeviceFound(napi_env env, napi_value call
 
 napi_status NapiCastSessionManager::OffSessionCreated(napi_env env, napi_value callback)
 {
+    std::lock_guard<std::mutex> lock(mutex_);
     if (!listener_) {
         CLOGE("cast session manager callback is null");
         return napi_generic_failure;
@@ -389,6 +398,7 @@ napi_status NapiCastSessionManager::OffSessionCreated(napi_env env, napi_value c
 
 napi_status NapiCastSessionManager::OffDeviceOffline(napi_env env, napi_value callback)
 {
+    std::lock_guard<std::mutex> lock(mutex_);
     if (!listener_) {
         CLOGE("cast session manager callback is null");
         return napi_generic_failure;
@@ -401,6 +411,7 @@ napi_status NapiCastSessionManager::OffDeviceOffline(napi_env env, napi_value ca
 
 napi_status NapiCastSessionManager::RegisterNativeSessionManagerListener()
 {
+    std::lock_guard<std::mutex> lock(mutex_);
     if (listener_) {
         return napi_ok;
     }
@@ -412,6 +423,23 @@ napi_status NapiCastSessionManager::RegisterNativeSessionManagerListener()
     int32_t ret = CastSessionManager::GetInstance().RegisterListener(listener_);
     if (ret != CAST_ENGINE_SUCCESS) {
         CLOGE("native register session manager listener failed");
+        return napi_generic_failure;
+    }
+
+    return napi_ok;
+}
+
+napi_status NapiCastSessionManager::UnRegisterNativeSessionManagerListener()
+{
+    std::lock_guard<std::mutex> lock(mutex_);
+    if (!listener_ || !listener_->IsCallbackListEmpty()) {
+        return napi_ok;
+    }
+    CLOGI("Callback list is empty, start to unregister listener");
+    int32_t ret = CastSessionManager::GetInstance().UnregisterListener();
+    listener_.reset();
+    if (ret != CAST_ENGINE_SUCCESS) {
+        CLOGE("native unregister session manager listener failed");
         return napi_generic_failure;
     }
 

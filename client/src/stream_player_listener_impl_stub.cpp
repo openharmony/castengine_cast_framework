@@ -54,6 +54,7 @@ StreamPlayerListenerImplStub::StreamPlayerListenerImplStub(std::shared_ptr<IStre
     FILL_SINGLE_STUB_TASK(ON_PLAY_REQUEST, &StreamPlayerListenerImplStub::DoOnPlayRequestTask);
     FILL_SINGLE_STUB_TASK(ON_IMAGE_CHANGED, &StreamPlayerListenerImplStub::DoOnImageChangedTask);
     FILL_SINGLE_STUB_TASK(ON_ALBUM_COVER_CHANGED, &StreamPlayerListenerImplStub::DoOnAlbumCoverChangedTask);
+    FILL_SINGLE_STUB_TASK(ON_KEY_REQUEST, &StreamPlayerListenerImplStub::DoOnKeyRequestTask);
     FILL_SINGLE_STUB_TASK(ON_AVAILABLE_CAPABILITY_CHANGED,
         &StreamPlayerListenerImplStub::DoOnAvailableCapabilityChangedTask);
 }
@@ -225,6 +226,23 @@ int32_t StreamPlayerListenerImplStub::DoOnAlbumCoverChangedTask(MessageParcel &d
     return ERR_NONE;
 }
 
+int32_t StreamPlayerListenerImplStub::DoOnKeyRequestTask(MessageParcel &data, MessageParcel &reply)
+{
+    static_cast<void>(reply);
+    std::string mediaId = data.ReadString();
+    std::vector<uint8_t> request;
+    int32_t requestSize = data.ReadInt32();
+    const uint8_t *requestBuf = data.ReadBuffer(static_cast<size_t>(requestSize));
+    if (requestSize == 0 || requestBuf == nullptr) {
+        CLOGE("invalid buffer, len = %{public}d", requestSize);
+        return ERR_NULL_OBJECT;
+    }
+    request.assign(requestBuf, requestBuf + requestSize);
+    userListener_->OnKeyRequest(mediaId, request);
+ 
+    return ERR_NONE;
+}
+
 int32_t StreamPlayerListenerImplStub::DoOnAvailableCapabilityChangedTask(MessageParcel &data, MessageParcel &reply)
 {
     static_cast<void>(reply);
@@ -233,6 +251,7 @@ int32_t StreamPlayerListenerImplStub::DoOnAvailableCapabilityChangedTask(Message
 
     return ERR_NONE;
 }
+
 void StreamPlayerListenerImplStub::OnStateChanged(const PlayerStates playbackState, bool isPlayWhenReady)
 {
     static_cast<void>(playbackState);
@@ -310,6 +329,12 @@ void StreamPlayerListenerImplStub::OnImageChanged(std::shared_ptr<Media::PixelMa
 void StreamPlayerListenerImplStub::OnAlbumCoverChanged(std::shared_ptr<Media::PixelMap> pixelMap)
 {
     static_cast<void>(pixelMap);
+}
+
+void StreamPlayerListenerImplStub::OnKeyRequest(const std::string &mediaId, const std::vector<uint8_t> &keyRequestData)
+{
+    static_cast<void>(mediaId);
+    static_cast<void>(keyRequestData);
 }
 
 void StreamPlayerListenerImplStub::OnAvailableCapabilityChanged(const StreamCapability &streamCapability)

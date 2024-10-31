@@ -48,6 +48,7 @@ public:
     virtual void OnPlayRequest(const MediaInfo &mediaInfo) = 0;
     virtual void OnImageChanged(std::shared_ptr<Media::PixelMap> pixelMap) = 0;
     virtual void OnAlbumCoverChanged(std::shared_ptr<Media::PixelMap> pixelMap) = 0;
+    virtual void OnKeyRequest(const std::string &mediaId, const std::vector<uint8_t> &keyRequestData) = 0;
     virtual void OnAvailableCapabilityChanged(const StreamCapability &streamCapability) = 0;
 };
 
@@ -88,6 +89,7 @@ public:
     virtual int32_t GetAvailableCapability(StreamCapability &streamCapability) = 0;
     virtual int32_t GetPlaySpeed(PlaybackSpeed &playbackSpeed) = 0;
     virtual int32_t GetMediaInfoHolder(MediaInfoHolder &mediaInfoHolder) = 0;
+    virtual int32_t ProvideKeyResponse(const std::string &mediaId, const std::vector<uint8_t> &response) = 0;
     virtual int32_t Release() = 0;
 };
 } // namespace CastEngine

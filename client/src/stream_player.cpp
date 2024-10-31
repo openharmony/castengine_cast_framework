@@ -197,6 +197,11 @@ int32_t StreamPlayer::GetMediaInfoHolder(MediaInfoHolder &mediaInfoHolder)
     return proxy_ ? proxy_->GetMediaInfoHolder(mediaInfoHolder) : CAST_ENGINE_ERROR;
 }
 
+int32_t StreamPlayer::ProvideKeyResponse(const std::string &mediaId, const std::vector<uint8_t> &response)
+{
+    return proxy_ ? proxy_->ProvideKeyResponse(mediaId, response) : CAST_ENGINE_ERROR;
+}
+
 int32_t StreamPlayer::Release()
 {
     return proxy_ ? proxy_->Release() : CAST_ENGINE_ERROR;

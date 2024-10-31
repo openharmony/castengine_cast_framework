@@ -162,6 +162,18 @@ bool Utils::IsArrayAllZero(const uint8_t *input, int length)
     }
     return isAllZero;
 }
+
+std::string Utils::Mask(const std::string &str)
+{
+    if (str.empty() || str.length() <= MASK_MIN_LEN) {
+        return str;
+    } else if (str.length() < (MASK_PRINT_PREFIX_LEN + MASK_PRINT_POSTFIX_LEN)) {
+        return str.substr(0, MASK_MIN_LEN) + "***" + str.substr(str.length() - 1);
+    } else {
+        return str.substr(0, MASK_PRINT_PREFIX_LEN) + "***" + str.substr(str.length() - MASK_PRINT_POSTFIX_LEN);
+    }
+}
+
 } // namespace CastEngineService
 } // namespace CastEngine
 } // namespace OHOS

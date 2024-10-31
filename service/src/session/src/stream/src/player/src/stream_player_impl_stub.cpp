@@ -464,6 +464,26 @@ int32_t StreamPlayerImplStub::DoGetMediaInfoHolderTask(MessageParcel &data, Mess
     return ERR_NONE;
 }
 
+int32_t StreamPlayerImplStub::DoProvideKeyResponseTask(MessageParcel &data, MessageParcel &reply)
+{
+    std::string mediaId = data.ReadString();
+    std::vector<uint8_t> response;
+    int32_t responseSize = data.ReadInt32();
+    const uint8_t *responseBuf = data.ReadBuffer(static_cast<size_t>(responseSize));
+    if (responseSize == 0 || responseBuf == nullptr) {
+        CLOGE("invalid buffer, len = %{public}d", responseSize);
+        return ERR_NULL_OBJECT;
+    }
+    response.assign(responseBuf, responseBuf + responseSize);
+
+    if (!reply.WriteInt32(ProvideKeyResponse(mediaId, response))) {
+        CLOGE("Failed to write int value");
+        return IPC_STUB_WRITE_PARCEL_ERR;
+    }
+
+    return ERR_NONE;
+}
+
 int32_t StreamPlayerImplStub::DoReleaseTask(MessageParcel &data, MessageParcel &reply)
 {
     static_cast<void>(data);
@@ -759,6 +779,16 @@ int32_t StreamPlayerImplStub::GetMediaInfoHolder(MediaInfoHolder &mediaInfoHolde
         return CAST_ENGINE_ERROR;
     }
     return streamPlayerImpl->GetMediaInfoHolder(mediaInfoHolder);
+}
+
+int32_t StreamPlayerImplStub::ProvideKeyResponse(const std::string &mediaId, const std::vector<uint8_t> &response)
+{
+    auto streamPlayerImpl = PlayerImplGetter();
+    if (!streamPlayerImpl) {
+        CLOGE("playerImpl is nullptr");
+        return CAST_ENGINE_ERROR;
+    }
+    return streamPlayerImpl->ProvideKeyResponse(mediaId, response);
 }
 
 int32_t StreamPlayerImplStub::Release()
