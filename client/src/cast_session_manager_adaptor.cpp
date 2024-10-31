@@ -73,9 +73,19 @@ int32_t CastSessionManagerAdaptor::Release()
     return proxy_ ? proxy_->Release() : CAST_ENGINE_ERROR;
 }
 
-int32_t CastSessionManagerAdaptor::SetLocalDevice(const CastLocalDevice &localDevice)
+int32_t CastSessionManagerAdaptor::StartDeviceLogging(int32_t fd, uint32_t maxSize)
 {
-    return proxy_ ? proxy_->SetLocalDevice(localDevice) : CAST_ENGINE_ERROR;
+    return proxy_ ? proxy_->StartDeviceLogging(fd, maxSize) : CAST_ENGINE_ERROR;
+}
+
+int32_t CastSessionManagerAdaptor::StartDiscovery(int protocols, std::vector<std::string> drmSchemes)
+{
+    return proxy_ ? proxy_->StartDiscovery(protocols, drmSchemes) : CAST_ENGINE_ERROR;
+}
+
+int32_t CastSessionManagerAdaptor::StopDiscovery()
+{
+    return proxy_ ? proxy_->StopDiscovery() : CAST_ENGINE_ERROR;
 }
 
 int32_t CastSessionManagerAdaptor::CreateCastSession(const CastSessionProperty &property,
@@ -106,24 +116,19 @@ int32_t CastSessionManagerAdaptor::CreateCastSession(const CastSessionProperty &
     return ret;
 }
 
+int32_t CastSessionManagerAdaptor::SetLocalDevice(const CastLocalDevice &localDevice)
+{
+    return proxy_ ? proxy_->SetLocalDevice(localDevice) : CAST_ENGINE_ERROR;
+}
+
 int32_t CastSessionManagerAdaptor::SetSinkSessionCapacity(int sessionCapacity)
 {
     return proxy_ ? proxy_->SetSinkSessionCapacity(sessionCapacity) : CAST_ENGINE_ERROR;
 }
 
-int32_t CastSessionManagerAdaptor::StartDiscovery(int protocols)
-{
-    return proxy_ ? proxy_->StartDiscovery(protocols) : CAST_ENGINE_ERROR;
-}
-
 int32_t CastSessionManagerAdaptor::SetDiscoverable(bool enable)
 {
     return proxy_ ? proxy_->SetDiscoverable(enable) : CAST_ENGINE_ERROR;
-}
-
-int32_t CastSessionManagerAdaptor::StopDiscovery()
-{
-    return proxy_ ? proxy_->StopDiscovery() : CAST_ENGINE_ERROR;
 }
 
 int32_t CastSessionManagerAdaptor::GetCastSession(std::string sessionId, std::shared_ptr<ICastSession> &castSession)

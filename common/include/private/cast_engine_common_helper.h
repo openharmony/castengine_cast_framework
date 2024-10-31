@@ -28,6 +28,9 @@ bool WriteCastRemoteDevice(Parcel &parcel, const CastRemoteDevice &device);
 std::unique_ptr<CastRemoteDevice> ReadCastRemoteDevice(Parcel &parcel);
 bool ReadCastRemoteDevice(Parcel &parcel, CastRemoteDevice &device);
 
+bool WriteStreamCapability(MessageParcel &parcel, const StreamCapability &streamCapability);
+StreamCapability ReadStreamCapability(MessageParcel &parcel);
+
 bool WriteMediaInfo(MessageParcel &parcel, const MediaInfo &mediaInfo);
 std::unique_ptr<MediaInfo> ReadMediaInfo(MessageParcel &parcel);
 

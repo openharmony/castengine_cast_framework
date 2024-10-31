@@ -21,6 +21,7 @@
 
 #include <memory>
 #include <mutex>
+#include "system_ability_load_callback_stub.h"
 #include "cast_engine_common.h"
 #include "i_cast_session.h"
 #include "i_cast_session_manager_adaptor.h"
@@ -46,11 +47,10 @@ public:
     int32_t SetLocalDevice(const CastLocalDevice &localDevice);
     int32_t CreateCastSession(const CastSessionProperty &property, std::shared_ptr<ICastSession> &castSession);
     int32_t SetSinkSessionCapacity(int sessionCapacity);
-    int32_t StartDiscovery(int protocols);
+    int32_t StartDiscovery(int protocols, std::vector<std::string> drmSchemes);
     int32_t SetDiscoverable(bool enable);
     int32_t StopDiscovery();
-    void ReleaseClientResources();
-
+    int32_t StartDeviceLogging(int32_t fd, uint32_t maxSize);
     int32_t GetCastSession(std::string sessionId, std::shared_ptr<ICastSession> &castSession);
 private:
     class CastEngineServiceDeathRecipient : public IRemoteObject::DeathRecipient {
@@ -66,14 +66,23 @@ private:
     private:
         std::shared_ptr<ICastSessionManagerListener> listener_;
     };
+    class CastEngineServiceLoadCallback : public SystemAbilityLoadCallbackStub {
+    public:
+        void OnLoadSystemAbilitySuccess(int32_t systemAbilityId, const sptr<IRemoteObject> &remoteObject) override;
+        void OnLoadSystemAbilityFail(int32_t systemAbilityId) override;
+    };
 
     CastSessionManager();
     void ReleaseServiceDeathRecipient();
+    void ReleaseClientResources();
     std::shared_ptr<ICastSessionManagerAdaptor> GetAdaptor();
+    void NotifyServiceLoadResult(const sptr<IRemoteObject> &remoteObject);
 
     std::mutex mutex_;
+    std::condition_variable loadServiceCond_;
     std::shared_ptr<ICastSessionManagerAdaptor> adaptor_;
     sptr<CastEngineServiceDeathRecipient> deathRecipient_{ nullptr };
+    bool isNeedLoadService_{ true };
 };
 } // namespace CastEngineClient
 } // namespace CastEngine

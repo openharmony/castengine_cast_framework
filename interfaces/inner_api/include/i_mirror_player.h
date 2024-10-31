@@ -21,6 +21,7 @@
 
 #include "cast_engine_common.h"
 #include "oh_remote_control_event.h"
+#include "pixel_map.h"
 
 namespace OHOS {
 namespace CastEngine {
@@ -42,6 +43,11 @@ public:
     virtual int32_t Release() = 0;
     virtual int32_t GetDisplayId(std::string &displayId) = 0;
     virtual int32_t ResizeVirtualScreen(uint32_t width, uint32_t height) = 0;
+    virtual int32_t SetDpi(uint32_t dpi) { return 0; }
+    virtual int32_t SetFps(uint32_t fps) { return 0; }
+    virtual int32_t SetBitrate(uint32_t minBitrate, uint32_t defaultBitrate, uint32_t maxBitrate) { return 0; }
+    virtual int32_t SetCastRoute(const bool &remote) { return 0; }
+    virtual int32_t GetScreenshot(std::shared_ptr<Media::PixelMap> &screenShot) { return 0; }
 };
 } // namespace CastEngine
 } // namespace OHOS

@@ -56,6 +56,7 @@ public:
     virtual int32_t SetVolume(int volume) = 0;
     virtual int32_t SetMute(bool mute) = 0;
     virtual int32_t SetLoopMode(const LoopMode mode) = 0;
+    virtual int32_t SetAvailableCapability(const StreamCapability &streamCapability) = 0;
     virtual int32_t SetSpeed(const PlaybackSpeed speed) = 0;
     virtual int32_t GetPlayerStatus(PlayerStates &playerStates) = 0;
     virtual int32_t GetPosition(int &position) = 0;
@@ -63,6 +64,7 @@ public:
     virtual int32_t GetVolume(int &volume, int &maxVolume) = 0;
     virtual int32_t GetMute(bool &mute) = 0;
     virtual int32_t GetLoopMode(LoopMode &loopMode) = 0;
+    virtual int32_t GetAvailableCapability(StreamCapability &streamCapability) = 0;
     virtual int32_t GetPlaySpeed(PlaybackSpeed &playbackSpeed) = 0;
     virtual int32_t GetMediaInfoHolder(MediaInfoHolder &mediaInfoHolder) = 0;
     virtual int32_t Release() = 0;
@@ -86,6 +88,7 @@ protected:
         SET_VOLUME,
         SET_MUTE,
         SET_LOOP_MODE,
+        SET_AVAILABLE_CAPABILITY,
         SET_SPEED,
         GET_PLAYER_STATUS,
         GET_POSITION,
@@ -93,6 +96,7 @@ protected:
         GET_VOLUME,
         GET_MUTE,
         GET_LOOP_MODE,
+        GET_AVAILABLE_CAPABILITY,
         GET_PLAY_SPEED,
         GET_MEDIA_INFO_HOLDER,
         RELEASE

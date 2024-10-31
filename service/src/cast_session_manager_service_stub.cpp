@@ -27,6 +27,7 @@ namespace OHOS {
 namespace CastEngine {
 namespace CastEngineService {
 DEFINE_CAST_ENGINE_LABEL("Cast-Service");
+constexpr uint32_t MAX_CYCLES_NUM = 10;
 
 int CastSessionManagerServiceStub::OnRemoteRequest(uint32_t code, MessageParcel &data, MessageParcel &reply,
     MessageOption &option)
@@ -46,6 +47,7 @@ CastSessionManagerServiceStub::CastSessionManagerServiceStub()
     FILL_SINGLE_STUB_TASK(START_DISCOVERY, &CastSessionManagerServiceStub::DoStartDiscoveryTask);
     FILL_SINGLE_STUB_TASK(SET_DISCOVERABLE, &CastSessionManagerServiceStub::DoSetDiscoverableTask);
     FILL_SINGLE_STUB_TASK(STOP_DISCOVERY, &CastSessionManagerServiceStub::DoStopDiscoveryTask);
+    FILL_SINGLE_STUB_TASK(START_DEVICE_LOGGING, &CastSessionManagerServiceStub::DoStartDeviceLoggingTask);
     FILL_SINGLE_STUB_TASK(GET_CAST_SESSION, &CastSessionManagerServiceStub::DoGetCastSessionTask);
 }
 
@@ -58,7 +60,7 @@ int32_t CastSessionManagerServiceStub::DoRegisterListenerTask(MessageParcel &dat
 {
     if (!Permission::CheckMirrorPermission() && !Permission::CheckStreamPermission() &&
         !Permission::CheckPidPermission()) {
-        return ERR_UNKNOWN_TRANSACTION;
+        return ERR_NO_PERMISSION;
     }
     sptr<IRemoteObject> obj = data.ReadRemoteObject();
     if (obj == nullptr) {
@@ -93,7 +95,7 @@ int32_t CastSessionManagerServiceStub::DoReleaseTask(MessageParcel &data, Messag
     static_cast<void>(data);
 
     if (!Permission::CheckMirrorPermission() && !Permission::CheckStreamPermission()) {
-        return ERR_UNKNOWN_TRANSACTION;
+        return ERR_NO_PERMISSION;
     }
 
     if (!reply.WriteInt32(Release())) {
@@ -107,7 +109,7 @@ int32_t CastSessionManagerServiceStub::DoReleaseTask(MessageParcel &data, Messag
 int32_t CastSessionManagerServiceStub::DoSetLocalDeviceTask(MessageParcel &data, MessageParcel &reply)
 {
     if (!Permission::CheckMirrorPermission()) {
-        return ERR_UNKNOWN_TRANSACTION;
+        return ERR_NO_PERMISSION;
     }
 
     auto device = ReadCastLocalDevice(data);
@@ -126,7 +128,7 @@ int32_t CastSessionManagerServiceStub::DoSetLocalDeviceTask(MessageParcel &data,
 int32_t CastSessionManagerServiceStub::DoCreateCastSessionTask(MessageParcel &data, MessageParcel &reply)
 {
     if (!Permission::CheckMirrorPermission() && !Permission::CheckStreamPermission()) {
-        return ERR_UNKNOWN_TRANSACTION;
+        return ERR_NO_PERMISSION;
     }
 
     auto property = ReadCastSessionProperty(data);
@@ -157,7 +159,7 @@ int32_t CastSessionManagerServiceStub::DoSetSinkSessionCapacityTask(MessageParce
     static_cast<void>(reply);
 
     if (!Permission::CheckMirrorPermission()) {
-        return ERR_UNKNOWN_TRANSACTION;
+        return ERR_NO_PERMISSION;
     }
 
     int32_t capacity = data.ReadInt32();
@@ -173,7 +175,7 @@ int32_t CastSessionManagerServiceStub::DoSetSinkSessionCapacityTask(MessageParce
 int32_t CastSessionManagerServiceStub::DoStartDiscoveryTask(MessageParcel &data, MessageParcel &reply)
 {
     if (!Permission::CheckMirrorPermission() && !Permission::CheckStreamPermission()) {
-        return ERR_UNKNOWN_TRANSACTION;
+        return ERR_NO_PERMISSION;
     }
 
     int32_t type = data.ReadInt32();
@@ -181,7 +183,12 @@ int32_t CastSessionManagerServiceStub::DoStartDiscoveryTask(MessageParcel &data,
         CLOGE("Invalid protocol type comes, %{public}d", type);
         return ERR_INVALID_DATA;
     }
-    if (!reply.WriteInt32(StartDiscovery(type))) {
+    std::vector<std::string> drmSchemes;
+    uint32_t drmSchemeSize = data.ReadUint32();
+    for (uint32_t i = 0; (i < drmSchemeSize) && (i < MAX_CYCLES_NUM); i++) {
+        drmSchemes.push_back(data.ReadString());
+    }
+    if (!reply.WriteInt32(StartDiscovery(type, drmSchemes))) {
         CLOGE("Failed to write int value");
         return IPC_STUB_WRITE_PARCEL_ERR;
     }
@@ -191,7 +198,7 @@ int32_t CastSessionManagerServiceStub::DoStartDiscoveryTask(MessageParcel &data,
 int32_t CastSessionManagerServiceStub::DoSetDiscoverableTask(MessageParcel &data, MessageParcel &reply)
 {
     if (!Permission::CheckMirrorPermission() && !Permission::CheckStreamPermission()) {
-        return ERR_UNKNOWN_TRANSACTION;
+        return ERR_NO_PERMISSION;
     }
 
     bool enable = data.ReadBool();
@@ -205,7 +212,7 @@ int32_t CastSessionManagerServiceStub::DoSetDiscoverableTask(MessageParcel &data
 int32_t CastSessionManagerServiceStub::DoStopDiscoveryTask(MessageParcel &data, MessageParcel &reply)
 {
     if (!Permission::CheckMirrorPermission() && !Permission::CheckStreamPermission()) {
-        return ERR_UNKNOWN_TRANSACTION;
+        return ERR_NO_PERMISSION;
     }
 
     if (!reply.WriteInt32(StopDiscovery())) {
@@ -215,9 +222,27 @@ int32_t CastSessionManagerServiceStub::DoStopDiscoveryTask(MessageParcel &data, 
     return ERR_NONE;
 }
 
+int32_t CastSessionManagerServiceStub::DoStartDeviceLoggingTask(MessageParcel &data, MessageParcel &reply)
+{
+    if ((!Permission::CheckMirrorPermission() && !Permission::CheckStreamPermission()) ||
+        !Permission::CheckPidPermission()) {
+        return ERR_NO_PERMISSION;
+    }
+    int32_t fd = data.ReadFileDescriptor();
+    uint32_t maxSize = data.ReadUint32();
+    if (!reply.WriteInt32(StartDeviceLogging(fd, maxSize))) {
+        CLOGE("Failed to write int value");
+        return IPC_STUB_WRITE_PARCEL_ERR;
+    }
+    return ERR_NONE;
+}
+
 int32_t CastSessionManagerServiceStub::DoGetCastSessionTask(MessageParcel &data, MessageParcel &reply)
 {
     sptr<ICastSessionImpl> sessionStub;
+    if (!Permission::CheckPidPermission()) {
+        return ERR_NO_PERMISSION;
+    }
     int32_t ret = GetCastSession(data.ReadString(), sessionStub);
     if (sessionStub == nullptr) {
         return IPC_STUB_ERR;

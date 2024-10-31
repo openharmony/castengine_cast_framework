@@ -39,14 +39,18 @@ private:
 
     bool GetCastRemoteDevices(MessageParcel &data, std::vector<CastRemoteDevice> &deviceList);
     bool GetCastSession(MessageParcel &data, std::shared_ptr<ICastSession> &castSession);
+
     int32_t DoDeviceFoundTask(MessageParcel &data, MessageParcel &reply);
     int32_t DoDeviceOfflineTask(MessageParcel &data, MessageParcel &reply);
     int32_t DoSessionCreateTask(MessageParcel &data, MessageParcel &reply);
     int32_t DoServiceDieTask(MessageParcel &data, MessageParcel &reply);
+    int32_t DoOnLogEventTask(MessageParcel &data, MessageParcel &reply);
+
     void OnDeviceFound(const std::vector<CastRemoteDevice> &deviceList) override;
     void OnDeviceOffline(const std::string &deviceId) override;
     void OnSessionCreated(const sptr<ICastSessionImpl> &castSession) override;
     void OnServiceDied() override;
+    void OnLogEvent(int32_t eventId, int64_t param) override;
 
     std::shared_ptr<ICastSessionManagerListener> userListener_;
 };

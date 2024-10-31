@@ -54,6 +54,7 @@ public:
     int32_t SetVolume(int volume) override;
     int32_t SetMute(bool mute) override;
     int32_t SetLoopMode(const LoopMode mode) override;
+    int32_t SetAvailableCapability(const StreamCapability &streamCapability) override;
     int32_t SetSpeed(const PlaybackSpeed speed) override;
     int32_t GetPlayerStatus(PlayerStates &playerStates) override;
     int32_t GetPosition(int &position) override;
@@ -61,6 +62,7 @@ public:
     int32_t GetVolume(int &volume, int &maxVolume) override;
     int32_t GetMute(bool &mute) override;
     int32_t GetLoopMode(LoopMode &loopMode) override;
+    int32_t GetAvailableCapability(StreamCapability &streamCapability) override;
     int32_t GetPlaySpeed(PlaybackSpeed &playbackSpeed) override;
     int32_t GetMediaInfoHolder(MediaInfoHolder &mediaInfoHolder) override;
     int32_t Release() override;

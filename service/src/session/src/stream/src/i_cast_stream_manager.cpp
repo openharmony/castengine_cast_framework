@@ -188,6 +188,38 @@ bool ICastStreamManager::ParseMediaInfo(const json &data, MediaInfo &mediaInfo, 
     return true;
 }
 
+void ICastStreamManager::EncapStreamCapability(const StreamCapability &streamCapability, json &data)
+{
+    data[KEY_SUPPORT_PLAY] = streamCapability.isPlaySupported;
+    data[KEY_SUPPORT_PAUSE] = streamCapability.isPauseSupported;
+    data[KEY_SUPPORT_STOP] = streamCapability.isStopSupported;
+    data[KEY_SUPPORT_NEXT] = streamCapability.isNextSupported;
+    data[KEY_SUPPORT_PREVIOUS] = streamCapability.isPreviousSupported;
+    data[KEY_SUPPORT_SEEK] = streamCapability.isSeekSupported;
+    data[KEY_SUPPORT_FASTFORWARD] = streamCapability.isFastForwardSupported;
+    data[KEY_SUPPORT_FASTREWIND] = streamCapability.isFastRewindSupported;
+    data[KEY_SUPPORT_LOOPMODE] = streamCapability.isLoopModeSupported;
+    data[KEY_SUPPORT_TOGGLE_FAVORITE] = streamCapability.isToggleFavoriteSupported;
+    data[KEY_SUPPORT_SET_VOLUME] = streamCapability.isSetVolumeSupported;
+}
+
+bool ICastStreamManager::ParseStreamCapability(const json &data, StreamCapability &streamCapability)
+{
+    RETURN_FALSE_IF_PARSE_BOOL_WRONG(streamCapability.isPlaySupported, data, KEY_SUPPORT_PLAY);
+    RETURN_FALSE_IF_PARSE_BOOL_WRONG(streamCapability.isPauseSupported, data, KEY_SUPPORT_PAUSE);
+    RETURN_FALSE_IF_PARSE_BOOL_WRONG(streamCapability.isStopSupported, data, KEY_SUPPORT_STOP);
+    RETURN_FALSE_IF_PARSE_BOOL_WRONG(streamCapability.isNextSupported, data, KEY_SUPPORT_NEXT);
+    RETURN_FALSE_IF_PARSE_BOOL_WRONG(streamCapability.isPreviousSupported, data, KEY_SUPPORT_PREVIOUS);
+    RETURN_FALSE_IF_PARSE_BOOL_WRONG(streamCapability.isSeekSupported, data, KEY_SUPPORT_SEEK);
+    RETURN_FALSE_IF_PARSE_BOOL_WRONG(streamCapability.isFastForwardSupported, data,
+        KEY_SUPPORT_FASTFORWARD);
+    RETURN_FALSE_IF_PARSE_BOOL_WRONG(streamCapability.isFastRewindSupported, data, KEY_SUPPORT_FASTREWIND);
+    RETURN_FALSE_IF_PARSE_BOOL_WRONG(streamCapability.isLoopModeSupported, data, KEY_SUPPORT_LOOPMODE);
+    RETURN_FALSE_IF_PARSE_BOOL_WRONG(streamCapability.isToggleFavoriteSupported, data, KEY_SUPPORT_TOGGLE_FAVORITE);
+    RETURN_FALSE_IF_PARSE_BOOL_WRONG(streamCapability.isSetVolumeSupported, data, KEY_SUPPORT_SET_VOLUME);
+    return true;
+}
+
 bool ICastStreamManager::SendControlAction(const std::string &action, const json &dataBody)
 {
     if (!streamListener_) {

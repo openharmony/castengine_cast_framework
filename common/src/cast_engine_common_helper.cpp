@@ -25,6 +25,7 @@
 namespace OHOS {
 namespace CastEngine {
 DEFINE_CAST_ENGINE_LABEL("Cast-Engine-helper");
+constexpr uint32_t MAX_CYCLES_NUM = 10;
 
 namespace {
 constexpr int SESSION_KEY_LENGTH = 16;
@@ -139,15 +140,24 @@ int GetLocalFd(const std::string &url)
 bool WriteCastRemoteDevice(Parcel &parcel, const CastRemoteDevice &device)
 {
     bool res = parcel.WriteInt32(static_cast<int32_t>(device.deviceType)) &&
+        parcel.WriteInt32(static_cast<int32_t>(device.capability)) &&
         parcel.WriteInt32(static_cast<int32_t>(device.subDeviceType)) &&
         parcel.WriteInt32(static_cast<int32_t>(device.channelType)) && parcel.WriteString(device.deviceId) &&
         parcel.WriteString(device.deviceName) && parcel.WriteString(device.ipAddress) &&
-        parcel.WriteString(device.networkId) && parcel.WriteString(device.localIpAddress);
+        parcel.WriteString(device.networkId) && parcel.WriteString(device.localIpAddress) &&
+        parcel.WriteBool(device.isLeagacy) && parcel.WriteInt32(device.sessionId) &&
+        parcel.WriteUint32(device.mediumTypes) && parcel.WriteUint32(device.protocolCapabilities) &&
+        parcel.WriteString(device.dlnaDeviceModelNameStr) && parcel.WriteString(device.dlnaDeviceManufacturerStr);
     if (device.sessionKeyLength == SESSION_KEY_LENGTH && device.sessionKey) {
         res = res && parcel.WriteUint32(device.sessionKeyLength);
         res = res && parcel.WriteBuffer(device.sessionKey, device.sessionKeyLength);
     } else {
         parcel.WriteUint32(0);
+    }
+    uint32_t drmCapabilitySize = device.drmCapabilities.size();
+    res = res && parcel.WriteUint32(drmCapabilitySize);
+    for (auto iter = device.drmCapabilities.begin(); iter != device.drmCapabilities.end(); iter++) {
+        res = res && parcel.WriteString(*iter);
     }
     return res;
 }
@@ -168,9 +178,16 @@ std::unique_ptr<CastRemoteDevice> ReadCastRemoteDevice(Parcel &parcel)
 {
     auto device = std::make_unique<CastRemoteDevice>();
     auto deviceType = parcel.ReadInt32();
+    auto capability = parcel.ReadInt32();
     auto subDeviceType = parcel.ReadInt32();
     auto channelType = parcel.ReadInt32();
+    if (!IsDeviceType(deviceType) || !IsSubDeviceType(subDeviceType) ||
+        !IsChannelType(channelType) || !IsCapabilityType(capability)) {
+        CLOGE("ReadCastRemoteDevice error");
+        return nullptr;
+    }
     device->deviceType = static_cast<DeviceType>(deviceType);
+    device->capability = static_cast<CapabilityType>(capability);
     device->subDeviceType = static_cast<SubDeviceType>(subDeviceType);
     device->channelType = static_cast<ChannelType>(channelType);
     device->deviceId = parcel.ReadString();
@@ -178,6 +195,12 @@ std::unique_ptr<CastRemoteDevice> ReadCastRemoteDevice(Parcel &parcel)
     device->ipAddress = parcel.ReadString();
     device->networkId = parcel.ReadString();
     device->localIpAddress = parcel.ReadString();
+    device->isLeagacy = parcel.ReadBool();
+    device->sessionId = parcel.ReadInt32();
+    device->mediumTypes = parcel.ReadUint32();
+    device->protocolCapabilities = parcel.ReadUint32();
+    device->dlnaDeviceModelNameStr = parcel.ReadString();
+    device->dlnaDeviceManufacturerStr = parcel.ReadString();
     device->sessionKeyLength = parcel.ReadUint32();
     if (device->sessionKeyLength == SESSION_KEY_LENGTH) {
         device->sessionKey = parcel.ReadBuffer(static_cast<size_t>(device->sessionKeyLength));
@@ -185,11 +208,44 @@ std::unique_ptr<CastRemoteDevice> ReadCastRemoteDevice(Parcel &parcel)
         device->sessionKeyLength = 0;
         device->sessionKey = nullptr;
     }
-    if (!IsDeviceType(deviceType) || !IsSubDeviceType(subDeviceType) || !IsChannelType(channelType)) {
-        CLOGE("ReadCastRemoteDevice error");
-        return nullptr;
+    uint32_t drmCapabilitySize = parcel.ReadUint32();
+    for (uint32_t i = 0; (i < drmCapabilitySize) && (i < MAX_CYCLES_NUM); i++) {
+        device->drmCapabilities.push_back(parcel.ReadString());
     }
+
     return device;
+}
+
+bool WriteStreamCapability(MessageParcel &parcel, const StreamCapability &streamCapability)
+{
+    return parcel.WriteBool(streamCapability.isPlaySupported) &&
+           parcel.WriteBool(streamCapability.isPauseSupported) &&
+           parcel.WriteBool(streamCapability.isStopSupported) &&
+           parcel.WriteBool(streamCapability.isNextSupported) &&
+           parcel.WriteBool(streamCapability.isPreviousSupported) &&
+           parcel.WriteBool(streamCapability.isSeekSupported) &&
+           parcel.WriteBool(streamCapability.isFastForwardSupported) &&
+           parcel.WriteBool(streamCapability.isFastRewindSupported) &&
+           parcel.WriteBool(streamCapability.isLoopModeSupported) &&
+           parcel.WriteBool(streamCapability.isToggleFavoriteSupported) &&
+           parcel.WriteBool(streamCapability.isSetVolumeSupported);
+}
+
+StreamCapability ReadStreamCapability(MessageParcel &parcel)
+{
+    StreamCapability streamCapability;
+    streamCapability.isPlaySupported = parcel.ReadBool();
+    streamCapability.isPauseSupported = parcel.ReadBool();
+    streamCapability.isStopSupported = parcel.ReadBool();
+    streamCapability.isNextSupported = parcel.ReadBool();
+    streamCapability.isPreviousSupported = parcel.ReadBool();
+    streamCapability.isSeekSupported = parcel.ReadBool();
+    streamCapability.isFastForwardSupported = parcel.ReadBool();
+    streamCapability.isFastRewindSupported = parcel.ReadBool();
+    streamCapability.isLoopModeSupported = parcel.ReadBool();
+    streamCapability.isToggleFavoriteSupported = parcel.ReadBool();
+    streamCapability.isSetVolumeSupported = parcel.ReadBool();
+    return streamCapability;
 }
 
 bool WriteMediaInfo(MessageParcel &parcel, const MediaInfo &mediaInfo)
@@ -214,7 +270,8 @@ bool WriteMediaInfo(MessageParcel &parcel, const MediaInfo &mediaInfo)
         parcel.WriteString(mediaInfo.mediaArtist) && parcel.WriteString(mediaInfo.lrcUrl) &&
         parcel.WriteString(mediaInfo.lrcContent) && parcel.WriteString(mediaInfo.appIconUrl) &&
         parcel.WriteString(mediaInfo.appName) && parcel.WriteUint32(mediaInfo.startPosition) &&
-        parcel.WriteUint32(mediaInfo.duration) && parcel.WriteUint32(mediaInfo.closingCreditsPosition);
+        parcel.WriteUint32(mediaInfo.duration) && parcel.WriteUint32(mediaInfo.closingCreditsPosition) &&
+        parcel.WriteString(mediaInfo.drmType);
 }
 
 std::unique_ptr<MediaInfo> ReadMediaInfo(MessageParcel &parcel)

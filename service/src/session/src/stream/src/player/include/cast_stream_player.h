@@ -69,6 +69,7 @@ public:
     void OnPreviousRequest();
     void OnSeekDone(int position);
     void OnLoopModeChanged(const LoopMode loopMode);
+    void OnAvailableCapabilityChanged(const StreamCapability &streamCapability);
     void OnPlayRequest(const MediaInfo &mediaInfo);
     void OnImageChanged(std::shared_ptr<Media::PixelMap> pixelMap);
     void OnAlbumCoverChanged(std::shared_ptr<Media::PixelMap> pixelMap);

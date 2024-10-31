@@ -77,11 +77,23 @@ protected:
     const std::string KEY_LRC_CONTENT = "LRC_CONTENT";
     const std::string KEY_APP_ICON_URL = "APP_ICON_URL";
     const std::string KEY_APP_NAME = "APP_NAME";
+    const std::string KEY_DRM_TYPE = "DRM_TYPE";
     const std::string KEY_VOLUME = "VOLUME";
     const std::string KEY_MUTE = "MUTE";
     const std::string KEY_MAX_VOLUME = "MAX_VOLUME";
     const std::string KEY_MODE = "MODE";
     const std::string KEY_REPEAT_MODE = "REPEAT_MODE";
+    const std::string KEY_SUPPORT_PLAY = "SUPPORT_PLAY";
+    const std::string KEY_SUPPORT_PAUSE = "SUPPORT_PAUSE";
+    const std::string KEY_SUPPORT_STOP = "SUPPORT_STOP";
+    const std::string KEY_SUPPORT_NEXT = "SUPPORT_NEXT";
+    const std::string KEY_SUPPORT_PREVIOUS = "SUPPORT_PREVIOUS";
+    const std::string KEY_SUPPORT_SEEK = "SUPPORT_SEEK";
+    const std::string KEY_SUPPORT_FASTFORWARD = "SUPPORT_FASTFORWARD";
+    const std::string KEY_SUPPORT_FASTREWIND = "SUPPORT_FASTREWIND";
+    const std::string KEY_SUPPORT_LOOPMODE = "SUPPORT_LOOPMODE";
+    const std::string KEY_SUPPORT_TOGGLE_FAVORITE = "SUPPORT_TOGGLE_FAVORITE";
+    const std::string KEY_SUPPORT_SET_VOLUME = "SUPPORT_SET_VOLUME";
     const std::string KEY_DELTA = "DELTA";
     const std::string KEY_SPEED = "SPEED";
     const std::string KEY_POSITION = "POSITION";
@@ -111,6 +123,7 @@ protected:
     const std::string ACTION_SET_VOLUME = "setVolume";
     const std::string ACTION_SET_MUTE = "setMute";
     const std::string ACTION_SET_REPEAT_MODE = "setRepeatMode";
+    const std::string ACTION_SET_AVAILABLE_CAPABILITY = "setAvailableCapability";
     const std::string ACTION_SET_SPEED = "setSpeed";
     const std::string ACTION_PLAYER_STATUS_CHANGED = "onPlayerStatusChanged";
     const std::string ACTION_POSITION_CHANGED = "onPositionChanged";
@@ -130,6 +143,8 @@ protected:
     bool SendCallbackAction(const std::string &action, const json &dataBody = "{}");
     bool ParseMediaInfo(const json &data, MediaInfo &MediaInfo, bool isDoubleFrame);
     void EncapMediaInfo(const MediaInfo &mediaInfo, json &data, bool isDoubleFrame);
+    bool ParseStreamCapability(const json &data, StreamCapability &streamCapability);
+    void EncapStreamCapability(const StreamCapability &streamCapability, json &data);
 
     using StreamActionProcessor = std::function<bool(const json &data)>;
     std::map<std::string, StreamActionProcessor> streamActionProcessor_ {};

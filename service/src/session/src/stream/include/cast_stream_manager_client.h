@@ -58,6 +58,7 @@ public:
     bool NotifyPeerSetVolume(int volume) override;
     bool NotifyPeerSetMute(bool mute) override;
     bool NotifyPeerSetRepeatMode(int mode) override;
+    bool NotifyPeerSetAvailableCapability(const StreamCapability &streamCapability) override;
     bool NotifyPeerSetSpeed(int speed) override;
     PlayerStates GetPlayerStatus() override;
     int GetPosition() override;
@@ -66,6 +67,7 @@ public:
     int GetMaxVolume() override;
     bool GetMute() override;
     LoopMode GetLoopMode() override;
+    StreamCapability GetAvailableCapability() override;
     PlaybackSpeed GetPlaySpeed() override;
     bool IsDoubleFrame() override;
 
@@ -109,6 +111,7 @@ private:
     std::atomic<bool> isSeeking_{ false };
     std::atomic<bool> isNewResourceLoaded_{ false };
     std::atomic<bool> isDoubleFrame_{ false };
+    StreamCapability availableCapability_{};
 };
 } // namespace CastEngineService
 } // namespace CastEngine

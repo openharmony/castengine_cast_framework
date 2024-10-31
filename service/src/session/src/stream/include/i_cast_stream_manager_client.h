@@ -43,6 +43,7 @@ public:
     virtual bool NotifyPeerSetVolume(int volume) = 0;
     virtual bool NotifyPeerSetMute(bool mute) = 0;
     virtual bool NotifyPeerSetRepeatMode(int mode) = 0;
+    virtual bool NotifyPeerSetAvailableCapability(const StreamCapability &streamCapability) = 0;
     virtual bool NotifyPeerSetSpeed(int speed) = 0;
     virtual void OnEvent(EventId eventId, const std::string &data) = 0;
     virtual PlayerStates GetPlayerStatus() = 0;
@@ -52,6 +53,7 @@ public:
     virtual bool GetMute() = 0;
     virtual int GetMaxVolume() = 0;
     virtual LoopMode GetLoopMode() = 0;
+    virtual StreamCapability GetAvailableCapability() = 0;
     virtual PlaybackSpeed GetPlaySpeed() = 0;
     virtual bool IsDoubleFrame() = 0;
 };

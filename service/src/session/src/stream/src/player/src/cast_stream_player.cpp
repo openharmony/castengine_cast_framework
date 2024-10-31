@@ -505,6 +505,18 @@ void CastStreamPlayerCallback::OnLoopModeChanged(const LoopMode loopMode)
     CLOGD("OnLoopModeChanged out");
 }
 
+void CastStreamPlayerCallback::OnAvailableCapabilityChanged(const StreamCapability &streamCapability)
+{
+    CLOGI("OnAvailableCapabilityChanged in");
+    auto listener = ListenerGetter();
+    if (!listener) {
+        CLOGE("StreamPlayerListener is null");
+        return;
+    }
+    listener->OnAvailableCapabilityChanged(streamCapability);
+    CLOGI("OnAvailableCapabilityChanged out");
+}
+
 void CastStreamPlayerCallback::OnPlayRequest(const MediaInfo &mediaInfo)
 {
     CLOGD("OnPlayRequest in");

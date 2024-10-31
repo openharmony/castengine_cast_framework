@@ -96,7 +96,7 @@ napi_value NapiCastSessionManager::StartDiscovery(napi_env env, napi_callback_in
     };
     napiAsyntask->GetJSInfo(env, info, inputParser);
     auto executor = [napiAsyntask]() {
-        int32_t ret = CastSessionManager::GetInstance().StartDiscovery(napiAsyntask->protocolType_);
+        int32_t ret = CastSessionManager::GetInstance().StartDiscovery(napiAsyntask->protocolType_, {});
         if (ret != CAST_ENGINE_SUCCESS) {
             if (ret == ERR_NO_PERMISSION) {
                 napiAsyntask->errMessage = "StartDiscovery failed : no permission";
