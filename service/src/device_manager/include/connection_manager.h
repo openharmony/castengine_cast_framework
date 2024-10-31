@@ -53,7 +53,8 @@ private:
     void HandleConnectDeviceAction(const PeerTargetId &targetId, const json &authInfo);
     bool GetSessionKey(const json &authInfo, uint8_t *sessionkey);
     void HandleQueryIpAction(const PeerTargetId &targetId, const json &authInfo);
-    static const std::map<int32_t, EventCode> EVENT_CODE_MAP;
+    static const std::map<int32_t, int32_t> RESULT_REASON_MAP;
+    static const std::map<int32_t, int32_t> STATUS_REASON_MAP;
 };
 
 class CastUnBindTargetCallback : public UnbindTargetCallback {
@@ -69,7 +70,7 @@ public:
     virtual int NotifySessionIsReady() = 0;
     virtual void NotifyDeviceIsOffline(const std::string &deviceId) = 0;
     virtual bool NotifyRemoteDeviceIsReady(int castSessionId, const CastInnerRemoteDevice &device) = 0;
-    virtual void OnEvent(const std::string &deviceId, EventCode currentEventCode) = 0;
+    virtual void OnEvent(const std::string &deviceId, ReasonCode currentEventCode) = 0;
     virtual void GrabDevice(int32_t sessionId) = 0;
     virtual int32_t GetSessionProtocolType(int sessionId, ProtocolType &protocolType) = 0;
     virtual int32_t SetSessionProtocolType(int sessionId, ProtocolType protocolType) = 0;
@@ -104,13 +105,15 @@ public:
     void NotifySessionIsReady(int transportId);
     void NotifyDeviceIsOffline(const std::string &deviceId);
     bool NotifySessionEvent(const std::string &deviceId, int result);
-    void ReportErrorByListener(const std::string &deviceId, EventCode currentEventCode);
+    void ReportErrorByListener(const std::string &deviceId, ReasonCode currentEventCode);
     void UpdateGrabState(bool changeState, int32_t sessionId);
     void SetSessionListener(std::shared_ptr<IConnectManagerSessionListener> listener);
     int32_t GetSessionProtocolType(int sessionId, ProtocolType &protocolType);
     int32_t SetSessionProtocolType(int sessionId, ProtocolType protocolType);
     void SetRTSPPort(int port);
     bool IsSingle(const CastInnerRemoteDevice &device);
+    bool IsHuaweiDevice(const CastInnerRemoteDevice &device);
+    bool IsThirdDevice(const CastInnerRemoteDevice &device);
     void SendConsultInfo(const std::string &deviceId, int port);
 
     std::map<std::string, bool> isBindTargetMap_;
@@ -121,8 +124,6 @@ private:
     std::string GetAuthVersion(const CastInnerRemoteDevice &device);
     void SendConsultData(const CastInnerRemoteDevice &device, int port);
     bool QueryP2PIp(const CastInnerRemoteDevice &device);
-    bool IsHuaweiDevice(const CastInnerRemoteDevice &device);
-    bool IsThirdDevice(const CastInnerRemoteDevice &device);
 
     std::string GetConsultationData(const CastInnerRemoteDevice &device, int port, json &body);
     void EncryptPort(int port, const uint8_t *sessionKey, json &body);

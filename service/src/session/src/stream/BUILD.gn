@@ -27,6 +27,11 @@ config("cast_session_stream_config") {
 }
 
 ohos_static_library("cast_session_stream") {
+  sanitize = {
+    cfi = true
+    cfi_cross_dso = true
+    debug = false
+  }
   sources = [
     "src/cast_stream_manager_client.cpp",
     "src/cast_stream_manager_server.cpp",
@@ -37,10 +42,10 @@ ohos_static_library("cast_session_stream") {
     "src/local/src/local_data_source.cpp",
     "src/player/src/cast_stream_player.cpp",
     "src/player/src/cast_stream_player_manager.cpp",
+    "src/player/src/cast_stream_player_utils.cpp",
     "src/player/src/remote_player_controller.cpp",
     "src/player/src/stream_player_impl_stub.cpp",
     "src/player/src/stream_player_listener_impl_proxy.cpp",
-    "src/player/src/cast_stream_player_utils.cpp",
   ]
 
   configs = [
@@ -54,6 +59,7 @@ ohos_static_library("cast_session_stream") {
     "${cast_engine_common}:cast_engine_common_sources",
     "${cast_engine_service}/src/device_manager:cast_discovery",
     "${cast_engine_service}/src/session/src/channel:cast_session_channel",
+    "${cast_engine_service}/src/session/src/rtsp:cast_session_rtsp",
     "${cast_engine_service}/src/session/src/utils:cast_session_utils",
   ]
 
@@ -63,8 +69,9 @@ ohos_static_library("cast_session_stream") {
     "graphic_surface:surface",
     "hilog:libhilog",
     "hisysevent:libhisysevent",
-    "player_framework:media_client",
     "image_framework:image_native",
+    "init:libbegetutil",
+    "player_framework:media_client",
   ]
 
   subsystem_name = "castplus"

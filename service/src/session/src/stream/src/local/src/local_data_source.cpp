@@ -146,12 +146,12 @@ int32_t LocalDataSource::GetSize(int64_t &size)
 {
     if (fileLength_ > 0) {
         size = fileLength_;
-        return Media::MSERR_OK;
+        return 0; //  MSERR_OK 值为0
     }
     // requestLength
     fileLength_ = channelClient_->RequestFileLength(fileId_);
     size = fileLength_;
-    return Media::MSERR_OK;
+    return 0; // MSERR_OK 值为0
 }
 
 bool LocalDataSource::OnBytesReceived(const std::string &fileId, const uint8_t *bytes, int64_t offset, int64_t length)
