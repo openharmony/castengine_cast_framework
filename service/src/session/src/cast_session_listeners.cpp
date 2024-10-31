@@ -155,7 +155,7 @@ void CastSessionImpl::RtspListenerImpl::NotifyEventChange(int moduleId, int even
 }
 
 void CastSessionImpl::ConnectManagerListenerImpl::NotifyConnectStage(const std::string &deviceId, int result,
-    int32_t reasonCode )
+    int32_t reasonCode)
 {
     CLOGD("NotifyConnectStage in");
     auto session = session_.promote();
