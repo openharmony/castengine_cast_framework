@@ -18,6 +18,11 @@ config("cast_engine_common_private_config") {
 }
 
 ohos_static_library("cast_engine_common_sources") {
+  sanitize = {
+    cfi = true
+    cfi_cross_dso = true
+    debug = false
+  }
   sources = [
     "src/cast_engine_common_helper.cpp",
     "src/cast_engine_dfx.cpp",
@@ -28,9 +33,7 @@ ohos_static_library("cast_engine_common_sources") {
     "${cast_engine_root}:cast_engine_default_config",
   ]
 
-  include_dirs = [
-    "//third_party/json/single_include/nlohmann",
-  ]
+  include_dirs = [ "//third_party/json/single_include/nlohmann" ]
 
   public_configs = [
     ":cast_engine_common_private_config",
@@ -38,11 +41,14 @@ ohos_static_library("cast_engine_common_sources") {
   ]
 
   external_deps = [
+    "access_token:libtokensetproc_shared",
     "c_utils:utils",
+    "eventhandler:libeventhandler",
     "hilog:libhilog",
     "hisysevent:libhisysevent",
-    "ipc:ipc_core",
     "image_framework:image_native",
+    "init:libbegetutil",
+    "ipc:ipc_core",
   ]
 
   subsystem_name = "castplus"

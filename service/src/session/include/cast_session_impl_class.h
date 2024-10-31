@@ -129,8 +129,11 @@ private:
     static constexpr int MODULE_ID_CAST_STREAM = 1009;
     static constexpr int MODULE_ID_CAST_SESSION = 2000;
     static constexpr int MODULE_ID_UI = 2001;
-    static constexpr double CAST_VERSION = 1.1;
-    static constexpr int TIMEOUT_CONNECT = 60 * 1000;
+    // COOPERATION/HICAR use it to colse media channel, don't modify it.
+    static constexpr double CAST_VERSION = 1.0;
+    static constexpr int TIMEOUT_CONNECT = 30 * 1000;
+    static constexpr int TIMEOUT_WAIT_CONFIRM = 35 * 1000;
+    static constexpr int TIMEOUT_WAIT_INPUT_PIN_CODE = 45 * 1000;
     static constexpr int INVALID_PORT = -1;
     static constexpr int UNUSED_VALUE = -1;
     static constexpr int NO_DELAY = 0;
@@ -152,11 +155,13 @@ private:
     void UpdateRemoteDeviceSessionId(const std::string &deviceId, int sessionId);
     void UpdateRemoteDeviceInfoFromCastDeviceDataManager(const std::string &deviceId);
     void ChangeDeviceState(DeviceState state, const std::string &deviceId,
-        const EventCode eventCode = EventCode::DEFAULT_EVENT);
+        int32_t reasonCode = REASON_DEFAULT);
     void ChangeDeviceStateLocked(
-        DeviceState state, const std::string &deviceId, const EventCode eventCode = EventCode::DEFAULT_EVENT);
-    void ReportDeviceStateInfo(DeviceState state, const std::string &deviceId, const EventCode eventCode);
-    void OnSessionEvent(const std::string& deviceId, const EventCode eventCode) override;
+        DeviceState state, const std::string &deviceId, int32_t reasonCode = REASON_DEFAULT);
+    void ReportDeviceStateInfo(DeviceState state, const std::string &deviceId, const ReasonCode eventCode);
+    void OnSessionEvent(const std::string& deviceId, const ReasonCode eventCode) override;
+    void ChangeDeviceStateInner(DeviceState state, const std::string &deviceId,
+        int32_t reasonCode = REASON_DEFAULT);
     void OnEvent(EventId eventId, const std::string &data);
     void OnRemoteCtrlEvent(int eventType, const uint8_t *data, uint32_t len);
     bool TransferTo(std::shared_ptr<BaseState> state);

@@ -28,7 +28,7 @@ DEFINE_CAST_ENGINE_LABEL("Cast-Client-StreamPlayerListener");
 int StreamPlayerListenerImplStub::OnRemoteRequest(uint32_t code, MessageParcel &data, MessageParcel &reply,
     MessageOption &option)
 {
-    RETRUEN_IF_WRONG_TASK(code, data, reply, option);
+    RETURN_IF_WRONG_TASK(code, data, reply, option);
     if (userListener_ == nullptr) {
         CLOGE("userListener_ is null, code:%{public}d", code);
         return ERR_NULL_OBJECT;

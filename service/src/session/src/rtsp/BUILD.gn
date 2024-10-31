@@ -18,6 +18,11 @@ config("cast_session_rtsp_config") {
 }
 
 ohos_static_library("cast_session_rtsp") {
+  sanitize = {
+    cfi = true
+    cfi_cross_dso = true
+    debug = false
+  }
   sources = [
     "src/rtsp_channel_manager.cpp",
     "src/rtsp_controller.cpp",
@@ -44,9 +49,10 @@ ohos_static_library("cast_session_rtsp") {
   ]
 
   external_deps = [
-    "hilog:libhilog",
-    "ipc:ipc_core",
     "device_manager:devicemanagersdk",
+    "hilog:libhilog",
+    "init:libbegetutil",
+    "ipc:ipc_core",
   ]
 
   subsystem_name = "castplus"

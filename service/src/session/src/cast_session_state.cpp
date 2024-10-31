@@ -181,7 +181,7 @@ bool CastSessionImpl::AuthingState::HandleMessage(const Message &msg)
         case MessageId::MSG_DISCONNECT:
         case MessageId::MSG_CONNECT_TIMEOUT:
             session->ProcessDisconnect(msg);
-            session->ChangeDeviceState(DeviceState::DISCONNECTED, deviceId, msg.eventCode_);
+            session->ChangeDeviceState(DeviceState::DISCONNECTED, deviceId, msg.arg1_);
             session->RemoveRemoteDevice(deviceId);
             session->TransferTo(session->disconnectingState_);
             break;
@@ -190,10 +190,10 @@ bool CastSessionImpl::AuthingState::HandleMessage(const Message &msg)
             session->TransferTo(session->disconnectingState_);
             break;
         case MessageId::MSG_AUTH:
-            session->ReportDeviceStateInfo(DeviceState::AUTHING, deviceId, msg.eventCode_);
+            session->ChangeDeviceState(DeviceState::AUTHING, deviceId, msg.arg1_);
             break;
         default:
-            CLOGW("unsupported msg: %s, in authing state", MESSAGE_ID_STRING[msgId].c_str());
+            CLOGW("unsupported msg: %{public}s, in authing state", MESSAGE_ID_STRING[msgId].c_str());
             return false;
     }
     return true;
@@ -285,10 +285,11 @@ void CastSessionImpl::ConnectingState::HandleDisconnectMessage(const Message &ms
     }
     std::string deviceId = msg.strArg_;
     session->ProcessDisconnect(msg);
-    session->ChangeDeviceState(DeviceState::DISCONNECTED, deviceId, EventCode::ERR_CONNECTION_FAILED);
+    
     session->RemoveMessage(Message(static_cast<int>(MessageId::MSG_CONNECT_TIMEOUT)));
-    session->RemoveRemoteDevice(deviceId);
     session->TransferTo(session->disconnectingState_);
+    session->ChangeDeviceState(DeviceState::DISCONNECTED, deviceId, msg.arg1_);
+    session->RemoveRemoteDevice(deviceId);
 }
 
 void CastSessionImpl::ConnectingState::HandleErrorMessage(const Message &msg, sptr<CastSessionImpl> session)

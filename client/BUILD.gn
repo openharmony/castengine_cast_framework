@@ -21,7 +21,13 @@ config("cast_client_config") {
 }
 
 ohos_static_library("cast_client_inner") {
+  sanitize = {
+    cfi = true
+    cfi_cross_dso = true
+    debug = false
+  }
   sources = [
+    "src/cast_engine_service_load_callback.cpp",
     "src/cast_service_listener_impl_stub.cpp",
     "src/cast_session.cpp",
     "src/cast_session_impl_proxy.cpp",
@@ -29,12 +35,11 @@ ohos_static_library("cast_client_inner") {
     "src/cast_session_manager.cpp",
     "src/cast_session_manager_adaptor.cpp",
     "src/cast_session_manager_service_proxy.cpp",
-    "src/cast_engine_service_load_callback.cpp",
-    "src/stream_player_listener_impl_stub.cpp",
     "src/mirror_player.cpp",
     "src/mirror_player_impl_proxy.cpp",
     "src/stream_player.cpp",
     "src/stream_player_impl_proxy.cpp",
+    "src/stream_player_listener_impl_stub.cpp",
   ]
 
   configs = [
@@ -44,17 +49,16 @@ ohos_static_library("cast_client_inner") {
 
   public_configs = [ ":cast_client_config" ]
 
-  deps = [
-    "${cast_engine_common}:cast_engine_common_sources",
-  ]
+  deps = [ "${cast_engine_common}:cast_engine_common_sources" ]
 
   external_deps = [
     "c_utils:utils",
+    "graphic_surface:surface",
     "hilog:libhilog",
+    "image_framework:image_native",
+    "init:libbegetutil",
     "ipc:ipc_core",
     "samgr:samgr_proxy",
-    "graphic_surface:surface",
-    "image_framework:image_native",
   ]
 
   subsystem_name = "castplus"
