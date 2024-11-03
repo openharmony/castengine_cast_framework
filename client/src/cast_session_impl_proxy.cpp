@@ -221,6 +221,43 @@ int32_t CastSessionImplProxy::GetDeviceState(const std::string &deviceId, Device
     return errorCode;
 }
 
+int32_t CastSessionImplProxy::GetRemoteDeviceInfo(std::string deviceId, CastRemoteDevice &remoteDevice)
+{
+    MessageParcel data;
+    MessageParcel reply;
+    MessageOption option;
+
+    if (!data.WriteInterfaceToken(GetDescriptor())) {
+        CLOGE("Failed to write the interface token");
+        return CAST_ENGINE_ERROR;
+    }
+    if (!data.WriteString(deviceId)) {
+        CLOGE("Failed to Write remote deviceId");
+        return CAST_ENGINE_ERROR;
+    }
+
+    int32_t ret = Remote()->SendRequest(GET_REMOTE_DEVICE_INFO, data, reply, option);
+    if (ret == ERR_NO_PERMISSION) {
+        CLOGE("No permission when getting remote device");
+        return ERR_NO_PERMISSION;
+    } else if (ret == ERR_INVALID_DATA) {
+        CLOGE("Invalid parameter when getting remote device");
+        return ERR_INVALID_PARAM;
+    } else if (ret != ERR_NONE) {
+        CLOGE("Failed to send ipc request when getting remote device");
+        return CAST_ENGINE_ERROR;
+    }
+
+    int32_t errorCode = reply.ReadInt32();
+    CHECK_AND_RETURN_RET_LOG(errorCode != CAST_ENGINE_SUCCESS, errorCode, "CastEngine Errors");
+
+    if (!ReadCastRemoteDevice(reply, remoteDevice)) {
+        CLOGE("Failed to get the remote device");
+        return CAST_ENGINE_ERROR;
+    }
+    return errorCode;
+}
+
 int32_t CastSessionImplProxy::SetSessionProperty(const CastSessionProperty &property)
 {
     MessageParcel data, reply;
