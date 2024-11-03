@@ -166,6 +166,15 @@ int32_t CastSession::NotifyEvent(EventId eventId, std::string &jsonParam)
     }
     return CAST_ENGINE_ERROR;
 }
+
+int32_t CastSession::GetRemoteDeviceInfo(std::string deviceId, CastRemoteDevice &remoteDevice)
+{
+    if (!proxy_) {
+        CLOGE("proxy_ is null");
+        return CAST_ENGINE_ERROR;
+    }
+    return proxy_->GetRemoteDeviceInfo(deviceId, remoteDevice);
+}
 } // namespace CastEngineClient
 } // namespace CastEngine
 } // namespace OHOS
