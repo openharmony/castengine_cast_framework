@@ -97,6 +97,7 @@ protected:
         RELEASE,
         NOTIFY_EVENT,
         SET_CAST_MODE,
+        GET_REMOTE_DEVICE_INFO,
     };
 };
 } // namespace CastEngine

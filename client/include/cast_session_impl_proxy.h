@@ -34,17 +34,23 @@ public:
 
     int32_t RegisterListener(sptr<ICastSessionListenerImpl> listener) override;
     int32_t UnregisterListener() override;
+
     int32_t AddDevice(const CastRemoteDevice &remoteDevice) override;
     int32_t RemoveDevice(const std::string &deviceId) override;
+    int32_t NotifyEvent(EventId eventId, std::string &jsonParam) override;
+
     int32_t StartAuth(const AuthInfo &authInfo) override;
+    int32_t Release() override;
+
     int32_t GetSessionId(std::string &sessionId) override;
     int32_t GetDeviceState(const std::string &deviceId, DeviceState &deviceState) override;
+    int32_t GetRemoteDeviceInfo(std::string deviceId, CastRemoteDevice &remoteDevice) override;
+
     int32_t SetSessionProperty(const CastSessionProperty &property) override;
+    int32_t SetCastMode(CastMode mode, std::string &jsonParam) override;
+
     int32_t CreateMirrorPlayer(sptr<IMirrorPlayerImpl> &mirrorPlayer) override;
     int32_t CreateStreamPlayer(sptr<IStreamPlayerIpc> &streamPlayer) override;
-    int32_t Release() override;
-    int32_t NotifyEvent(EventId eventId, std::string &jsonParam) override;
-    int32_t SetCastMode(CastMode mode, std::string &jsonParam) override;
 
 private:
     static inline BrokerDelegator<CastSessionImplProxy> delegator_;
