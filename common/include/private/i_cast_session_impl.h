@@ -67,7 +67,7 @@ public:
     {
         return false;
     }
-    virtual bool ReleaseSessionResources(pid_t pid)
+    virtual bool ReleaseSessionResources(pid_t pid, uid_t uid)
     {
         return false;
     }
@@ -92,7 +92,7 @@ protected:
         GET_SESSION_ID,
         GET_DEVICE_STATE,
         SET_SESSION_PROPERTY,
-        CREAT_MIRROR_PLAYER,
+        CREATE_MIRROR_PLAYER,
         CREAT_STREAM_PLAYER,
         RELEASE,
         NOTIFY_EVENT,
