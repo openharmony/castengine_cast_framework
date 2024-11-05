@@ -295,7 +295,7 @@ int32_t CastSessionImplProxy::CreateMirrorPlayer(sptr<IMirrorPlayerImpl> &mirror
         return CAST_ENGINE_ERROR;
     }
 
-    int32_t ret = Remote()->SendRequest(CREAT_MIRROR_PLAYER, data, reply, option);
+    int32_t ret = Remote()->SendRequest(CREATE_MIRROR_PLAYER, data, reply, option);
     if (ret == ERR_UNKNOWN_TRANSACTION) {
         CLOGE("No permission when creating mirror player");
         return ERR_NO_PERMISSION;

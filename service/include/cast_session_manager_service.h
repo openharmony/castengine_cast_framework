@@ -54,12 +54,12 @@ public:
     int32_t SetDiscoverable(bool enable) override;
     int32_t StopDiscovery() override;
     int32_t StartDeviceLogging(int32_t fd, uint32_t maxSize) override;
-    void ReleaseServiceResources(pid_t pid);
+    void ReleaseServiceResources(pid_t pid, uid_t uid);
     int32_t GetCastSession(std::string sessionId, sptr<ICastSessionImpl> &castSession) override;
 
     bool DestroyCastSession(int32_t sessionId);
     void ReportServiceDieLocked();
-    void ReportDeviceFound(const std::vector<CastRemoteDevice> &deviceList);
+    void ReportDeviceFound(const std::vector<std::pair<CastRemoteDevice, bool>> &deviceList);
     void ReportSessionCreate(const sptr<ICastSessionImpl> &castSession);
     void ReportDeviceOffline(const std::string &deviceId);
     sptr<ICastSessionImpl> GetCastSessionInner(std::string sessionId);
@@ -67,18 +67,19 @@ public:
 private:
     class CastEngineClientDeathRecipient : public IRemoteObject::DeathRecipient {
     public:
-        CastEngineClientDeathRecipient(wptr<CastSessionManagerService> service, pid_t pid)
-            : service_(service), pid_(pid) {};
+        CastEngineClientDeathRecipient(wptr<CastSessionManagerService> service, pid_t pid, uid_t uid)
+            : service_(service), pid_(pid), uid_(uid) {};
         void OnRemoteDied(const wptr<IRemoteObject> &object) override;
 
     private:
         wptr<CastSessionManagerService> service_;
         pid_t pid_;
+        uid_t uid_;
     };
 
     pid_t myPid_;
     std::shared_mutex mutex_;
-    std::vector<std::pair<pid_t, sptr<ICastServiceListenerImpl>>> listeners_;
+    std::map<pid_t, std::pair<sptr<ICastServiceListenerImpl>, uid_t>> listeners_;
     CastLocalDevice localDevice_{};
     ServiceStatus serviceStatus_{ ServiceStatus::DISCONNECTED };
     int sessionCapacity_{ 0 };
@@ -87,7 +88,7 @@ private:
     std::unordered_map<pid_t, sptr<IRemoteObject::DeathRecipient>> deathRecipientMap_;
     std::atomic<bool> hasServer_{ false };
 
-    void AddClientDeathRecipientLocked(pid_t pid, sptr<ICastServiceListenerImpl> listener);
+    void AddClientDeathRecipientLocked(pid_t pid, uid_t uid, sptr<ICastServiceListenerImpl> listener);
     void RemoveClientDeathRecipientLocked(pid_t pid, sptr<ICastServiceListenerImpl> listener);
     bool AddListenerLocked(sptr<ICastServiceListenerImpl> listener);
     int32_t ReleaseLocked();

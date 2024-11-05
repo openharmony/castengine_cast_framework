@@ -44,7 +44,7 @@ CastSessionImplStub::CastSessionImplStub()
     FILL_SINGLE_STUB_TASK(GET_SESSION_ID, &CastSessionImplStub::DoGetSessionIdTask);
     FILL_SINGLE_STUB_TASK(GET_DEVICE_STATE, &CastSessionImplStub::DoGetDeviceStateTask);
     FILL_SINGLE_STUB_TASK(SET_SESSION_PROPERTY, &CastSessionImplStub::DoSetSessionProperty);
-    FILL_SINGLE_STUB_TASK(CREAT_MIRROR_PLAYER, &CastSessionImplStub::DoCreateMirrorPlayer);
+    FILL_SINGLE_STUB_TASK(CREATE_MIRROR_PLAYER, &CastSessionImplStub::DoCreateMirrorPlayer);
     FILL_SINGLE_STUB_TASK(CREAT_STREAM_PLAYER, &CastSessionImplStub::DoCreateStreamPlayer);
     FILL_SINGLE_STUB_TASK(NOTIFY_EVENT, &CastSessionImplStub::DoNotifyEvent);
     FILL_SINGLE_STUB_TASK(SET_CAST_MODE, &CastSessionImplStub::DoSetCastMode);
@@ -53,12 +53,16 @@ CastSessionImplStub::CastSessionImplStub()
 
 int32_t CastSessionImplStub::DoRegisterListenerTask(MessageParcel &data, MessageParcel &reply)
 {
+    if (!Permission::CheckPidPermission()) {
+        return ERR_NO_PERMISSION;
+    }
+
     sptr<IRemoteObject> obj = data.ReadRemoteObject();
     if (obj == nullptr) {
         return ERR_NULL_OBJECT;
     }
 
-    sptr<ICastSessionListenerImpl> listener{ new CastSessionListenerImplProxy(obj) };
+    sptr<ICastSessionListenerImpl> listener{ new (std::nothrow) CastSessionListenerImplProxy(obj) };
     if (!reply.WriteInt32(RegisterListener(listener))) {
         CLOGE("Failed to write int value");
         return IPC_STUB_WRITE_PARCEL_ERR;
@@ -69,6 +73,10 @@ int32_t CastSessionImplStub::DoRegisterListenerTask(MessageParcel &data, Message
 
 int32_t CastSessionImplStub::DoUnregisterListenerTask(MessageParcel &data, MessageParcel &reply)
 {
+    if (!Permission::CheckPidPermission()) {
+        return ERR_NO_PERMISSION;
+    }
+
     static_cast<void>(data);
     if (!reply.WriteInt32(UnregisterListener())) {
         CLOGE("Failed to write int value");
@@ -80,8 +88,13 @@ int32_t CastSessionImplStub::DoUnregisterListenerTask(MessageParcel &data, Messa
 int32_t CastSessionImplStub::DoAddDeviceTask(MessageParcel &data, MessageParcel &reply)
 {
     if (!Permission::CheckMirrorPermission() && !Permission::CheckStreamPermission()) {
-        return ERR_UNKNOWN_TRANSACTION;
+        return ERR_NO_PERMISSION;
     }
+
+    if (!Permission::CheckPidPermission()) {
+        return ERR_NO_PERMISSION;
+    }
+
     auto device = ReadCastRemoteDevice(data);
     if (device == nullptr) {
         CLOGE("Invalid remote device object comes");
@@ -99,7 +112,11 @@ int32_t CastSessionImplStub::DoAddDeviceTask(MessageParcel &data, MessageParcel 
 int32_t CastSessionImplStub::DoRemoveDeviceTask(MessageParcel &data, MessageParcel &reply)
 {
     if (!Permission::CheckMirrorPermission() && !Permission::CheckStreamPermission()) {
-        return ERR_UNKNOWN_TRANSACTION;
+        return ERR_NO_PERMISSION;
+    }
+
+    if (!Permission::CheckPidPermission()) {
+        return ERR_NO_PERMISSION;
     }
 
     std::string deviceId = data.ReadString();
@@ -119,7 +136,11 @@ int32_t CastSessionImplStub::DoRemoveDeviceTask(MessageParcel &data, MessageParc
 int32_t CastSessionImplStub::DoStartAuthTask(MessageParcel &data, MessageParcel &reply)
 {
     if (!Permission::CheckMirrorPermission() && !Permission::CheckStreamPermission()) {
-        return ERR_UNKNOWN_TRANSACTION;
+        return ERR_NO_PERMISSION;
+    }
+
+    if (!Permission::CheckPidPermission()) {
+        return ERR_NO_PERMISSION;
     }
 
     auto authInfo = ReadAuthInfo(data);
@@ -127,6 +148,7 @@ int32_t CastSessionImplStub::DoStartAuthTask(MessageParcel &data, MessageParcel 
         CLOGE("Invalid auth info comes");
         return ERR_INVALID_DATA;
     }
+
     if (!reply.WriteInt32(StartAuth(*authInfo))) {
         CLOGE("Failed to write int value");
         return IPC_STUB_WRITE_PARCEL_ERR;
@@ -137,8 +159,13 @@ int32_t CastSessionImplStub::DoStartAuthTask(MessageParcel &data, MessageParcel 
 int32_t CastSessionImplStub::DoGetSessionIdTask(MessageParcel &data, MessageParcel &reply)
 {
     if (!Permission::CheckMirrorPermission() && !Permission::CheckStreamPermission()) {
-        return ERR_UNKNOWN_TRANSACTION;
+        return ERR_NO_PERMISSION;
     }
+
+    if (!Permission::CheckPidPermission()) {
+        return ERR_NO_PERMISSION;
+    }
+
     static_cast<void>(data);
     std::string sessionId{};
     int32_t ret = GetSessionId(sessionId);
@@ -157,7 +184,11 @@ int32_t CastSessionImplStub::DoGetSessionIdTask(MessageParcel &data, MessageParc
 int32_t CastSessionImplStub::DoGetDeviceStateTask(MessageParcel &data, MessageParcel &reply)
 {
     if (!Permission::CheckMirrorPermission() && !Permission::CheckStreamPermission()) {
-        return ERR_UNKNOWN_TRANSACTION;
+        return ERR_NO_PERMISSION;
+    }
+
+    if (!Permission::CheckPidPermission()) {
+        return ERR_NO_PERMISSION;
     }
 
     std::string deviceId = data.ReadString();
@@ -183,7 +214,11 @@ int32_t CastSessionImplStub::DoGetDeviceStateTask(MessageParcel &data, MessagePa
 int32_t CastSessionImplStub::DoSetSessionProperty(MessageParcel &data, MessageParcel &reply)
 {
     if (!Permission::CheckMirrorPermission() && !Permission::CheckStreamPermission()) {
-        return ERR_UNKNOWN_TRANSACTION;
+        return ERR_NO_PERMISSION;
+    }
+
+    if (!Permission::CheckPidPermission()) {
+        return ERR_NO_PERMISSION;
     }
 
     auto property = ReadCastSessionProperty(data);
@@ -203,21 +238,29 @@ int32_t CastSessionImplStub::DoSetSessionProperty(MessageParcel &data, MessagePa
 int32_t CastSessionImplStub::DoCreateMirrorPlayer(MessageParcel &data, MessageParcel &reply)
 {
     if (!Permission::CheckMirrorPermission()) {
-        return ERR_UNKNOWN_TRANSACTION;
+        return ERR_NO_PERMISSION;
     }
+
+    if (!Permission::CheckPidPermission()) {
+        return ERR_NO_PERMISSION;
+    }
+
     sptr<IMirrorPlayerImpl> mirrorPlayerStub;
     int32_t ret = CreateMirrorPlayer(mirrorPlayerStub);
     if (mirrorPlayerStub == nullptr) {
         return IPC_STUB_ERR;
     }
+
     if (!reply.WriteInt32(ret)) {
         CLOGE("Failed to write ret:%d", ret);
         return IPC_STUB_WRITE_PARCEL_ERR;
     }
+
     if (!reply.WriteRemoteObject(mirrorPlayerStub->AsObject())) {
         CLOGE("Failed to write mirror player");
         return IPC_STUB_WRITE_PARCEL_ERR;
     }
+
     CLOGI("CreateMirrorPlayer");
     return ERR_NONE;
 }
@@ -225,7 +268,11 @@ int32_t CastSessionImplStub::DoCreateMirrorPlayer(MessageParcel &data, MessagePa
 int32_t CastSessionImplStub::DoCreateStreamPlayer(MessageParcel &data, MessageParcel &reply)
 {
     if (!Permission::CheckStreamPermission()) {
-        return ERR_UNKNOWN_TRANSACTION;
+        return ERR_NO_PERMISSION;
+    }
+
+    if (!Permission::CheckPidPermission()) {
+        return ERR_NO_PERMISSION;
     }
 
     sptr<IStreamPlayerIpc> streamPlayerStub;
@@ -233,21 +280,28 @@ int32_t CastSessionImplStub::DoCreateStreamPlayer(MessageParcel &data, MessagePa
     if (!streamPlayerStub) {
         return IPC_STUB_ERR;
     }
+
     if (!reply.WriteInt32(ret)) {
         CLOGE("Failed to write ret:%d", ret);
         return IPC_STUB_WRITE_PARCEL_ERR;
     }
+
     if (!reply.WriteRemoteObject(streamPlayerStub->AsObject())) {
         CLOGE("Failed to write stream player");
         return IPC_STUB_WRITE_PARCEL_ERR;
     }
+
     return ERR_NONE;
 }
 
 int32_t CastSessionImplStub::DoRelease(MessageParcel &data, MessageParcel &reply)
 {
     if (!Permission::CheckMirrorPermission() && !Permission::CheckStreamPermission()) {
-        return ERR_UNKNOWN_TRANSACTION;
+        return ERR_NO_PERMISSION;
+    }
+
+    if (!Permission::CheckPidPermission()) {
+        return ERR_NO_PERMISSION;
     }
 
     static_cast<void>(data);
@@ -262,8 +316,13 @@ int32_t CastSessionImplStub::DoRelease(MessageParcel &data, MessageParcel &reply
 int32_t CastSessionImplStub::DoSetCastMode(MessageParcel &data, MessageParcel &reply)
 {
     if (!Permission::CheckMirrorPermission()) {
-        return ERR_UNKNOWN_TRANSACTION;
+        return ERR_NO_PERMISSION;
     }
+
+    if (!Permission::CheckPidPermission()) {
+        return ERR_NO_PERMISSION;
+    }
+
     int32_t mode = data.ReadInt32();
     std::string jsonParam = data.ReadString();
     if (!reply.WriteInt32(SetCastMode(static_cast<CastMode>(mode), jsonParam))) {
@@ -275,6 +334,10 @@ int32_t CastSessionImplStub::DoSetCastMode(MessageParcel &data, MessageParcel &r
 
 int32_t CastSessionImplStub::DoNotifyEvent(MessageParcel &data, MessageParcel &reply)
 {
+    if (!Permission::CheckPidPermission()) {
+        return CAST_ENGINE_ERROR;
+    }
+
     EventId eventId = static_cast<EventId>(data.ReadInt32());
     std::string param = data.ReadString();
     NotifyEvent(eventId, param);

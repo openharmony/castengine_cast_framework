@@ -36,6 +36,7 @@
 #include "hisysevent.h"
 #include "permission.h"
 #include "utils.h"
+#include "bundle_mgr_client.h"
 
 namespace OHOS {
 namespace CastEngine {
@@ -45,9 +46,10 @@ DEFINE_CAST_ENGINE_LABEL("Cast-Service");
 REGISTER_SYSTEM_ABILITY_BY_ID(CastSessionManagerService, CAST_ENGINE_SA_ID, false);
 
 namespace SessionServer {
-constexpr char SESSION_NAME[] = "CastPlusSessionName";
+
 constexpr int ROLE_CLENT = 1;
 constexpr int SOFTBUS_OK = 0;
+constexpr char SESSION_NAME[] = "CastPlusSessionName";
 
 int OnSessionOpened(int sessionId, int result)
 {
@@ -200,12 +202,19 @@ public:
             return;
         }
 
-        std::vector<CastRemoteDevice> remoteDevices;
+        std::vector<std::pair<CastRemoteDevice, bool>> remoteDevices;
         for (const auto &device : devices) {
-            remoteDevices.push_back(CastRemoteDevice{ device.deviceId, device.deviceName, device.deviceType,
+            std::pair<CastRemoteDevice, bool> remoteDevice;
+            remoteDevice.first = CastRemoteDevice{ device.deviceId, device.deviceName, device.deviceType,
                 device.subDeviceType, device.ipAddress, device.channelType, device.capability,
                 device.capabilityInfo, device.networkId, "", 0, nullptr, device.isLeagacy, device.sessionId,
-                device.drmCapabilities, device.mediumTypes });
+                device.drmCapabilities, device.mediumTypes };
+
+            remoteDevice.second = (device.capabilityInfo & static_cast<uint32_t>(ProtocolType::CAST_PLUS_STREAM)) != 0;
+            if (device.deviceType == DeviceType::DEVICE_TYPE_2IN1) {
+                remoteDevice.second = true;
+            }
+            remoteDevices.push_back(remoteDevice);
         }
         service->ReportDeviceFound(remoteDevices);
     }
@@ -586,13 +595,15 @@ int32_t CastSessionManagerService::SetDiscoverable(bool enable)
     return CAST_ENGINE_ERROR;
 }
 
-void CastSessionManagerService::ReleaseServiceResources(pid_t pid)
+void CastSessionManagerService::ReleaseServiceResources(pid_t pid, uid_t uid)
 {
     {
         SharedWLock lock(mutex_);
         RemoveListenerLocked(pid);
+
+        CLOGI("Release service resources");
         for (auto it = sessionMap_.begin(); it != sessionMap_.end();) {
-            if (it->second->ReleaseSessionResources(pid)) {
+            if (it->second->ReleaseSessionResources(pid, uid)) {
                 sessionMap_.erase(it++);
                 continue;
             }
@@ -602,16 +613,17 @@ void CastSessionManagerService::ReleaseServiceResources(pid_t pid)
             return;
         }
     }
-    CLOGD("Release service resources");
+
     if (Release() != CAST_ENGINE_SUCCESS) {
         CLOGE("Release service resources failed");
     }
 }
 
-void CastSessionManagerService::AddClientDeathRecipientLocked(pid_t pid, sptr<ICastServiceListenerImpl> listener)
+void CastSessionManagerService::AddClientDeathRecipientLocked(pid_t pid, uid_t uid,
+    sptr<ICastServiceListenerImpl> listener)
 {
     sptr<CastEngineClientDeathRecipient> deathRecipient(
-        new (std::nothrow) CastEngineClientDeathRecipient(wptr<CastSessionManagerService>(this), pid));
+        new (std::nothrow) CastEngineClientDeathRecipient(wptr<CastSessionManagerService>(this), pid, uid));
     if (deathRecipient == nullptr) {
         CLOGE("Alloc death recipient filed");
         return;
@@ -637,33 +649,33 @@ void CastSessionManagerService::RemoveClientDeathRecipientLocked(pid_t pid, sptr
 bool CastSessionManagerService::AddListenerLocked(sptr<ICastServiceListenerImpl> listener)
 {
     pid_t pid = IPCSkeleton::GetCallingPid();
+    uid_t uid = static_cast<uid_t>(IPCSkeleton::GetCallingUid());
     Permission::SavePid(pid);
-    if (std::find_if(listeners_.begin(), listeners_.end(),
-        [pid](std::pair<pid_t, sptr<ICastServiceListenerImpl>> member) { return member.first == pid; }) ==
-        listeners_.end()) {
-        listeners_.push_back({ pid, listener });
-        AddClientDeathRecipientLocked(pid, listener);
+    if (listeners_.count(pid) == 0) {
+        listeners_[pid] = std::make_pair(listener, uid);
+        AddClientDeathRecipientLocked(pid, uid, listener);
         return true;
     }
 
-    CLOGE("The process(%u) has register the listener", pid);
+    CLOGE("Listener of process(%u) has been registered.", pid);
     return false;
 }
 
 int32_t CastSessionManagerService::RemoveListenerLocked(pid_t pid)
 {
     Permission::RemovePid(pid);
-    auto iter = std::find_if(listeners_.begin(), listeners_.end(),
-        [pid](std::pair<pid_t, sptr<ICastServiceListenerImpl>> element) { return element.first == pid; });
-    if (iter != listeners_.end()) {
-        RemoveClientDeathRecipientLocked(pid, (*iter).second);
-        listeners_.erase(iter);
-        if (listeners_.size() == 0) {
-            ReleaseLocked();
-        }
-        return CAST_ENGINE_SUCCESS;
+    int32_t ret = CAST_ENGINE_ERROR;
+    if (listeners_.count(pid) == 1) {
+        RemoveClientDeathRecipientLocked(pid, listeners_[pid].first);
+        listeners_.erase(pid);
+        ret = CAST_ENGINE_SUCCESS;
     }
-    return CAST_ENGINE_ERROR;
+
+    if (listeners_.empty()) {
+        ReleaseLocked();
+    }
+
+    return ret;
 }
 
 void CastSessionManagerService::ClearListenersLocked()
@@ -682,24 +694,37 @@ void CastSessionManagerService::ReportServiceDieLocked()
     pid_t pid = IPCSkeleton::GetCallingPid();
     if (pid == myPid_) {
         for (const auto &listener : listeners_) {
-            listener.second->OnServiceDied();
+            listener.second.first->OnServiceDied();
         }
         return;
     }
 
-    auto it = std::find_if(listeners_.begin(), listeners_.end(),
-        [pid](std::pair<pid_t, sptr<ICastServiceListenerImpl>> element) { return element.first == pid; });
-    if (it != listeners_.end()) {
-        it->second->OnServiceDied();
+    if (listeners_.count(pid) == 1) {
+        listeners_[pid].first->OnServiceDied();
         return;
     }
 }
 
-void CastSessionManagerService::ReportDeviceFound(const std::vector<CastRemoteDevice> &deviceList)
+void CastSessionManagerService::ReportDeviceFound(const std::vector<std::pair<CastRemoteDevice, bool>> &deviceList)
 {
+    CLOGI("ReportDeviceFound in");
+
     SharedRLock lock(mutex_);
     for (const auto &listener : listeners_) {
-        listener.second->OnDeviceFound(deviceList);
+        std::vector<CastRemoteDevice> deviceInfo;
+        for (const auto &device : deviceList) {
+            if (listener.second.second == AV_SESSION_UID && !device.second) {
+                CLOGI("device don't support stream capability, device name is %s", device.first.deviceName.c_str());
+                continue;
+            }
+            if (listener.second.second != AV_SESSION_UID && device.first.deviceType == DeviceType::DEVICE_TYPE_2IN1) {
+                CLOGI("No need to report hwcast , device name is %s", device.first.deviceName.c_str());
+                continue;
+            }
+            deviceInfo.push_back(device.first);
+        }
+		
+        listener.second.first->OnDeviceFound(deviceInfo);
     }
 }
 
@@ -707,7 +732,7 @@ void CastSessionManagerService::ReportSessionCreate(const sptr<ICastSessionImpl>
 {
     SharedRLock lock(mutex_);
     for (const auto &listener : listeners_) {
-        listener.second->OnSessionCreated(castSession);
+        listener.second.first->OnSessionCreated(castSession);
     }
 }
 
@@ -715,19 +740,25 @@ void CastSessionManagerService::ReportDeviceOffline(const std::string &deviceId)
 {
     SharedRLock lock(mutex_);
     for (const auto &listener : listeners_) {
-        listener.second->OnDeviceOffline(deviceId);
+        listener.second.first->OnDeviceOffline(deviceId);
     }
 }
 
 void CastSessionManagerService::CastEngineClientDeathRecipient::OnRemoteDied(const wptr<IRemoteObject> &object)
 {
-    CLOGD("Client died, need release resources, client pid_: %d", pid_);
+    CLOGI("Client died, need release resources, client pid_: %{public}d", pid_);
     sptr<CastSessionManagerService> service = service_.promote();
+    std::string bundleName;
+    AppExecFwk::BundleMgrClient client;
+    if (client.GetNameForUid(uid_, bundleName) != ERR_OK) {
+        CLOGE("GetBundleNameByUid failed");
+    }
+
     if (service == nullptr) {
         CLOGE("ServiceStub is nullptr");
         return;
     }
-    service->ReleaseServiceResources(pid_);
+    service->ReleaseServiceResources(pid_, uid_);
 }
 } // namespace CastEngineService
 } // namespace CastEngine

@@ -70,7 +70,7 @@ public:
     int32_t GetSessionId(std::string &sessionId) override;
     int32_t GetDeviceState(const std::string &deviceId, DeviceState &deviceState) override;
     int32_t SetSessionProperty(const CastSessionProperty &property) override;
-    bool ReleaseSessionResources(pid_t pid) override;
+    bool ReleaseSessionResources(pid_t pid, uid_t uid) override;
     int32_t CreateMirrorPlayer(sptr<IMirrorPlayerImpl> &mirrorPlayer) override;
     int32_t CreateStreamPlayer(sptr<IStreamPlayerIpc> &streamPlayer) override;
     std::shared_ptr<ICastStreamManager> CreateStreamPlayerManager();
@@ -192,7 +192,8 @@ private:
     bool IsVtpUsed(ChannelType type);
     bool IsChannelClient(ChannelType type);
     bool IsChannelNeeded(ChannelType type);
-    std::pair<int, int> GetMediaPort(ChannelType type, int port);
+    std::pair<int, int> GetLeagacyMediaPort(ChannelType type, int port, bool isLeagacy);
+    std::pair<int, int> GetMediaPort(ChannelType type, int port, bool isLeagacy);
     std::optional<int> SetupMedia(const CastInnerRemoteDevice &remote, ChannelType type, int ports);
     void InitRtspParamInfo(std::shared_ptr<CastRemoteDeviceInfo> remoteDeviceInfo);
     std::shared_ptr<ICastStreamManager> StreamManagerGetter();
