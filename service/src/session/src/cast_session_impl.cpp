@@ -32,6 +32,7 @@
 #include "mirror_player_impl.h"
 #include "permission.h"
 #include "cast_engine_dfx.h"
+#include "bundle_mgr_client.h"
 
 namespace OHOS {
 namespace CastEngine {
@@ -288,27 +289,32 @@ int32_t CastSessionImpl::RemoveDevice(const std::string &deviceId)
     return CAST_ENGINE_SUCCESS;
 }
 
-bool CastSessionImpl::ReleaseSessionResources(pid_t pid)
+bool CastSessionImpl::ReleaseSessionResources(pid_t pid, uid_t uid)
 {
-    {
-        std::lock_guard<std::mutex> lock(mutex_);
-        listeners_.erase(pid);
-        if (!listeners_.empty()) {
-            return false;
-        }
-        for (auto &deviceInfo : remoteDeviceList_) {
-            RemoveDevice(deviceInfo.remoteDevice.deviceId);
-        }
+    CLOGI("uid:%{public}d pid:%{public}d", uid, pid);
+
+    std::string bundleName;
+    AppExecFwk::BundleMgrClient client;
+    if (client.GetNameForUid(uid, bundleName) != ERR_OK) {
+        CLOGE("GetBundleNameByUid failed");
     }
+
+    std::lock_guard<std::mutex> lock(mutex_);
+    listeners_.erase(pid);
+    if (!listeners_.empty()) {
+        return false;
+    }
+
+    for (auto &deviceInfo : remoteDeviceList_) {
+        RemoveDevice(deviceInfo.remoteDevice.deviceId);
+    }
+
     Stop();
     return true;
 }
 
 int32_t CastSessionImpl::CreateMirrorPlayer(sptr<IMirrorPlayerImpl> &mirrorPlayer)
 {
-    if (!Permission::CheckPidPermission()) {
-        return ERR_NO_PERMISSION;
-    }
     auto player = MirrorPlayerGetter();
     if (player == nullptr) {
         auto tmp = new (std::nothrow) MirrorPlayerImpl(this);
@@ -334,9 +340,6 @@ bool CastSessionImpl::DestroyMirrorPlayer()
 
 int32_t CastSessionImpl::CreateStreamPlayer(sptr<IStreamPlayerIpc> &streamPlayer)
 {
-    if (!Permission::CheckPidPermission()) {
-        return ERR_NO_PERMISSION;
-    }
     auto streamManager = CreateStreamPlayerManager();
     if (!streamManager) {
         CLOGE("streamManager is null");
@@ -372,9 +375,6 @@ bool CastSessionImpl::DestroyStreamPlayer()
 
 int32_t CastSessionImpl::Release()
 {
-    if (!Permission::CheckPidPermission()) {
-        return ERR_NO_PERMISSION;
-    }
     {
         std::lock_guard<std::mutex> lock(mutex_);
         for (auto &deviceInfo : remoteDeviceList_) {
@@ -401,9 +401,6 @@ int32_t CastSessionImpl::StartAuth(const AuthInfo &authInfo)
 
 int32_t CastSessionImpl::GetSessionId(std::string &sessionId)
 {
-    if (!Permission::CheckPidPermission()) {
-        return ERR_NO_PERMISSION;
-    }
     std::lock_guard<std::mutex> lock(mutex_);
     if (!remoteDeviceList_.empty() &&
         remoteDeviceList_.front().remoteDevice.channelType == ChannelType::LEGACY_CHANNEL) {
@@ -417,9 +414,6 @@ int32_t CastSessionImpl::GetSessionId(std::string &sessionId)
 
 int32_t CastSessionImpl::Play(const std::string &deviceId)
 {
-    if (!Permission::CheckPidPermission()) {
-        return ERR_NO_PERMISSION;
-    }
     CLOGI("Session state: %{public}s", SESSION_STATE_STRING[static_cast<int>(sessionState_)].c_str());
     SendCastMessage(Message(MessageId::MSG_PLAY, deviceId));
     return CAST_ENGINE_SUCCESS;
@@ -427,9 +421,6 @@ int32_t CastSessionImpl::Play(const std::string &deviceId)
 
 int32_t CastSessionImpl::Pause(const std::string &deviceId)
 {
-    if (!Permission::CheckPidPermission()) {
-        return ERR_NO_PERMISSION;
-    }
     CLOGI("Session state: %{public}s", SESSION_STATE_STRING[static_cast<int>(sessionState_)].c_str());
     SendCastMessage(Message(MessageId::MSG_PAUSE, deviceId));
     return CAST_ENGINE_SUCCESS;
@@ -437,9 +428,6 @@ int32_t CastSessionImpl::Pause(const std::string &deviceId)
 
 int32_t CastSessionImpl::GetDeviceState(const std::string &deviceId, DeviceState &deviceState)
 {
-    if (!Permission::CheckPidPermission()) {
-        return ERR_NO_PERMISSION;
-    }
     auto deviceInfo = FindRemoteDevice(deviceId);
     DeviceState state = DeviceState::DISCONNECTED;
     if (deviceInfo != nullptr) {
@@ -472,18 +460,12 @@ int32_t CastSessionImpl::SetSessionProperty(const CastSessionProperty &property)
 
 int32_t CastSessionImpl::SetSurface(sptr<IBufferProducer> producer)
 {
-    if (!Permission::CheckPidPermission()) {
-        return ERR_NO_PERMISSION;
-    }
     CLOGD("SetSurface in");
     return CAST_ENGINE_SUCCESS;
 }
 
 int32_t CastSessionImpl::DeliverInputEvent(const OHRemoteControlEvent &event)
 {
-    if (!Permission::CheckPidPermission()) {
-        return ERR_NO_PERMISSION;
-    }
     CLOGD("DeliverInputEvent in.");
     if (sessionState_ != SessionState::PLAYING) {
         CLOGE("DeliverInputEvent failed, not playing.");
@@ -494,9 +476,6 @@ int32_t CastSessionImpl::DeliverInputEvent(const OHRemoteControlEvent &event)
 
 int32_t CastSessionImpl::InjectEvent(const OHRemoteControlEvent &event)
 {
-    if (!Permission::CheckPidPermission()) {
-        return ERR_NO_PERMISSION;
-    }
     CLOGD("InjectEvent in.");
     if (sessionState_ != SessionState::PLAYING) {
         CLOGE("InjectEvent failed, not playing.");
@@ -507,9 +486,6 @@ int32_t CastSessionImpl::InjectEvent(const OHRemoteControlEvent &event)
 
 int32_t CastSessionImpl::GetDisplayId(std::string &displayId)
 {
-    if (!Permission::CheckPidPermission()) {
-        return ERR_NO_PERMISSION;
-    }
     CLOGD("GetDisplayId in");
     return CAST_ENGINE_SUCCESS;
 }
@@ -530,7 +506,7 @@ void CastSessionImpl::SetLocalDevice(const CastLocalDevice &localDevice)
 bool CastSessionImpl::TransferTo(std::shared_ptr<BaseState> state)
 {
     if (IsAllowTransferState(state->GetStateId())) {
-        CLOGD("Transfer to %{public}s", SESSION_STATE_STRING[static_cast<int>(state->GetStateId())].c_str());
+        CLOGI("Transfer to %{public}s", SESSION_STATE_STRING[static_cast<int>(state->GetStateId())].c_str());
         TransferState(state);
         return true;
     }
@@ -671,7 +647,7 @@ int CastSessionImpl::ProcessConnect(const Message &msg)
 
     auto request = BuildChannelRequest(remote.deviceId, false, ModuleType::RTSP);
     if (request == nullptr) {
-        CLOGE("Rtsp start failed, session state: %{public}s",
+        CLOGE("Rtsp build request failed, session state: %{public}s",
             SESSION_STATE_STRING[static_cast<int>(sessionState_)].c_str());
         return -1;
     }
@@ -722,7 +698,7 @@ bool CastSessionImpl::IsChannelNeeded(ChannelType type)
     return (property_.endType != EndType::CAST_SINK) || !IsVtpUsed(type);
 }
 
-std::pair<int, int> CastSessionImpl::GetMediaPort(ChannelType type, int port)
+std::pair<int, int> CastSessionImpl::GetMediaPort(ChannelType type, int port, bool isLeagacy)
 {
     if (type != ChannelType::SOFT_BUS) {
         if (IsChannelClient(type)) {
@@ -733,17 +709,19 @@ std::pair<int, int> CastSessionImpl::GetMediaPort(ChannelType type, int port)
     }
 
     if (!IsChannelClient(type)) {
+        // softbus source
         return (property_.protocolType == ProtocolType::CAST_PLUS_MIRROR ||
             property_.protocolType == ProtocolType::CAST_PLUS_STREAM ||
-            property_.protocolType == ProtocolType::COOPERATION) ?
+            (property_.protocolType == ProtocolType::COOPERATION && !isLeagacy)) ?
             std::pair<int, int> { INVALID_PORT, INVALID_PORT } :
             std::pair<int, int> { INVALID_PORT, UNNEEDED_PORT };
     }
 
     if (property_.protocolType == ProtocolType::CAST_PLUS_MIRROR ||
         property_.protocolType == ProtocolType::CAST_PLUS_STREAM ||
-        property_.protocolType == ProtocolType::COOPERATION) {
+        (property_.protocolType == ProtocolType::COOPERATION && !isLeagacy)) {
         if (!IsVtpUsed(type)) {
+            // softbus sink
             // audio port is same as video base on tcp protocol, softbus don't care about the port.
             return { port, port };
         }
@@ -752,6 +730,7 @@ std::pair<int, int> CastSessionImpl::GetMediaPort(ChannelType type, int port)
         int audioPort = static_cast<int>(static_cast<unsigned int>(port) & SOCKET_PORT_MASK);
         return { videoPort, audioPort };
     }
+
     return { port, UNNEEDED_PORT };
 }
 
@@ -1033,8 +1012,6 @@ void CastSessionImpl::RemoveRemoteDevice(const std::string &deviceId)
     std::lock_guard<std::mutex> lock(mutex_);
     for (auto it = remoteDeviceList_.begin(); it != remoteDeviceList_.end(); it++) {
         if (it->remoteDevice.deviceId == deviceId) {
-            CLOGI("Start to remove remote device:%s", deviceId.c_str());
-            ConnectionManager::GetInstance().DisconnectDevice(deviceId);
             remoteDeviceList_.erase(it);
             return;
         }
@@ -1117,6 +1094,7 @@ void CastSessionImpl::OnSessionEvent(const std::string &deviceId, const ReasonCo
 void CastSessionImpl::OnEvent(EventId eventId, const std::string &data)
 {
     std::unique_lock<std::mutex> lock(mutex_);
+    CLOGI("EventId is %{public}d, data is %{public}s", eventId, data.c_str());
     if (listeners_.empty()) {
         CLOGE("OnEvent failed because listeners_ is empty!");
         return;
