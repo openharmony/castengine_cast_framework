@@ -654,7 +654,8 @@ int32_t StreamPlayerImplProxy::ProvideKeyResponse(const std::string &mediaId, co
     MessageOption option;
     auto len = response.size();
     if (len > data.GetDataCapacity()) {
-        CLOGD("ProvideKeyResponse SetDataCapacity totalSize: %u", len);
+        CLOGD("ProvideKeyResponse SetDataCapacity totalSize: %zu", len);
+
         data.SetMaxCapacity(len + len);
         data.SetDataCapacity(len);
     }
@@ -663,20 +664,24 @@ int32_t StreamPlayerImplProxy::ProvideKeyResponse(const std::string &mediaId, co
         CLOGE("Failed to write the interface token");
         return CAST_ENGINE_ERROR;
     }
+
     if (!data.WriteString(mediaId)) {
         CLOGE("Failed to write mediaId");
         return CAST_ENGINE_ERROR;
     }
+
     if (!data.WriteInt32(response.size())) {
         CLOGE("StreamPlayerImplProxy ProvideKeyResponse Write response size failed");
         return IPC_PROXY_ERR;
     }
+
     if (len != 0) {
         if (!data.WriteBuffer(response.data(), len)) {
             CLOGE("StreamPlayerImplProxy ProvideKeyResponse write response failed");
             return IPC_PROXY_ERR;
         }
     }
+
     if (Remote()->SendRequest(PROVIDE_KEY_RESPONSE, data, reply, option) != ERR_NONE) {
         CLOGE("Failed to send ipc request when provide key response");
         return CAST_ENGINE_ERROR;
