@@ -342,7 +342,8 @@ void StreamPlayerListenerImplProxy::OnKeyRequest(const std::string &mediaId, con
     MessageOption option;
     auto len = keyRequestData.size();
     if (len > data.GetDataCapacity()) {
-        CLOGD("SetDataCapacity totalSize: %u", len);
+        CLOGD("SetDataCapacity totalSize: %zu", len);
+
         data.SetMaxCapacity(len + len);
         data.SetDataCapacity(len);
     }
@@ -351,20 +352,24 @@ void StreamPlayerListenerImplProxy::OnKeyRequest(const std::string &mediaId, con
         CLOGE("Failed to write the interface token");
         return;
     }
+
     if (!data.WriteString(mediaId)) {
         CLOGE("Failed to write mediaId");
         return;
     }
+
     if (!data.WriteInt32(keyRequestData.size())) {
         CLOGE("Write keyRequestData size failed");
         return;
     }
+
     if (len != 0) {
         if (!data.WriteBuffer(keyRequestData.data(), len)) {
             CLOGE("write keyRequestData failed");
             return;
         }
     }
+
     if (Remote()->SendRequest(ON_KEY_REQUEST, data, reply, option) != ERR_NONE) {
         CLOGE("Failed to send ipc request when reporting key request data");
         return;

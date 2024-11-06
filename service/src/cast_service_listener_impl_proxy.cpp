@@ -133,14 +133,17 @@ void CastServiceListenerImplProxy::OnLogEvent(int32_t eventId, int64_t param)
         CLOGE("Failed to write the interface token");
         return;
     }
+
     if (!data.WriteInt32(eventId)) {
         CLOGE("Failed to write the eventId:%d", eventId);
         return;
     }
+
     if (!data.WriteInt64(param)) {
-        CLOGE("Failed to write the param:%lld", param);
+        CLOGE("Failed to write the param:%" PRIu64, param);
         return;
     }
+
     CLOGD("send request");
     Remote()->SendRequest(ON_LOG_EVENT, data, reply, option);
 }
