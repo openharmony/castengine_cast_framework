@@ -78,11 +78,13 @@ public:
 
     bool SetDeviceState(const std::string &deviceId, RemoteDeviceState state);
     RemoteDeviceState GetDeviceState(const std::string &deviceId);
+
     bool IsDeviceConnected(const std::string &deviceId);
     bool IsDeviceConnecting(const std::string &deviceId);
     bool IsDeviceUsed(const std::string &deviceId);
+
     int GetSessionIdByDeviceId(const std::string &deviceId);
-    bool UpdateDeivceByDeviceId(const std::string &deviceId);
+    bool UpdateDeviceByDeviceId(const std::string &deviceId);
     bool IsDoubleFrameDevice(const std::string &deviceId);
     std::optional<std::string> GetDeviceNameByDeviceId(const std::string &deviceId);
 
@@ -102,7 +104,7 @@ private:
     CastDeviceDataManager() = default;
 
     std::vector<DeviceInfoCollection>::iterator GetDeviceLocked(const std::string &deviceId);
-    bool RemoveDeivceLocked(const std::string &deviceId);
+    bool RemoveDeviceLocked(const std::string &deviceId);
     RemoteDeviceState GetDeviceStateLocked(const std::string &deviceId);
     bool HasDeviceLocked(const std::string &deviceId);
 
