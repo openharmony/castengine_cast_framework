@@ -793,28 +793,6 @@ void ConnectionManager::DestroyConsulationSession(const std::string &deviceId)
     }
 }
 
-void ConnectionManager::DisconnectDevice(const std::string &deviceId)
-{
-    DiscoveryManager::GetInstance().StopDiscovery();
-    if (!CastDeviceDataManager::GetInstance().IsDeviceUsed(deviceId)) {
-        CLOGE("Device(%s) is not used, remove it", deviceId.c_str());
-        CastDeviceDataManager::GetInstance().UpdateDeivceByDeviceId(deviceId);
-        return;
-    }
-
-    DestroyConsulationSession(deviceId);
-    auto isActiveAuth = CastDeviceDataManager::GetInstance().GetDeviceIsActiveAuth(deviceId);
-    if (isActiveAuth == std::nullopt) {
-        return;
-    }
-    auto networkId = CastDeviceDataManager::GetInstance().GetDeviceNetworkId(deviceId);
-    if (networkId == std::nullopt) {
-        return;
-    }
-
-    CastDeviceDataManager::GetInstance().UpdateDeivceByDeviceId(deviceId);
-}
-
 bool ConnectionManager::EnableDiscoverable()
 {
     std::lock_guard lock(mutex_);
@@ -848,6 +826,30 @@ void ConnectionManager::GrabDevice()
         return;
     }
     listener_->GrabDevice(sessionId_);
+}
+
+void ConnectionManager::DisconnectDevice(const std::string &deviceId)
+{
+    CLOGI("DisconnectDevice in, deviceId %{public}s", Utils::Mask(deviceId).c_str());
+
+    DiscoveryManager::GetInstance().StopDiscovery();
+    if (!CastDeviceDataManager::GetInstance().IsDeviceUsed(deviceId)) {
+        CLOGE("Device(%s) is not used, remove it", deviceId.c_str());
+        CastDeviceDataManager::GetInstance().UpdateDeviceByDeviceId(deviceId);
+        return;
+    }
+
+    DestroyConsulationSession(deviceId);
+    auto isActiveAuth = CastDeviceDataManager::GetInstance().GetDeviceIsActiveAuth(deviceId);
+    if (isActiveAuth == std::nullopt) {
+        return;
+    }
+    auto networkId = CastDeviceDataManager::GetInstance().GetDeviceNetworkId(deviceId);
+    if (networkId == std::nullopt) {
+        return;
+    }
+
+    CastDeviceDataManager::GetInstance().UpdateDeviceByDeviceId(deviceId);
 }
 
 void ConnectionManager::UpdateGrabState(bool changeState, int32_t sessionId)
