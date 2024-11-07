@@ -161,11 +161,13 @@ void CastSessionManagerAdaptor::UnsubscribeDeathRecipient()
         CLOGE("deathRecipient is null");
         return;
     }
+
     sptr<IRemoteObject> remote = remote_.promote();
     if (!!remote) {
         remote->RemoveDeathRecipient(deathRecipient_);
     }
-    deathRecipient_ = nullptr;
+
+    deathRecipient_.clear();
     CLOGD("Unsubscribe Death Recipient Success");
 }
 } // namespace CastEngineClient

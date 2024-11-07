@@ -34,10 +34,8 @@ void CastSessionManager::CastEngineServiceLoadCallback::OnLoadSystemAbilitySucce
         CLOGE("Start aystemabilityId is not sinkSAId!");
         return;
     }
-    if (remoteObject == nullptr) {
-        CLOGE("RemoteObject is nullptr.");
-        return;
-    }
+
+    CastSessionManager::GetInstance().NotifyServiceLoadResult(remoteObject);
 }
 
 void CastSessionManager::CastEngineServiceLoadCallback::OnLoadSystemAbilityFail(int32_t systemAbilityId)
@@ -47,6 +45,8 @@ void CastSessionManager::CastEngineServiceLoadCallback::OnLoadSystemAbilityFail(
         CLOGE("Start systemAbilityId is not sinkSAId!");
         return;
     }
+
+    CastSessionManager::GetInstance().NotifyServiceLoadResult(nullptr);
 }
 } // namespace CastEngineClient
 } // namespace CastEngine

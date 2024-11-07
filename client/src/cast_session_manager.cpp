@@ -138,7 +138,7 @@ int32_t CastSessionManager::UnregisterListener()
     auto adaptor = GetAdaptor();
     int32_t ret = adaptor ? adaptor->UnregisterListener() : CAST_ENGINE_ERROR;
     std::lock_guard<std::mutex> lock(mutex_);
-    adaptor_ = nullptr;
+    adaptor_.reset();
     return ret;
 }
 
@@ -149,7 +149,7 @@ int32_t CastSessionManager::Release()
     auto adaptor = GetAdaptor();
     int32_t ret = adaptor ? adaptor->Release() : CAST_ENGINE_ERROR;
     std::lock_guard<std::mutex> lock(mutex_);
-    adaptor_ = nullptr;
+    adaptor_.reset();
     return ret;
 }
 
@@ -223,8 +223,9 @@ void CastSessionManager::ReleaseClientResources()
         if (!!deathRecipient_) {
             listener = deathRecipient_->GetListener();
         }
-        deathRecipient_ = nullptr;
-        adaptor_ = nullptr;
+
+        deathRecipient_.clear();
+        adaptor_.reset();
     }
     if (listener) {
         listener->OnServiceDied();
@@ -236,7 +237,21 @@ void CastSessionManager::ReleaseClientResources()
 void CastSessionManager::ReleaseServiceDeathRecipient()
 {
     std::lock_guard<std::mutex> lock(mutex_);
-    deathRecipient_ = nullptr;
+    deathRecipient_.clear();
+}
+
+void CastSessionManager::NotifyServiceLoadResult(const sptr<IRemoteObject> &remoteObject)
+{
+    std::lock_guard<std::mutex> lock(mutex_);
+    isNeedLoadService_ = true;
+    if (!remoteObject || adaptor_) {
+        CLOGE("object is nullptr or adaptor_ is existed");
+        loadServiceCond_.notify_all();
+        return;
+    }
+    auto proxy = iface_cast<CastSessionManagerServiceProxy>(remoteObject);
+    adaptor_ = std::make_shared<CastSessionManagerAdaptor>(proxy);
+    loadServiceCond_.notify_all();
 }
 
 void CastSessionManager::CastEngineServiceDeathRecipient::OnRemoteDied(const wptr<IRemoteObject> &object)
