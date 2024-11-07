@@ -89,14 +89,14 @@ int32_t MirrorPlayer::Release()
     return proxy_ ? proxy_->Release() : CAST_ENGINE_ERROR;
 }
 
-int32_t MirrorPlayer::GetDisplayId(std::string &displayId)
-{
-    return proxy_ ? proxy_->GetDisplayId(displayId) : CAST_ENGINE_ERROR;
-}
-
 int32_t MirrorPlayer::ResizeVirtualScreen(uint32_t width, uint32_t height)
 {
     return proxy_ ? proxy_->ResizeVirtualScreen(width, height) : CAST_ENGINE_ERROR;
+}
+
+int32_t MirrorPlayer::GetDisplayId(std::string &displayId)
+{
+    return proxy_ ? proxy_->GetDisplayId(displayId) : CAST_ENGINE_ERROR;
 }
 
 } // namespace CastEngineClient

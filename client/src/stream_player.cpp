@@ -54,8 +54,10 @@ int32_t StreamPlayer::UnregisterListener()
 int32_t StreamPlayer::SetSurface(const std::string &surfaceId)
 {
     errno = 0;
-    uint64_t surfaceUniqueId = static_cast<uint64_t>(std::strtoll(surfaceId.c_str(), nullptr, 10));
-    if (errno == ERANGE) {
+    char *end = nullptr;
+
+    uint64_t surfaceUniqueId = static_cast<uint64_t>(std::strtoll(surfaceId.c_str(), &end, 10));
+    if (errno == ERANGE || (surfaceUniqueId == 0 && *end != '\0')) {
         return ERR_INVALID_PARAM;
     }
 
@@ -64,11 +66,13 @@ int32_t StreamPlayer::SetSurface(const std::string &surfaceId)
         CLOGE("surface is null, surface uniqueId %" PRIu64, surfaceUniqueId);
         return CAST_ENGINE_ERROR;
     }
+
     sptr<IBufferProducer> producer = surface->GetProducer();
     if (!producer) {
         CLOGE("producer is null");
         return CAST_ENGINE_ERROR;
     }
+
     return proxy_ ? proxy_->SetSurface(producer) : CAST_ENGINE_ERROR;
 }
 
