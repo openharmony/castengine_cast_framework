@@ -34,13 +34,16 @@ public:
 
     int32_t Play(const std::string &deviceId) override;
     int32_t Pause(const std::string &deviceId) override;
-    int32_t SetAppInfo(const AppInfo &appInfo) override;
-    int32_t SetSurface(sptr<IBufferProducer> producer) override;
+
     int32_t DeliverInputEvent(const OHRemoteControlEvent &event) override;
     int32_t InjectEvent(const OHRemoteControlEvent &event) override;
     int32_t Release() override;
-    int32_t GetDisplayId(std::string &displayId) override;
     int32_t ResizeVirtualScreen(uint32_t width, uint32_t height) override;
+
+    int32_t GetDisplayId(std::string &displayId) override;
+
+    int32_t SetAppInfo(const AppInfo &appInfo) override;
+    int32_t SetSurface(sptr<IBufferProducer> producer) override;
 
 private:
     static inline BrokerDelegator<MirrorPlayerImplProxy> delegator_;

@@ -26,19 +26,19 @@ namespace CastEngine {
 namespace CastEngineClient {
 DEFINE_CAST_ENGINE_LABEL("Cast-Client-SessionListener");
 
-int CastSessionListenerImplStub::OnRemoteRequest(uint32_t code, MessageParcel &data, MessageParcel &reply,
-    MessageOption &option)
-{
-    RETURN_IF_WRONG_TASK(code, data, reply, option);
-    return EXECUTE_SINGLE_STUB_TASK(code, data, reply);
-}
-
 CastSessionListenerImplStub::CastSessionListenerImplStub(std::shared_ptr<ICastSessionListener> userListener_)
     : userListener_(userListener_)
 {
     FILL_SINGLE_STUB_TASK(ON_DEVICE_STATE, &CastSessionListenerImplStub::DoOnDeviceStateTask);
     FILL_SINGLE_STUB_TASK(ON_EVENT, &CastSessionListenerImplStub::DoOnEventTask);
     FILL_SINGLE_STUB_TASK(ON_REMOTE_CTRL_EVENT, &CastSessionListenerImplStub::DoOnRemoteCtrlEventTask);
+}
+
+int CastSessionListenerImplStub::OnRemoteRequest(uint32_t code, MessageParcel &data, MessageParcel &reply,
+    MessageOption &option)
+{
+    RETURN_IF_WRONG_TASK(code, data, reply, option);
+    return EXECUTE_SINGLE_STUB_TASK(code, data, reply);
 }
 
 int32_t CastSessionListenerImplStub::DoOnDeviceStateTask(MessageParcel &data, MessageParcel &reply)
