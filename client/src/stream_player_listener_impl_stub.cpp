@@ -61,7 +61,7 @@ StreamPlayerListenerImplStub::StreamPlayerListenerImplStub(std::shared_ptr<IStre
 
 StreamPlayerListenerImplStub::~StreamPlayerListenerImplStub()
 {
-    userListener_ = nullptr;
+    userListener_.reset();
     CLOGE("destructor in");
 }
 
