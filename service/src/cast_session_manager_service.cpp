@@ -760,6 +760,32 @@ void CastSessionManagerService::CastEngineClientDeathRecipient::OnRemoteDied(con
     }
     service->ReleaseServiceResources(pid_, uid_);
 }
+
+void CastSessionManagerService::CastServiceLoadCallback::OnLoadSystemAbilitySuccess(
+    int32_t systemAbilityId, const sptr<IRemoteObject> &remoteObject)
+{
+    CLOGI("In systemAbilityId: %d", systemAbilityId);
+
+    if (systemAbilityId != CAST_ENGINE_SA_ID) {
+        CLOGE("Start aystemabilityId is not sinkSAId!");
+        return;
+    }
+
+    if (remoteObject == nullptr) {
+        CLOGE("RemoteObject is nullptr.");
+        return;
+    }
+}
+
+void CastSessionManagerService::CastServiceLoadCallback::OnLoadSystemAbilityFail(int32_t systemAbilityId)
+{
+    CLOGI("In systemAbilityId: %d.", systemAbilityId);
+
+    if (systemAbilityId != CAST_ENGINE_SA_ID) {
+        CLOGE("Start aystemabilityId is not sinkSAId!");
+        return;
+    }
+}
 } // namespace CastEngineService
 } // namespace CastEngine
 } // namespace OHOS

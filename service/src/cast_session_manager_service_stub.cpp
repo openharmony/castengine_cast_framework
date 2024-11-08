@@ -94,7 +94,9 @@ int32_t CastSessionManagerServiceStub::DoReleaseTask(MessageParcel &data, Messag
 {
     static_cast<void>(data);
 
-    if (!Permission::CheckMirrorPermission() && !Permission::CheckStreamPermission()) {
+    if ((!Permission::CheckMirrorPermission() &&
+        !Permission::CheckStreamPermission()) ||
+        !Permission::CheckPidPermission()) {
         return ERR_NO_PERMISSION;
     }
 
@@ -108,7 +110,7 @@ int32_t CastSessionManagerServiceStub::DoReleaseTask(MessageParcel &data, Messag
 
 int32_t CastSessionManagerServiceStub::DoSetLocalDeviceTask(MessageParcel &data, MessageParcel &reply)
 {
-    if (!Permission::CheckMirrorPermission()) {
+    if (!Permission::CheckMirrorPermission() || !Permission::CheckPidPermission()) {
         return ERR_NO_PERMISSION;
     }
 
@@ -127,7 +129,9 @@ int32_t CastSessionManagerServiceStub::DoSetLocalDeviceTask(MessageParcel &data,
 
 int32_t CastSessionManagerServiceStub::DoCreateCastSessionTask(MessageParcel &data, MessageParcel &reply)
 {
-    if (!Permission::CheckMirrorPermission() && !Permission::CheckStreamPermission()) {
+    if ((!Permission::CheckMirrorPermission() &&
+        !Permission::CheckStreamPermission()) ||
+        !Permission::CheckPidPermission()) {
         return ERR_NO_PERMISSION;
     }
 
@@ -158,7 +162,7 @@ int32_t CastSessionManagerServiceStub::DoSetSinkSessionCapacityTask(MessageParce
 {
     static_cast<void>(reply);
 
-    if (!Permission::CheckMirrorPermission()) {
+    if (!Permission::CheckMirrorPermission() || !Permission::CheckPidPermission()) {
         return ERR_NO_PERMISSION;
     }
 
@@ -174,7 +178,9 @@ int32_t CastSessionManagerServiceStub::DoSetSinkSessionCapacityTask(MessageParce
 
 int32_t CastSessionManagerServiceStub::DoStartDiscoveryTask(MessageParcel &data, MessageParcel &reply)
 {
-    if (!Permission::CheckMirrorPermission() && !Permission::CheckStreamPermission()) {
+    if ((!Permission::CheckMirrorPermission() &&
+        !Permission::CheckStreamPermission()) ||
+        !Permission::CheckPidPermission()) {
         return ERR_NO_PERMISSION;
     }
 
@@ -197,7 +203,9 @@ int32_t CastSessionManagerServiceStub::DoStartDiscoveryTask(MessageParcel &data,
 
 int32_t CastSessionManagerServiceStub::DoSetDiscoverableTask(MessageParcel &data, MessageParcel &reply)
 {
-    if (!Permission::CheckMirrorPermission() && !Permission::CheckStreamPermission()) {
+    if ((!Permission::CheckMirrorPermission() &&
+        !Permission::CheckStreamPermission()) ||
+        !Permission::CheckPidPermission()) {
         return ERR_NO_PERMISSION;
     }
 
@@ -211,7 +219,9 @@ int32_t CastSessionManagerServiceStub::DoSetDiscoverableTask(MessageParcel &data
 
 int32_t CastSessionManagerServiceStub::DoStopDiscoveryTask(MessageParcel &data, MessageParcel &reply)
 {
-    if (!Permission::CheckMirrorPermission() && !Permission::CheckStreamPermission()) {
+    if ((!Permission::CheckMirrorPermission() &&
+        !Permission::CheckStreamPermission()) ||
+        !Permission::CheckPidPermission()) {
         return ERR_NO_PERMISSION;
     }
 
