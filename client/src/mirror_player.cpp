@@ -49,31 +49,6 @@ int32_t MirrorPlayer::Pause(const std::string &deviceId)
     return proxy_ ? proxy_->Pause(deviceId) : CAST_ENGINE_ERROR;
 }
 
-int32_t MirrorPlayer::SetSurface(const std::string &surfaceId)
-{
-    errno = 0;
-    uint64_t surfaceUniqueId = static_cast<uint64_t>(std::strtoll(surfaceId.c_str(), nullptr, 10));
-    if (errno == ERANGE) {
-        return ERR_INVALID_PARAM;
-    }
-
-    sptr<Surface> surface = SurfaceUtils::GetInstance()->GetSurface(surfaceUniqueId);
-    if (!surface) {
-        return CAST_ENGINE_ERROR;
-    }
-    sptr<IBufferProducer> producer = surface->GetProducer();
-    if (!producer) {
-        CLOGE("producer is null");
-        return CAST_ENGINE_ERROR;
-    }
-    return proxy_ ? proxy_->SetSurface(producer) : CAST_ENGINE_ERROR;
-}
-
-int32_t MirrorPlayer::SetAppInfo(const AppInfo &appInfo)
-{
-    return proxy_ ? proxy_->SetAppInfo(appInfo) : CAST_ENGINE_ERROR;
-}
-
 int32_t MirrorPlayer::DeliverInputEvent(OHRemoteControlEvent event)
 {
     return proxy_ ? proxy_->DeliverInputEvent(event) : CAST_ENGINE_ERROR;
@@ -97,6 +72,34 @@ int32_t MirrorPlayer::ResizeVirtualScreen(uint32_t width, uint32_t height)
 int32_t MirrorPlayer::GetDisplayId(std::string &displayId)
 {
     return proxy_ ? proxy_->GetDisplayId(displayId) : CAST_ENGINE_ERROR;
+}
+
+int32_t MirrorPlayer::SetAppInfo(const AppInfo &appInfo)
+{
+    return proxy_ ? proxy_->SetAppInfo(appInfo) : CAST_ENGINE_ERROR;
+}
+
+int32_t MirrorPlayer::SetSurface(const std::string &surfaceId)
+{
+    errno = 0;
+    char *end = nullptr;
+    uint64_t surfaceUniqueId = static_cast<uint64_t>(std::strtoll(surfaceId.c_str(), &end, 10));
+    if (errno == ERANGE || (surfaceUniqueId == 0 && *end != '\0')) {
+        CLOGE("Failed to strtoll, errno: %{public}d", errno);
+        return ERR_INVALID_PARAM;
+    }
+
+    sptr<Surface> surface = SurfaceUtils::GetInstance()->GetSurface(surfaceUniqueId);
+    if (!surface) {
+        CLOGE("surface is null, surface uniqueId %{public}" PRIu64, surfaceUniqueId);
+        return CAST_ENGINE_ERROR;
+    }
+    sptr<IBufferProducer> producer = surface->GetProducer();
+    if (!producer) {
+        CLOGE("producer is null");
+        return CAST_ENGINE_ERROR;
+    }
+    return proxy_ ? proxy_->SetSurface(producer) : CAST_ENGINE_ERROR;
 }
 
 } // namespace CastEngineClient
