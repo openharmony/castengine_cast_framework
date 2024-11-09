@@ -89,58 +89,6 @@ int32_t MirrorPlayerImplProxy::Pause(const std::string &deviceId)
     return reply.ReadInt32();
 }
 
-int32_t MirrorPlayerImplProxy::SetSurface(sptr<IBufferProducer> producer)
-{
-    MessageParcel data, reply;
-    MessageOption option;
-
-    if (!data.WriteInterfaceToken(GetDescriptor())) {
-        CLOGE("Failed to write the interface token");
-        return CAST_ENGINE_ERROR;
-    }
-    if (!data.WriteRemoteObject(producer->AsObject())) {
-        CLOGE("Failed to write surface producer");
-        return CAST_ENGINE_ERROR;
-    }
-
-    int32_t ret = Remote()->SendRequest(SET_SURFACE, data, reply, option);
-    if (ret == ERR_UNKNOWN_TRANSACTION) {
-        CLOGE("No permission when setting surface");
-        return ERR_NO_PERMISSION;
-    } else if (ret != ERR_NONE) {
-        CLOGE("Failed to send ipc request when setting surface");
-        return CAST_ENGINE_ERROR;
-    }
-
-    return reply.ReadInt32();
-}
-
-int32_t MirrorPlayerImplProxy::SetAppInfo(const AppInfo &appInfo)
-{
-    MessageParcel data, reply;
-    MessageOption option;
-
-    if (!data.WriteInterfaceToken(GetDescriptor())) {
-        CLOGE("Failed to write the interface token");
-        return CAST_ENGINE_ERROR;
-    }
-    if (!data.WriteInt32(appInfo.appUid) || !data.WriteUint32(appInfo.appTokenId) ||
-        !data.WriteInt32(appInfo.appPid)) {
-        CLOGE("Failed to write appInfo");
-        return CAST_ENGINE_ERROR;
-    }
-    CLOGI("start set app info impl proxy");
-    int32_t ret = Remote()->SendRequest(SET_APP_INFO, data, reply, option);
-    if (ret == ERR_UNKNOWN_TRANSACTION) {
-        CLOGE("No permission when setting surface");
-        return ERR_NO_PERMISSION;
-    } else if (ret != ERR_NONE) {
-        CLOGE("Failed to send ipc request when setting surface");
-        return CAST_ENGINE_ERROR;
-    }
-    return reply.ReadInt32();
-}
-
 int32_t MirrorPlayerImplProxy::DeliverInputEvent(const OHRemoteControlEvent &event)
 {
     MessageParcel data, reply;
@@ -227,30 +175,6 @@ int32_t MirrorPlayerImplProxy::Release()
     return reply.ReadInt32();
 }
 
-int32_t MirrorPlayerImplProxy::GetDisplayId(std::string &displayId)
-{
-    MessageParcel data;
-    MessageParcel reply;
-    MessageOption option;
-    displayId = std::string{};
-    if (!data.WriteInterfaceToken(GetDescriptor())) {
-        CLOGE("Failed to write the interface token");
-        return CAST_ENGINE_ERROR;
-    }
-
-    int32_t ret = Remote()->SendRequest(GET_DISPLAYID, data, reply, option);
-    if (ret == ERR_UNKNOWN_TRANSACTION) {
-        CLOGE("No permission when getDisplayId");
-        return ERR_NO_PERMISSION;
-    } else if (ret != ERR_NONE) {
-        CLOGE("Failed to send ipc request when getDisplayId");
-        return CAST_ENGINE_ERROR;
-    }
-    int32_t errorCode = reply.ReadInt32();
-    CHECK_AND_RETURN_RET_LOG(errorCode != CAST_ENGINE_SUCCESS, errorCode, "CastEngine Errors");
-    displayId = reply.ReadString();
-    return errorCode;
-}
 
 int32_t MirrorPlayerImplProxy::ResizeVirtualScreen(uint32_t width, uint32_t height)
 {
@@ -277,6 +201,84 @@ int32_t MirrorPlayerImplProxy::ResizeVirtualScreen(uint32_t width, uint32_t heig
 
     return reply.ReadInt32();
 }
+
+int32_t MirrorPlayerImplProxy::GetDisplayId(std::string &displayId)
+{
+    MessageParcel data;
+    MessageParcel reply;
+    MessageOption option;
+    displayId = std::string{};
+    if (!data.WriteInterfaceToken(GetDescriptor())) {
+        CLOGE("Failed to write the interface token");
+        return CAST_ENGINE_ERROR;
+    }
+
+    int32_t ret = Remote()->SendRequest(GET_DISPLAYID, data, reply, option);
+    if (ret == ERR_NO_PERMISSION) {
+        CLOGE("No permission when getDisplayId");
+        return ERR_NO_PERMISSION;
+    } else if (ret != ERR_NONE) {
+        CLOGE("Failed to send ipc request when getDisplayId");
+        return CAST_ENGINE_ERROR;
+    }
+    int32_t errorCode = reply.ReadInt32();
+    CHECK_AND_RETURN_RET_LOG(errorCode != CAST_ENGINE_SUCCESS, errorCode, "CastEngine Errors");
+    displayId = reply.ReadString();
+    return errorCode;
+}
+
+int32_t MirrorPlayerImplProxy::SetAppInfo(const AppInfo &appInfo)
+{
+    MessageParcel data, reply;
+    MessageOption option;
+
+    if (!data.WriteInterfaceToken(GetDescriptor())) {
+        CLOGE("Failed to write the interface token");
+        return CAST_ENGINE_ERROR;
+    }
+    if (!data.WriteInt32(appInfo.appUid) || !data.WriteUint32(appInfo.appTokenId) ||
+        !data.WriteInt32(appInfo.appPid)) {
+        CLOGE("Failed to write appInfo");
+        return CAST_ENGINE_ERROR;
+    }
+    CLOGI("start set app info impl proxy");
+    int32_t ret = Remote()->SendRequest(SET_APP_INFO, data, reply, option);
+    if (ret == ERR_NO_PERMISSION) {
+        CLOGE("No permission when setting surface");
+        return ERR_NO_PERMISSION;
+    } else if (ret != ERR_NONE) {
+        CLOGE("Failed to send ipc request when setting surface");
+        return CAST_ENGINE_ERROR;
+    }
+    return reply.ReadInt32();
+}
+
+int32_t MirrorPlayerImplProxy::SetSurface(sptr<IBufferProducer> producer)
+{
+    MessageParcel data, reply;
+    MessageOption option;
+
+    if (!data.WriteInterfaceToken(GetDescriptor())) {
+        CLOGE("Failed to write the interface token");
+        return CAST_ENGINE_ERROR;
+    }
+    if (!data.WriteRemoteObject(producer->AsObject())) {
+        CLOGE("Failed to write surface producer");
+        return CAST_ENGINE_ERROR;
+    }
+
+    int32_t ret = Remote()->SendRequest(SET_SURFACE, data, reply, option);
+    if (ret == ERR_NO_PERMISSION) {
+        CLOGE("No permission when setting surface");
+        return ERR_NO_PERMISSION;
+    } else if (ret != ERR_NONE) {
+        CLOGE("Failed to send ipc request when setting surface");
+        return CAST_ENGINE_ERROR;
+    }
+
+    return reply.ReadInt32();
+}
+
 } // namespace CastEngineClient
 } // namespace CastEngine
 } // namespace OHOS
