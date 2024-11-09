@@ -157,6 +157,29 @@ int32_t CastSessionImplProxy::StartAuth(const AuthInfo &authInfo)
     return reply.ReadInt32();
 }
 
+int32_t CastSessionImplProxy::Release()
+{
+    MessageParcel data;
+    MessageParcel reply;
+    MessageOption option;
+
+    if (!data.WriteInterfaceToken(GetDescriptor())) {
+        CLOGE("Failed to write the interface token");
+        return CAST_ENGINE_ERROR;
+    }
+
+    int32_t ret = Remote()->SendRequest(RELEASE, data, reply, option);
+    if (ret == ERR_UNKNOWN_TRANSACTION) {
+        CLOGE("No permission when releasing the cast session");
+        return ERR_NO_PERMISSION;
+    } else if (ret != ERR_NONE) {
+        CLOGE("Failed to send ipc request when releasing the cast session");
+        return CAST_ENGINE_ERROR;
+    }
+
+    return reply.ReadInt32();
+}
+
 int32_t CastSessionImplProxy::GetSessionId(std::string &sessionId)
 {
     MessageParcel data, reply;
@@ -284,6 +307,31 @@ int32_t CastSessionImplProxy::SetSessionProperty(const CastSessionProperty &prop
     return reply.ReadInt32();
 }
 
+int32_t CastSessionImplProxy::SetCastMode(CastMode mode, std::string &jsonParam)
+{
+    MessageParcel data, reply;
+    MessageOption option;
+
+    if (!data.WriteInterfaceToken(GetDescriptor())) {
+        CLOGE("Failed to write the interface token");
+        return CAST_ENGINE_ERROR;
+    }
+    if (!data.WriteInt32(static_cast<int32_t>(mode))) {
+        CLOGE("Failed to write cast mode");
+        return CAST_ENGINE_ERROR;
+    }
+    if (!data.WriteString(jsonParam)) {
+        CLOGE("Failed to write json param");
+        return CAST_ENGINE_ERROR;
+    }
+    if (Remote()->SendRequest(SET_CAST_MODE, data, reply, option) != ERR_NONE) {
+        CLOGE("Failed to send ipc request when set cast mode");
+        return CAST_ENGINE_ERROR;
+    }
+
+    return reply.ReadInt32();
+}
+
 int32_t CastSessionImplProxy::CreateMirrorPlayer(sptr<IMirrorPlayerImpl> &mirrorPlayer)
 {
     MessageParcel data;
@@ -346,54 +394,6 @@ int32_t CastSessionImplProxy::CreateStreamPlayer(sptr<IStreamPlayerIpc> &streamP
     streamPlayer = iface_cast<IStreamPlayerIpc>(object);
 
     return errorCode;
-}
-
-int32_t CastSessionImplProxy::Release()
-{
-    MessageParcel data;
-    MessageParcel reply;
-    MessageOption option;
-
-    if (!data.WriteInterfaceToken(GetDescriptor())) {
-        CLOGE("Failed to write the interface token");
-        return CAST_ENGINE_ERROR;
-    }
-
-    int32_t ret = Remote()->SendRequest(RELEASE, data, reply, option);
-    if (ret == ERR_UNKNOWN_TRANSACTION) {
-        CLOGE("No permission when releasing the cast session");
-        return ERR_NO_PERMISSION;
-    } else if (ret != ERR_NONE) {
-        CLOGE("Failed to send ipc request when releasing the cast session");
-        return CAST_ENGINE_ERROR;
-    }
-
-    return reply.ReadInt32();
-}
-
-int32_t CastSessionImplProxy::SetCastMode(CastMode mode, std::string &jsonParam)
-{
-    MessageParcel data, reply;
-    MessageOption option;
-
-    if (!data.WriteInterfaceToken(GetDescriptor())) {
-        CLOGE("Failed to write the interface token");
-        return CAST_ENGINE_ERROR;
-    }
-    if (!data.WriteInt32(static_cast<int32_t>(mode))) {
-        CLOGE("Failed to write cast mode");
-        return CAST_ENGINE_ERROR;
-    }
-    if (!data.WriteString(jsonParam)) {
-        CLOGE("Failed to write json param");
-        return CAST_ENGINE_ERROR;
-    }
-    if (Remote()->SendRequest(SET_CAST_MODE, data, reply, option) != ERR_NONE) {
-        CLOGE("Failed to send ipc request when set cast mode");
-        return CAST_ENGINE_ERROR;
-    }
-
-    return reply.ReadInt32();
 }
 
 int32_t CastSessionImplProxy::NotifyEvent(EventId eventId, std::string &jsonParam)

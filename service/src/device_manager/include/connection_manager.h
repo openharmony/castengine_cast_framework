@@ -62,20 +62,6 @@ public:
     void OnUnbindResult(const PeerTargetId &targetId, int32_t result, std::string content) override;
 };
 
-class IConnectionManagerListener {
-public:
-    IConnectionManagerListener() = default;
-    virtual ~IConnectionManagerListener() = default;
-
-    virtual int NotifySessionIsReady() = 0;
-    virtual void NotifyDeviceIsOffline(const std::string &deviceId) = 0;
-    virtual bool NotifyRemoteDeviceIsReady(int castSessionId, const CastInnerRemoteDevice &device) = 0;
-    virtual void OnEvent(const std::string &deviceId, ReasonCode currentEventCode) = 0;
-    virtual void GrabDevice(int32_t sessionId) = 0;
-    virtual int32_t GetSessionProtocolType(int sessionId, ProtocolType &protocolType) = 0;
-    virtual int32_t SetSessionProtocolType(int sessionId, ProtocolType protocolType) = 0;
-};
-
 class ConnectionManager {
 public:
     static ConnectionManager &GetInstance();
@@ -108,13 +94,15 @@ public:
     void ReportErrorByListener(const std::string &deviceId, ReasonCode currentEventCode);
     void UpdateGrabState(bool changeState, int32_t sessionId);
     void SetSessionListener(std::shared_ptr<IConnectManagerSessionListener> listener);
+
     int32_t GetSessionProtocolType(int sessionId, ProtocolType &protocolType);
     int32_t SetSessionProtocolType(int sessionId, ProtocolType protocolType);
+
     void SetRTSPPort(int port);
+    void SendConsultInfo(const std::string &deviceId, int port);
     bool IsSingle(const CastInnerRemoteDevice &device);
     bool IsHuaweiDevice(const CastInnerRemoteDevice &device);
     bool IsThirdDevice(const CastInnerRemoteDevice &device);
-    void SendConsultInfo(const std::string &deviceId, int port);
 
     std::map<std::string, bool> isBindTargetMap_;
 
@@ -122,23 +110,26 @@ private:
     bool BindTarget(const CastInnerRemoteDevice &dev);
     bool BuildBindParam(const CastInnerRemoteDevice &device, std::map<std::string, std::string> &bindParam);
     std::string GetAuthVersion(const CastInnerRemoteDevice &device);
-    void SendConsultData(const CastInnerRemoteDevice &device, int port);
+
     bool QueryP2PIp(const CastInnerRemoteDevice &device);
 
+    void SendConsultData(const CastInnerRemoteDevice &device, int port);
     std::string GetConsultationData(const CastInnerRemoteDevice &device, int port, json &body);
+
     void EncryptPort(int port, const uint8_t *sessionKey, json &body);
-    std::string convLatin1ToUTF8(std::string &latin1);
     void EncryptIp(const std::string &ip, const std::string &key, const uint8_t *sessionKey, json &body);
     std::unique_ptr<uint8_t[]> intToByteArray(int32_t num);
+    std::string convLatin1ToUTF8(std::string &latin1);
 
     void DestroyConsulationSession(const std::string &deviceId);
     int GetCastSessionId(int transportId);
+
     std::unique_ptr<CastInnerRemoteDevice> GetRemoteFromJsonData(const std::string &Data);
 
+    int GetRTSPPort();
     void SetListener(std::shared_ptr<IConnectionManagerListener> listener);
     bool HasListener();
     void ResetListener();
-    int GetRTSPPort();
 
     std::mutex mutex_;
     int protocolType_ = 0;

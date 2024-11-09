@@ -25,7 +25,9 @@
 #include <shared_mutex>
 
 #include "cast_session_manager_service_stub.h"
+#include "connection_manager_listener.h"
 #include "session.h"
+#include "system_ability_load_callback_stub.h"
 #include "system_ability.h"
 
 using SharedRLock = std::shared_lock<std::shared_mutex>;
@@ -63,6 +65,12 @@ public:
     void ReportSessionCreate(const sptr<ICastSessionImpl> &castSession);
     void ReportDeviceOffline(const std::string &deviceId);
     sptr<ICastSessionImpl> GetCastSessionInner(std::string sessionId);
+
+    class CastServiceLoadCallback : public SystemAbilityLoadCallbackStub {
+    public:
+        void OnLoadSystemAbilitySuccess(int32_t systemAbilityId, const sptr<IRemoteObject> &remoteObject) override;
+        void OnLoadSystemAbilityFail(int32_t systemAbilityId) override;
+    };
 
 private:
     class CastEngineClientDeathRecipient : public IRemoteObject::DeathRecipient {
