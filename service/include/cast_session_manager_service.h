@@ -104,6 +104,21 @@ private:
     void ClearListenersLocked();
     bool HasListenerLocked();
 };
+
+class ConnectionManagerListener : public IConnectionManagerListener {
+public:
+    ConnectionManagerListener(sptr<CastSessionManagerService> service) : service_(service) {}
+    int NotifySessionIsReady() override;
+    bool NotifyRemoteDeviceIsReady(int castSessionId, const CastInnerRemoteDevice &device) override;
+    void NotifyDeviceIsOffline(const std::string &deviceId) override;
+    void GrabDevice(int32_t sessionId) override;
+    void OnEvent(const std::string &deviceId, ReasonCode currentEventCode) override;
+    int32_t GetSessionProtocolType(int sessionId, ProtocolType &protocolType) override;
+    int32_t SetSessionProtocolType(int sessionId, ProtocolType protocolType) override;
+
+private:
+    wptr<CastSessionManagerService> service_;
+};
 } // namespace CastEngineService
 } // namespace CastEngine
 } // namespace OHOS
