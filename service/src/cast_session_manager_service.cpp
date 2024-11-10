@@ -222,150 +222,150 @@ public:
 private:
     wptr<CastSessionManagerService> service_;
 };
-
-class ConnectionManagerListener : public IConnectionManagerListener {
-public:
-    ConnectionManagerListener(sptr<CastSessionManagerService> service) : service_(service) {}
-
-    int NotifySessionIsReady() override
-    {
-        auto service = service_.promote();
-        if (!service) {
-            CLOGE("service is null");
-            return INVALID_ID;
-        }
-
-        sptr<ICastSessionImpl> session;
-        service->CreateCastSession({}, session);
-        if (session == nullptr) {
-            return INVALID_ID;
-        }
-
-        service->ReportSessionCreate(session);
-        std::string sessionId{};
-        session->GetSessionId(sessionId);
-        return Utils::StringToInt((sessionId));
-    }
-
-    bool NotifyRemoteDeviceIsReady(int castSessionId, const CastInnerRemoteDevice &device) override
-    {
-        auto service = service_.promote();
-        if (!service) {
-            CLOGE("service is null");
-            return false;
-        }
-        sptr<ICastSessionImpl> session;
-        service->GetCastSession(std::to_string(castSessionId), session);
-        if (session == nullptr) {
-            CLOGE("Session is null when consultation data comes!");
-            return false;
-        }
-        if (!session->AddDevice(device)) {
-            CLOGE("Session addDevice fail");
-            return false;
-        }
-        return true;
-    }
-
-    void NotifyDeviceIsOffline(const std::string &deviceId) override
-    {
-        auto service = service_.promote();
-        if (!service) {
-            CLOGE("service is null");
-            return;
-        }
-        service->ReportDeviceOffline(deviceId);
-        CLOGD("OnDeviceOffline out");
-    }
-
-    void OnEvent(const std::string &deviceId, ReasonCode currentEventCode) override
-    {
-        auto service = service_.promote();
-        if (!service) {
-            CLOGE("service is null");
-            return;
-        }
-        int sessionId = CastDeviceDataManager::GetInstance().GetSessionIdByDeviceId(deviceId);
-        if (sessionId == INVALID_ID) {
-            CLOGE("The obtained sessionId is null");
-            return;
-        }
-        sptr<ICastSessionImpl> session;
-        service->GetCastSession(std::to_string(sessionId), session);
-        if (!session) {
-            CLOGE("The session is null. Failed to obtain the session.");
-            return;
-        }
-        session->OnSessionEvent(deviceId, currentEventCode);
-    }
-
-    void GrabDevice(int32_t sessionId) override
-    {
-        auto service = service_.promote();
-        if (!service) {
-            CLOGE("service is null");
-            return;
-        }
-
-        sptr<ICastSessionImpl> session;
-        service->GetCastSession(std::to_string(sessionId), session);
-        if (!session) {
-            CLOGE("The session is null. Failed to obtain the session.");
-            return;
-        }
-        session->Release();
-    }
-
-    int32_t GetSessionProtocolType(int sessionId, ProtocolType &protocolType) override
-    {
-        CLOGI("GetSessionProtocolType in");
-        auto service = service_.promote();
-        if (!service) {
-            CLOGE("service is null");
-            return CAST_ENGINE_ERROR;
-        }
-        sptr<ICastSessionImpl> session;
-        service->GetCastSession(std::to_string(sessionId), session);
-        if (!session) {
-            CLOGE("The session is null. Failed to obtain the session.");
-            return CAST_ENGINE_ERROR;
-        }
-        return session->GetSessionProtocolType(protocolType);
-    }
-
-    int32_t SetSessionProtocolType(int sessionId, ProtocolType protocolType) override
-    {
-        CLOGI("SetSessionProtocolType in");
-        auto service = service_.promote();
-        if (!service) {
-            CLOGE("service is null");
-            return CAST_ENGINE_ERROR;
-        }
-        sptr<ICastSessionImpl> session;
-        service->GetCastSession(std::to_string(sessionId), session);
-        if (!session) {
-            CLOGE("The session is null. Failed to obtain the session.");
-            return CAST_ENGINE_ERROR;
-        }
-        session->SetSessionProtocolType(protocolType);
-        return CAST_ENGINE_SUCCESS;
-    }
-
-private:
-    wptr<CastSessionManagerService> service_;
-};
 } // namespace
+
+int ConnectionManagerListener::NotifySessionIsReady()
+{
+    auto service = service_.promote();
+    if (!service) {
+        CLOGE("service is null");
+        return INVALID_ID;
+    }
+
+    sptr<ICastSessionImpl> session;
+    service->CreateCastSession({}, session);
+    if (session == nullptr) {
+        return INVALID_ID;
+    }
+
+    service->ReportSessionCreate(session);
+    std::string sessionId{};
+    session->GetSessionId(sessionId);
+    return Utils::StringToInt((sessionId));
+}
+
+bool ConnectionManagerListener::NotifyRemoteDeviceIsReady(int castSessionId, const CastInnerRemoteDevice &device)
+{
+    auto service = service_.promote();
+    if (!service) {
+        CLOGE("service is null");
+        return false;
+    }
+    sptr<ICastSessionImpl> session;
+    service->GetCastSession(std::to_string(castSessionId), session);
+    if (session == nullptr) {
+        CLOGE("Session is null when consultation data comes!");
+        return false;
+    }
+    if (!session->AddDevice(device)) {
+        CLOGE("Session addDevice fail");
+        return false;
+    }
+    return true;
+}
+
+void ConnectionManagerListener::NotifyDeviceIsOffline(const std::string &deviceId)
+{
+    auto service = service_.promote();
+    if (!service) {
+        CLOGE("service is null");
+        return;
+    }
+    service->ReportDeviceOffline(deviceId);
+    CLOGD("OnDeviceOffline out");
+}
+
+void ConnectionManagerListener::OnEvent(const std::string &deviceId, ReasonCode currentEventCode)
+{
+    auto service = service_.promote();
+    if (!service) {
+        CLOGE("service is null");
+        return;
+    }
+
+    int sessionId = CastDeviceDataManager::GetInstance().GetSessionIdByDeviceId(deviceId);
+    if (sessionId == INVALID_ID) {
+        CLOGE("The obtained sessionId is null");
+        return;
+    }
+
+    sptr<ICastSessionImpl> session;
+    service->GetCastSession(std::to_string(sessionId), session);
+    if (!session) {
+        CLOGE("The session is null. Failed to obtain the session.");
+        return;
+    }
+    session->OnSessionEvent(deviceId, currentEventCode);
+}
+
+void ConnectionManagerListener::GrabDevice(int32_t sessionId)
+{
+    auto service = service_.promote();
+    if (!service) {
+        CLOGE("service is null");
+        return;
+    }
+
+    sptr<ICastSessionImpl> session;
+    service->GetCastSession(std::to_string(sessionId), session);
+    if (!session) {
+        CLOGE("The session is null. Failed to obtain the session.");
+        return;
+    }
+    session->Release();
+}
+
+int32_t ConnectionManagerListener::GetSessionProtocolType(int sessionId, ProtocolType &protocolType)
+{
+    CLOGI("GetSessionProtocolType in");
+
+    auto service = service_.promote();
+    if (!service) {
+        CLOGE("service is null");
+        return CAST_ENGINE_ERROR;
+    }
+
+    sptr<ICastSessionImpl> session;
+    service->GetCastSession(std::to_string(sessionId), session);
+    if (!session) {
+        CLOGE("The session is null. Failed to obtain the session.");
+        return CAST_ENGINE_ERROR;
+    }
+    return session->GetSessionProtocolType(protocolType);
+}
+
+int32_t ConnectionManagerListener::SetSessionProtocolType(int sessionId, ProtocolType protocolType)
+{
+    CLOGI("SetSessionProtocolType in");
+
+    auto service = service_.promote();
+    if (!service) {
+        CLOGE("service is null");
+        return CAST_ENGINE_ERROR;
+    }
+
+    sptr<ICastSessionImpl> session;
+    service->GetCastSession(std::to_string(sessionId), session);
+    if (!session) {
+        CLOGE("The session is null. Failed to obtain the session.");
+        return CAST_ENGINE_ERROR;
+    }
+    session->SetSessionProtocolType(protocolType);
+    return CAST_ENGINE_SUCCESS;
+}
 
 int32_t CastSessionManagerService::RegisterListener(sptr<ICastServiceListenerImpl> listener)
 {
     CLOGI("RegisterListener in");
     HiSysEventWrite(CAST_ENGINE_DFX_DOMAIN_NAME, "CAST_ENGINE_EVE", HiviewDFX::HiSysEvent::EventType::STATISTIC,
         "SEQUENTIAL_ID", CastEngineDfx::GetSequentialId(), "BIZ_PACKAGE_NAME", CastEngineDfx::GetBizPackageName());
+
     SharedWLock lock(mutex_);
     if (listener == nullptr) {
         CLOGE("RegisterListener failed, listener is null");
         return CAST_ENGINE_ERROR;
     }
+
     bool needInitMore = !HasListenerLocked();
     if (!AddListenerLocked(listener)) {
         return CAST_ENGINE_ERROR;
