@@ -16,8 +16,8 @@
  * Create: 2023-11-08
  */
 
-#ifndef LIBCASTENGINE_CONNECTMANAGER_LISTENER_H
-#define LIBCASTENGINE_CONNECTMANAGER_LISTENER_H
+#ifndef CONNECTION_MANAGER_LISTENER_H
+#define CONNECTION_MANAGER_LISTENER_H
 
 #include "cast_engine_common.h"
 
@@ -31,9 +31,9 @@ public:
     virtual ~IConnectionManagerListener() = default;
 
     virtual int NotifySessionIsReady() = 0;
+    virtual void ReportSessionCreate(int castSessionId) = 0;
     virtual void NotifyDeviceIsOffline(const std::string &deviceId) = 0;
     virtual bool NotifyRemoteDeviceIsReady(int castSessionId, const CastInnerRemoteDevice &device) = 0;
-    virtual void OnEvent(const std::string &deviceId, ReasonCode currentEventCode) = 0;
     virtual void GrabDevice(int32_t sessionId) = 0;
     virtual int32_t GetSessionProtocolType(int sessionId, ProtocolType &protocolType) = 0;
     virtual int32_t SetSessionProtocolType(int sessionId, ProtocolType protocolType) = 0;
@@ -49,4 +49,4 @@ public:
 } // namespace CastEngine
 } // namespace OHOS
 
-#endif // LIBCASTENGINE_CONNECTMANAGER_LISTENER_H
+#endif // CONNECTION_MANAGER_LISTENER_H
