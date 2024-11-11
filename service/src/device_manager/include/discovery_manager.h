@@ -119,8 +119,9 @@ private:
     void UpdateDeviceState();
 
     std::mutex mutex_;
-    int protocolType_ = 0;
+
     int32_t uid_{ 0 };
+    int protocolType_ = 0;
     std::shared_ptr<IDiscoveryManagerListener> listener_;
     std::shared_ptr<EventRunner> eventRunner_;
     std::shared_ptr<DiscoveryEventHandler> eventHandler_;

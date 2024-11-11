@@ -30,6 +30,7 @@
 #include "cast_engine_errors.h"
 #include "cast_engine_log.h"
 #include "cast_session_impl.h"
+#include "cast_session_impl_class.h"
 #include "connection_manager.h"
 #include "discovery_manager.h"
 #include "softbus_error_code.h"
@@ -141,6 +142,10 @@ bool SetupSessionServer()
 }
 }
 
+namespace {
+constexpr int DEVICE_MANAGER_SA_ID = 4802;
+} // namespace
+
 CastSessionManagerService::CastSessionManagerService(int32_t saId, bool runOnCreate) : SystemAbility(saId, runOnCreate)
 {
     CLOGD("construction in");
@@ -184,6 +189,12 @@ void CastSessionManagerService::OnStop()
 {
     CLOGI("Stop in");
     RemoveSessionServer(PKG_NAME, SessionServer::SESSION_NAME);
+}
+
+void CastSessionManagerService::OnActive(const SystemAbilityOnDemandReason& activeReason)
+{
+    CLOGI("OnActive in, reasonValue:%{public}s", activeReason.GetValue().c_str());
+    isUnloading_.store(false);
 }
 
 namespace {
@@ -238,10 +249,25 @@ int ConnectionManagerListener::NotifySessionIsReady()
         return INVALID_ID;
     }
 
-    service->ReportSessionCreate(session);
     std::string sessionId{};
     session->GetSessionId(sessionId);
     return Utils::StringToInt((sessionId));
+}
+
+void ConnectionManagerListener::ReportSessionCreate(int castSessionId)
+{
+    auto service = service_.promote();
+    if (!service) {
+        CLOGE("service is null");
+        return;
+    }
+
+    sptr<ICastSessionImpl> castSession;
+    if (service->GetCastSession(std::to_string(castSessionId), castSession) == CAST_ENGINE_SUCCESS) {
+        service->ReportSessionCreate(castSession);
+        return;
+    }
+    CLOGE("Invalid castSessionId: %d.", castSessionId);
 }
 
 bool ConnectionManagerListener::NotifyRemoteDeviceIsReady(int castSessionId, const CastInnerRemoteDevice &device)
@@ -251,16 +277,20 @@ bool ConnectionManagerListener::NotifyRemoteDeviceIsReady(int castSessionId, con
         CLOGE("service is null");
         return false;
     }
+
     sptr<ICastSessionImpl> session;
     service->GetCastSession(std::to_string(castSessionId), session);
     if (session == nullptr) {
         CLOGE("Session is null when consultation data comes!");
         return false;
     }
+
     if (!session->AddDevice(device)) {
         CLOGE("Session addDevice fail");
         return false;
     }
+
+    ConnectionManager::GetInstance().NotifyConnectStage(device, ConnectStageResult::CONNECT_START);
     return true;
 }
 
@@ -273,29 +303,6 @@ void ConnectionManagerListener::NotifyDeviceIsOffline(const std::string &deviceI
     }
     service->ReportDeviceOffline(deviceId);
     CLOGD("OnDeviceOffline out");
-}
-
-void ConnectionManagerListener::OnEvent(const std::string &deviceId, ReasonCode currentEventCode)
-{
-    auto service = service_.promote();
-    if (!service) {
-        CLOGE("service is null");
-        return;
-    }
-
-    int sessionId = CastDeviceDataManager::GetInstance().GetSessionIdByDeviceId(deviceId);
-    if (sessionId == INVALID_ID) {
-        CLOGE("The obtained sessionId is null");
-        return;
-    }
-
-    sptr<ICastSessionImpl> session;
-    service->GetCastSession(std::to_string(sessionId), session);
-    if (!session) {
-        CLOGE("The session is null. Failed to obtain the session.");
-        return;
-    }
-    session->OnSessionEvent(deviceId, currentEventCode);
 }
 
 void ConnectionManagerListener::GrabDevice(int32_t sessionId)
@@ -372,6 +379,12 @@ int32_t CastSessionManagerService::RegisterListener(sptr<ICastServiceListenerImp
     }
 
     if (needInitMore) {
+        if (!CheckAndWaitDevieManagerServiceInit()) {
+            CLOGE("Wait DM SA load timeout");
+            ReleaseLocked();
+            return CAST_ENGINE_ERROR;
+        }
+
         DiscoveryManager::GetInstance().Init(std::make_shared<DiscoveryManagerListener>(this));
         ConnectionManager::GetInstance().Init(std::make_shared<ConnectionManagerListener>(this));
         sessionMap_.clear();
@@ -519,6 +532,7 @@ bool CastSessionManagerService::DestroyCastSession(int32_t sessionId)
         sessionMap_.erase(it);
     }
 
+    ConnectionManager::GetInstance().RemoveSessionListener(sessionId);
     ConnectionManager::GetInstance().UpdateGrabState(false, -1);
     session->Stop();
     CLOGD("Session refcount is %d, session count:%zu", session->GetSptrRefCount(), sessionMap_.size());
@@ -742,6 +756,26 @@ void CastSessionManagerService::ReportDeviceOffline(const std::string &deviceId)
     for (const auto &listener : listeners_) {
         listener.second.first->OnDeviceOffline(deviceId);
     }
+}
+
+bool CastSessionManagerService::CheckAndWaitDevieManagerServiceInit()
+{
+    auto samgr = SystemAbilityManagerClient::GetInstance().GetSystemAbilityManager();
+    if (samgr == nullptr) {
+        CLOGE("get samgr failed");
+        return false;
+    }
+    constexpr int32_t sleepTimeMs = 50;
+    constexpr int32_t retryTimes = 200;
+    int32_t retryTime = 0;
+
+    while (samgr->CheckSystemAbility(DEVICE_MANAGER_SA_ID) == nullptr && (retryTime < retryTimes)) {
+        std::this_thread::sleep_for(std::chrono::milliseconds(sleepTimeMs));
+        retryTime++;
+    }
+    CLOGI("retryTime:%{public}d", retryTime);
+
+    return retryTime < retryTimes;
 }
 
 void CastSessionManagerService::CastEngineClientDeathRecipient::OnRemoteDied(const wptr<IRemoteObject> &object)

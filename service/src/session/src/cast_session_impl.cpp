@@ -544,7 +544,7 @@ bool CastSessionImpl::Init()
     rtspControl_ = IRtspController::GetInstance(rtspListener_, property_.protocolType, property_.endType);
 
     connectManagerListener_ = std::make_shared<ConnectManagerListenerImpl>(this);
-    ConnectionManager::GetInstance().SetSessionListener(connectManagerListener_);
+    ConnectionManager::GetInstance().AddSessionListener(sessionId_, connectManagerListener_);
 
     defaultState_ = std::make_shared<DefaultState>(SessionState::DEFAULT, this, nullptr);
     disconnectedState_ = std::make_shared<DisconnectedState>(SessionState::DISCONNECTED, this, defaultState_);
