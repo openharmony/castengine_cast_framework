@@ -864,6 +864,37 @@ void ConnectionManager::UpdateGrabState(bool changeState, int32_t sessionId)
     grabState_ = DeviceGrabState::NO_GRAB;
 }
 
+void ConnectionManager::AddSessionListener(int castSessionId, std::shared_ptr<IConnectManagerSessionListener> listener)
+{
+    std::lock_guard<std::mutex> lock(mutex_);
+    sessionListeners_[castSessionId] = listener;
+}
+
+void ConnectionManager::RemoveSessionListener(int castSessionId)
+{
+    std::lock_guard<std::mutex> lock(mutex_);
+    if (castSessionId == INVALID_ID) {
+        sessionListeners_.clear();
+        return;
+    }
+    auto it = sessionListeners_.find(castSessionId);
+    if (it == sessionListeners_.end()) {
+        CLOGE("Cast session listener(%{public}d) has gone.", castSessionId);
+        return;
+    }
+    sessionListeners_.erase(it);
+}
+
+std::shared_ptr<IConnectManagerSessionListener> ConnectionManager::GetSessionListener(int castSessionId)
+{
+    std::lock_guard<std::mutex> lock(mutex_);
+    auto it = sessionListeners_.find(castSessionId);
+    if (it == sessionListeners_.end()) {
+        CLOGE("Cast session listener(%{public}d) has gone.", castSessionId);
+        return nullptr;
+    }
+    return it->second;
+}
 void ConnectionManager::SetListener(std::shared_ptr<IConnectionManagerListener> listener)
 {
     std::lock_guard<std::mutex> lock(mutex_);
@@ -879,22 +910,13 @@ bool ConnectionManager::HasListener()
 void ConnectionManager::ResetListener()
 {
     SetListener(nullptr);
-    SetSessionListener(nullptr);
+    RemoveSessionListener(INVALID_ID);
 }
 
 bool ConnectionManager::UpdateDeviceState(const std::string &deviceId, RemoteDeviceState state)
 {
     CLOGD("UpdateDeviceState: %s", REMOTE_DEVICE_STATE_STRING[static_cast<size_t>(state)].c_str());
     return CastDeviceDataManager::GetInstance().SetDeviceState(deviceId, state);
-}
-
-void ConnectionManager::ReportErrorByListener(const std::string &deviceId, ReasonCode currentEventCode)
-{
-    std::lock_guard<std::mutex> lock(mutex_);
-    if (!listener_) {
-        return;
-    }
-    listener_->OnEvent(deviceId, currentEventCode);
 }
 
 int32_t ConnectionManager::GetSessionProtocolType(int sessionId, ProtocolType &protocolType)
@@ -925,10 +947,23 @@ void ConnectionManager::NotifyDeviceIsOffline(const std::string &deviceId)
     listener_->NotifyDeviceIsOffline(deviceId);
 }
 
-void ConnectionManager::SetSessionListener(std::shared_ptr<IConnectManagerSessionListener> listener)
+bool ConnectionManager::NotifyConnectStage(const CastInnerRemoteDevice &device, int result, int32_t reasonCode)
 {
-    std::lock_guard<std::mutex> lock(mutex_);
-    sessionListener_ = listener;
+    CLOGI("result %{public}d, reasonCode %{public}d", result, reasonCode);
+
+    auto sessionListener = GetSessionListener(device.localCastSessionId);
+    if (sessionListener == nullptr) {
+        CLOGE("sessionListener is NULL");
+        return false;
+    }
+
+    if (result == ConnectStageResult::AUTH_FAILED || result == ConnectStageResult::CONNECT_FAIL ||
+        result == ConnectStageResult::DISCONNECT_START) {
+        UpdateDeviceState(device.deviceId, RemoteDeviceState::FOUND);
+    }
+
+    sessionListener->NotifyConnectStage(device.deviceId, result, reasonCode);
+    return true;
 }
 
 void CastBindTargetCallback::OnBindResult(const PeerTargetId &targetId, int32_t result, int32_t status,
