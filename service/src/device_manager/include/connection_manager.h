@@ -83,6 +83,7 @@ public:
     void DisconnectDevice(const std::string &deviceId);
 
     bool UpdateDeviceState(const std::string &deviceId, RemoteDeviceState state);
+    void UpdateGrabState(bool changeState, int32_t sessionId);
 
     int GetProtocolType() const;
     void SetProtocolType(int protocols);
@@ -91,9 +92,9 @@ public:
     void NotifySessionIsReady(int transportId);
     void NotifyDeviceIsOffline(const std::string &deviceId);
     bool NotifyConnectStage(const CastInnerRemoteDevice &device, int result, int32_t reasonCode = REASON_DEFAULT);
-    void ReportErrorByListener(const std::string &deviceId, ReasonCode currentEventCode);
-    void UpdateGrabState(bool changeState, int32_t sessionId);
-    void SetSessionListener(std::shared_ptr<IConnectManagerSessionListener> listener);
+
+    void AddSessionListener(int castSessionId, std::shared_ptr<IConnectManagerSessionListener> listener);
+    void RemoveSessionListener(int castSessionId);
 
     int32_t GetSessionProtocolType(int sessionId, ProtocolType &protocolType);
     int32_t SetSessionProtocolType(int sessionId, ProtocolType protocolType);
@@ -127,14 +128,16 @@ private:
     std::unique_ptr<CastInnerRemoteDevice> GetRemoteFromJsonData(const std::string &Data);
 
     int GetRTSPPort();
+    std::shared_ptr<IConnectManagerSessionListener> GetSessionListener(int castSessionId);
     void SetListener(std::shared_ptr<IConnectionManagerListener> listener);
+    std::shared_ptr<IConnectionManagerListener> GetListener();
     bool HasListener();
     void ResetListener();
 
     std::mutex mutex_;
     int protocolType_ = 0;
     std::shared_ptr<IConnectionManagerListener> listener_;
-    std::shared_ptr<IConnectManagerSessionListener> sessionListener_;
+    std::map<int, std::shared_ptr<IConnectManagerSessionListener>> sessionListeners_;
     std::map<int, int> transIdToCastSessionIdMap_;
     bool isDiscoverable_{ false };
     DeviceGrabState grabState_{ DeviceGrabState::NO_GRAB };

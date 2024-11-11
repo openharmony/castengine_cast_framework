@@ -45,6 +45,7 @@ public:
 
     void OnStart() override;
     void OnStop() override;
+    void OnActive(const SystemAbilityOnDemandReason& activeReason) override;
 
     int32_t RegisterListener(sptr<ICastServiceListenerImpl> listener) override;
     int32_t UnregisterListener() override;
@@ -85,6 +86,8 @@ private:
         uid_t uid_;
     };
 
+    bool CheckAndWaitDevieManagerServiceInit();
+
     pid_t myPid_;
     std::shared_mutex mutex_;
     std::map<pid_t, std::pair<sptr<ICastServiceListenerImpl>, uid_t>> listeners_;
@@ -95,6 +98,7 @@ private:
     std::atomic<int> sessionIndex_{ 0 };
     std::unordered_map<pid_t, sptr<IRemoteObject::DeathRecipient>> deathRecipientMap_;
     std::atomic<bool> hasServer_{ false };
+    std::atomic<bool> isUnloading_{ false };
 
     void AddClientDeathRecipientLocked(pid_t pid, uid_t uid, sptr<ICastServiceListenerImpl> listener);
     void RemoveClientDeathRecipientLocked(pid_t pid, sptr<ICastServiceListenerImpl> listener);
@@ -109,10 +113,10 @@ class ConnectionManagerListener : public IConnectionManagerListener {
 public:
     ConnectionManagerListener(sptr<CastSessionManagerService> service) : service_(service) {}
     int NotifySessionIsReady() override;
+    void ReportSessionCreate(int castSessionId) override;
     bool NotifyRemoteDeviceIsReady(int castSessionId, const CastInnerRemoteDevice &device) override;
     void NotifyDeviceIsOffline(const std::string &deviceId) override;
     void GrabDevice(int32_t sessionId) override;
-    void OnEvent(const std::string &deviceId, ReasonCode currentEventCode) override;
     int32_t GetSessionProtocolType(int sessionId, ProtocolType &protocolType) override;
     int32_t SetSessionProtocolType(int sessionId, ProtocolType protocolType) override;
 
