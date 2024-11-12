@@ -49,6 +49,22 @@ constexpr int TIMEOUT_COUNT = 40;
 constexpr int EVENT_START_DISCOVERY = 1;
 constexpr int EVENT_CONTINUE_DISCOVERY = 2;
 const std::string DISCOVERY_TRUST_VALUE = R"({"filters": [{"type": "isTrusted", "value": 2}]})";
+const std::string SINGLE_CUST_DATA = R"({"castPlus":"C020"})";
+constexpr int CAST_DATA_LENGTH = 4;
+
+constexpr int INT_THREE = 3;
+constexpr int INT_FOUR = 4;
+constexpr int INT_SEVEN = 7;
+
+// Bit bit of byte 0
+constexpr uint32_t BASE = 1;
+constexpr uint32_t HUAWEI_IDENTIFICATION = BASE << 7;
+constexpr uint32_t MIRROR_CAPABILITY = BASE << 3;
+
+// Bit bit of byte 1
+constexpr uint32_t DEVICE_COORDINATION_CAPABILITY = BASE << 7;
+constexpr uint32_t DRM_CAPABILITY = BASE << 6;
+constexpr uint32_t CAST_STREAM_CAPABILITY = BASE << 5;
 
 DeviceType ConvertDeviceType(uint16_t deviceTypeId)
 {
@@ -146,25 +162,17 @@ void DiscoveryManager::GetAndReportTrustedDevices()
     }
 }
 
-void DiscoveryManager::UpdateDeviceState()
-{
-    auto it = std::find_if(remoteDeviceMap.begin(), remoteDeviceMap.end(), [&](const auto& pair) {
-        return scanCount - pair.second >=1 ;
-    });
-    if (it != remoteDeviceMap.end()) {
-        CastInnerRemoteDevice remoteDevice = it->first;
-        CLOGE("StartDmDiscovery offline: %{public}s", remoteDevice.deviceName.c_str());
-        ConnectionManager::GetInstance().NotifyDeviceIsOffline(remoteDevice.deviceId);
-        CastDeviceDataManager::GetInstance().RemoveDevice(remoteDevice.deviceId);
-        remoteDeviceMap.erase(it);
-    }
-}
+
 
 void DiscoveryManager::StartDmDiscovery()
 {
     CLOGI("StartDmDiscovery in");
-    UpdateDeviceState();
-    scanCount++;
+    {
+        std::lock_guard<std::mutex> lock(mutex_);
+        UpdateDeviceStateLocked();
+        reportTypeMap_.clear();
+    }
+    scanCount_++;
     std::map<std::string, std::string> discoverParam{
         { PARAM_KEY_META_TYPE, std::to_string(5) } };
     std::map<std::string, std::string> filterOptions{
@@ -209,11 +217,6 @@ bool DiscoveryManager::StopAdvertise()
     return true;
 }
 
-void DiscoveryManager::SetProtocolType(int protocols)
-{
-    protocolType_ = protocols;
-}
-
 int DiscoveryManager::GetProtocolType() const
 {
     return protocolType_;
@@ -233,8 +236,8 @@ void DiscoveryManager::StartDiscovery()
             {"PEER_UDID", ""}});
 
     CLOGI("StartDiscovery in");
-    scanCount = 0;
-    remoteDeviceMap.clear();
+    scanCount_ = 0;
+    remoteDeviceMap_.clear();
     std::lock_guard<std::mutex> lock(mutex_);
     uid_ = IPCSkeleton::GetCallingUid();
     eventHandler_->SendEvent(EVENT_START_DISCOVERY);
@@ -244,14 +247,25 @@ void DiscoveryManager::StartDiscovery()
 void DiscoveryManager::StopDiscovery()
 {
     CLOGI("StopDiscovery in");
-    StopDmDiscovery();
+    SetDeviceNotFresh();
     eventHandler_->RemoveAllEvents();
+    if (eventRunner_ != nullptr) {
+        eventRunner_->Stop();
+    }
+
+    StopDmDiscovery();
 }
 
 void DiscoveryManager::SetListener(std::shared_ptr<IDiscoveryManagerListener> listener)
 {
     std::lock_guard<std::mutex> lock(mutex_);
     listener_ = listener;
+}
+
+std::shared_ptr<IDiscoveryManagerListener> DiscoveryManager::GetListener()
+{
+    std::lock_guard<std::mutex> lock(mutex_);
+    return listener_;
 }
 
 bool DiscoveryManager::HasListener()
@@ -267,11 +281,11 @@ void DiscoveryManager::ResetListener()
 
 void DiscoveryManager::RemoveSameDeviceLocked(const CastInnerRemoteDevice &newDevice)
 {
-    auto it = std::find_if(remoteDeviceMap.begin(), remoteDeviceMap.end(), [&](const auto& pair) {
+    auto it = std::find_if(remoteDeviceMap_.begin(), remoteDeviceMap_.end(), [&](const auto& pair) {
         return pair.first.deviceId == newDevice.deviceId;
     });
-    if (it != remoteDeviceMap.end()) {
-        remoteDeviceMap.erase(it);
+    if (it != remoteDeviceMap_.end()) {
+        remoteDeviceMap_.erase(it);
     }
 }
 
@@ -301,11 +315,18 @@ void DiscoveryManager::OnDeviceInfoFound(uint16_t subscribeId, const DmDeviceInf
     CastInnerRemoteDevice newDevice = CreateRemoteDevice(dmDeviceInfo);
 
     // If the map does not exist, the notification is sent.
-    auto it = remoteDeviceMap.find(newDevice);
-    if (it == remoteDeviceMap.end()) {
-        // If the deviceId are the same, delete the old device.
-        RemoveSameDeviceLocked(newDevice);
+    bool isDeviceExist = true;
+    {
+        std::lock_guard<std::mutex> lock(mutex_);
+        auto it = remoteDeviceMap_.find(newDevice);
+        if (it == remoteDeviceMap_.end()) {
+            // If the deviceId are the same, delete the old device.
+            RemoveSameDeviceLocked(newDevice);
+            isDeviceExist = false;
+        }
+    }
 
+    if (!isDeviceExist) {
         // Set subDeviceType based on isTrusted.
         std::string networkId = dmDeviceInfo.networkId;
         bool isTrusted = ConnectionManager::GetInstance().IsDeviceTrusted(dmDeviceInfo.deviceId, networkId);
@@ -317,7 +338,9 @@ void DiscoveryManager::OnDeviceInfoFound(uint16_t subscribeId, const DmDeviceInf
             NotifyDeviceIsFound(newDevice);
         }
     }
-    remoteDeviceMap[newDevice] = scanCount;
+
+    remoteDeviceMap_[newDevice] = scanCount_;
+    RecordDeviceFoundType(dmDeviceInfo);
 }
 
 void DiscoveryManager::NotifyDeviceIsFound(const CastInnerRemoteDevice &newDevice)
@@ -332,9 +355,21 @@ void DiscoveryManager::NotifyDeviceIsFound(const CastInnerRemoteDevice &newDevic
     devices.push_back(newDevice);
 
     std::lock_guard<std::mutex> lock(mutex_);
-    listener_->OnDeviceFound(devices);
+    auto listener = GetListener();
+    if (listener == nullptr) {
+        CLOGE("listener is null");
+        return;
+    }
+
+    if (IsDrmMatch(newDevice)) {
+        listener->OnDeviceFound(devices);
+    }
+    
     if (uid_ == AV_SESSION_UID) {
-        listener_->OnDeviceFound(device2In1);
+        if (IsDrmMatch(newDevice)) {
+            listener->OnDeviceFound(device2In1);
+        }
+
         return;
     }
 }
@@ -378,6 +413,156 @@ void DiscoveryManager::ParseDeviceInfo(const DmDeviceInfo &dmDevice, CastInnerRe
     } else {
         CLOGE("dm device extraData parse error");
     }
+}
+
+void DiscoveryManager::ParseCustomData(const json &jsonObj, CastInnerRemoteDevice &castDevice)
+{
+    if (jsonObj.contains(PARAM_KEY_CUSTOM_DATA) && jsonObj[PARAM_KEY_CUSTOM_DATA].is_string()) {
+        std::string customData = jsonObj[PARAM_KEY_CUSTOM_DATA];
+        json softbusCustData = json::parse(customData, nullptr, false);
+        if (!softbusCustData.is_discarded() && softbusCustData.contains("castPlus")
+            && softbusCustData["castPlus"].is_string()) {
+            std::string castData = softbusCustData["castPlus"];
+            castDevice.customData = castData;
+            ParseCapability(castDevice.customData, castDevice);
+        }
+        if (!softbusCustData.is_discarded() && softbusCustData.contains("castId")
+            && softbusCustData["castId"].is_string()) {
+            castDevice.udid = softbusCustData["castId"];
+        }
+    }
+}
+
+void DiscoveryManager::ParseCapability(const std::string castData, CastInnerRemoteDevice &newDevice)
+{
+    auto firstByte = static_cast<uint32_t>(Utils::StringToInt(castData.substr(0, 2), 16));
+    auto secondByte = static_cast<uint32_t>(Utils::StringToInt(castData.substr(2), 16));
+    if ((firstByte & MIRROR_CAPABILITY) != 0) {
+        newDevice.capabilityInfo |= static_cast<uint32_t>(ProtocolType::CAST_PLUS_MIRROR);
+    }
+
+    std::string coordCapa;
+    if ((firstByte & HUAWEI_IDENTIFICATION) != 0) {
+        if ((secondByte & CAST_STREAM_CAPABILITY) != 0) {
+            newDevice.capabilityInfo |= static_cast<uint32_t>(ProtocolType::CAST_PLUS_STREAM);
+        }
+
+        if ((secondByte & DRM_CAPABILITY) != 0) {
+            newDevice.drmCapabilities.push_back(UUID_CHINADRM);
+        }
+
+        if ((secondByte & DEVICE_COORDINATION_CAPABILITY) != 0) {
+            coordCapa = " coordinationCapa = 1";
+        }
+    }
+    if ((newDevice.capabilityInfo & static_cast<uint32_t>(ProtocolType::CAST_PLUS_STREAM)) != 0) {
+        if (newDevice.capability == CapabilityType::DLNA) {
+            newDevice.capability = CapabilityType::CAST_AND_DLNA;
+        } else if (newDevice.capability != CapabilityType::CAST_AND_DLNA) {
+            newDevice.capability = CapabilityType::CAST_PLUS;
+        }
+    }
+    CLOGI("device %{public}s castData:%{public}s authVersion:%{public}s capabilityInfo:%{public}u drmCapa:%{public}d"
+        "%{public}s capability:0x%{public}x",
+        Mask(newDevice.deviceName).c_str(), castData.c_str(), newDevice.authVersion.c_str(), newDevice.capabilityInfo,
+        (newDevice.drmCapabilities.size() > 0), coordCapa.c_str(), newDevice.capability);
+}
+
+void DiscoveryManager::UpdateDeviceStateLocked()
+{
+    for (auto it = remoteDeviceMap_.begin(); it != remoteDeviceMap_.end();) {
+        if (scanCount_ == it->second) {
+            std::string deviceId = it->first.deviceId;
+            if (!reportTypeMap_[deviceId].first) {
+                CastDeviceDataManager::GetInstance().RemoveDeviceInfo(deviceId, true);
+            }
+            if (!reportTypeMap_[deviceId].second) {
+                CastDeviceDataManager::GetInstance().RemoveDeviceInfo(deviceId, false);
+            }
+        }
+        if (scanCount_ - it->second > 1 &&
+            it->first.deviceId != ConnectionManager::GetInstance().GetConnectingDeviceId()) {
+            CastInnerRemoteDevice remoteDevice = it->first;
+            CLOGE("StartDmDiscovery offline: %{public}s", Mask(remoteDevice.deviceName).c_str());
+            ConnectionManager::GetInstance().NotifyDeviceIsOffline(remoteDevice.deviceId);
+            CastDeviceDataManager::GetInstance().RemoveDevice(remoteDevice.deviceId);
+            it = remoteDeviceMap_.erase(it);
+        } else {
+            it++;
+        }
+    }
+}
+void DiscoveryManager::SetDeviceNotFresh()
+{
+    CLOGI("in");
+    std::lock_guard<std::mutex> lock(mutex_);
+    for (auto it = remoteDeviceMap_.begin(); it != remoteDeviceMap_.end();) {
+        std::string deviceId = it->first.deviceId;
+        CastDeviceDataManager::GetInstance().SetDeviceNotFresh(deviceId);
+        it++;
+    }
+    CLOGI("out");
+}
+
+void DiscoveryManager::RecordDeviceFoundType(const DmDeviceInfo dmDevice)
+{
+    CLOGI("scanCount_ is %{public}d", scanCount_);
+    std::string deviceId = dmDevice.deviceId;
+    if (reportTypeMap_.find(deviceId) == reportTypeMap_.end()) {
+        reportTypeMap_.insert({ deviceId, {false, false} });
+    }
+    json jsonObj = json::parse(dmDevice.extraData, nullptr, false);
+    if (!jsonObj.is_discarded()) {
+        if (jsonObj.contains(PARAM_KEY_WIFI_IP) && jsonObj[PARAM_KEY_WIFI_IP].is_string()) {
+            reportTypeMap_[deviceId].first = true;
+        }
+        if (jsonObj.contains(PARAM_KEY_BLE_MAC) && jsonObj[PARAM_KEY_BLE_MAC].is_string()) {
+            reportTypeMap_[deviceId].second = true;
+        }
+    }
+}
+
+std::string DiscoveryManager::Mask(const std::string &str)
+{
+    if (str.empty() || str.length() <= INT_THREE) {
+        return str;
+    } else if (str.length() < INT_SEVEN) {
+        return str.substr(0, INT_THREE) + "***" + str.substr(str.length() - 1);
+    } else {
+        return str.substr(0, INT_FOUR) + "***" + str.substr(str.length() - INT_THREE);
+    }
+}
+
+bool DiscoveryManager::IsDrmMatch(const CastInnerRemoteDevice &newDevice)
+{
+    if (drmSchemes_.empty()) {
+        return true;
+    }
+    for (auto iter = drmSchemes_.begin(); iter != drmSchemes_.end(); ++iter) {
+        if (find(newDevice.drmCapabilities.begin(), newDevice.drmCapabilities.end(), *iter) !=
+            newDevice.drmCapabilities.end()) {
+            return true;
+        }
+    }
+    return false;
+}
+
+bool DiscoveryManager::IsNeedNotify(const CastInnerRemoteDevice &newDevice)
+{
+    bool isNotifyDevice = system::GetBoolParameter(NOTIFY_DEVICE_FOUND, false);
+    if (isNotifyDevice) {
+        CLOGD("prop is true, notify %{public}s ", Mask(newDevice.deviceName).c_str());
+        return true;
+    }
+    if (newDevice.deviceType == DeviceType::DEVICE_HW_TV) {
+        if (newDevice.customData.empty() || newDevice.customData.length() < CAST_DATA_LENGTH) {
+            return false;
+        }
+    } else {
+        CLOGI("%{public}s is not huawei device, notify device", Mask(newDevice.deviceName).c_str());
+        return true;
+    }
+    return true;
 }
 
 void CastDiscoveryCallback::OnDiscoverySuccess(uint16_t subscribeId)

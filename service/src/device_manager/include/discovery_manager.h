@@ -29,6 +29,9 @@
 #include "cast_service_common.h"
 #include "device_manager.h"
 #include "event_handler.h"
+#include "json.hpp"
+
+using nlohmann::json;
 
 namespace OHOS {
 namespace CastEngine {
@@ -99,34 +102,48 @@ public:
     bool StopAdvertise();
 
     int GetProtocolType() const;
-    void SetProtocolType(int protocols);
 
     void OnDeviceInfoFound(uint16_t subscribeId, const DmDeviceInfo &dmDeviceInfo);
     void NotifyDeviceIsFound(const CastInnerRemoteDevice &newDevice);
     void NotifyDeviceIsOnline(const DmDeviceInfo &dmDeviceInfo);
 
+    std::unordered_map<std::string, std::pair<bool, bool>> reportTypeMap_;
+
 private:
     void StartDmDiscovery();
     void StopDmDiscovery();
+
     void GetAndReportTrustedDevices();
+
     void ParseDeviceInfo(const DmDeviceInfo &dmDevice, CastInnerRemoteDevice &castDevice);
+    void ParseCustomData(const json &jsonObj, CastInnerRemoteDevice &castDevice);
+    void ParseCapability(const std::string customData, CastInnerRemoteDevice &castDevice);
 
     void SetListener(std::shared_ptr<IDiscoveryManagerListener> listener);
+    std::shared_ptr<IDiscoveryManagerListener> GetListener();
     bool HasListener();
     void ResetListener();
+
     void RemoveSameDeviceLocked(const CastInnerRemoteDevice &newDevice);
+
     CastInnerRemoteDevice CreateRemoteDevice(const DmDeviceInfo &dmDeviceInfo);
-    void UpdateDeviceState();
+    void UpdateDeviceStateLocked();
+    void SetDeviceNotFresh();
+    void RecordDeviceFoundType(const DmDeviceInfo dmDeviceInfo);
+
+    std::string Mask(const std::string &str);
+    bool IsDrmMatch(const CastInnerRemoteDevice &newDevice);
+    bool IsNeedNotify(const CastInnerRemoteDevice &newDevice);
 
     std::mutex mutex_;
-
     int32_t uid_{ 0 };
     int protocolType_ = 0;
+    std::vector<std::string> drmSchemes_;
     std::shared_ptr<IDiscoveryManagerListener> listener_;
     std::shared_ptr<EventRunner> eventRunner_;
     std::shared_ptr<DiscoveryEventHandler> eventHandler_;
-    std::unordered_map<CastInnerRemoteDevice, int> remoteDeviceMap;
-    int32_t scanCount;
+    std::unordered_map<CastInnerRemoteDevice, int> remoteDeviceMap_;
+    int32_t scanCount_;
 };
 } // namespace CastEngineService
 } // namespace CastEngine

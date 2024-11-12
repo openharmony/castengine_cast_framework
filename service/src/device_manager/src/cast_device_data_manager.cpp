@@ -410,6 +410,23 @@ int CastDeviceDataManager::GetSessionIdByDeviceId(const std::string &deviceId)
     return INVALID_ID;
 }
 
+int CastDeviceDataManager::GetCastSessionIdByDeviceId(const std::string &deviceId)
+{
+    if (deviceId.empty()) {
+        CLOGE("Empty device id!");
+        return INVALID_ID;
+    }
+
+    std::lock_guard<std::mutex> lock(mutex_);
+    for (auto it = devices_.begin(); it != devices_.end(); it++) {
+        if (it->device.deviceId == deviceId) {
+            return it->device.localCastSessionId;
+        }
+    }
+
+    return INVALID_ID;
+}
+
 bool CastDeviceDataManager::UpdateDeviceByDeviceId(const std::string &deviceId)
 {
     CLOGI("UpdateDeviceByDeviceId in %{public}s", Utils::Mask(deviceId).c_str());
@@ -467,6 +484,48 @@ bool CastDeviceDataManager::IsDoubleFrameDevice(const std::string &deviceId)
         }
     }
     return false;
+}
+
+bool CastDeviceDataManager::RemoveDeviceInfo(std::string deviceId, bool isWifi)
+{
+    CLOGI("RemoveDeviceInfo in %{public}s", Utils::Mask(deviceId).c_str());
+    std::lock_guard<std::mutex> lock(mutex_);
+    auto it = GetDeviceLocked(deviceId);
+    if (it == devices_.end()) {
+        CLOGE("No device found");
+        return false;
+    }
+    if (isWifi) {
+        it->wifiDeviceInfo = {};
+        it->device.wifiIp = "";
+        it->device.wifiPort = 0;
+        it->device.isWifiFresh = false;
+        uint32_t coap = static_cast<uint32_t>(NotifyMediumType::COAP);
+        it->device.mediumTypes = (it->device.mediumTypes | coap) ^ coap;
+    } else {
+        it->bleDeviceInfo = {};
+        it->device.bleMac = "";
+        it->device.isBleFresh = false;
+        uint32_t ble = static_cast<uint32_t>(NotifyMediumType::BLE);
+        it->device.mediumTypes = (it->device.mediumTypes | ble) ^ ble;
+    }
+    return true;
+}
+
+bool CastDeviceDataManager::SetDeviceNotFresh(const std::string &deviceId)
+{
+    CLOGI("in %{public}s", Utils::Mask(deviceId).c_str());
+    std::lock_guard<std::mutex> lock(mutex_);
+    auto it = GetDeviceLocked(deviceId);
+    if (it == devices_.end()) {
+        CLOGE("No device found %s", deviceId.c_str());
+        return false;
+    }
+
+    it->device.isWifiFresh = false;
+    it->device.isBleFresh = false;
+    it->device.mediumTypes = 0;
+    return true;
 }
 
 } // namespace CastEngineService

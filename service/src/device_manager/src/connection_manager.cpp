@@ -249,16 +249,6 @@ DmDeviceInfo ConnectionManager::GetDmDeviceInfo(const std::string &deviceId)
     return {};
 }
 
-void ConnectionManager::SetProtocolType(int protocols)
-{
-    protocolType_ = protocols;
-}
-
-int ConnectionManager::GetProtocolType() const
-{
-    return protocolType_;
-}
-
 bool ConnectionManager::ConnectDevice(const CastInnerRemoteDevice &dev, const ProtocolType &protocolType)
 {
     DeviceDiscoveryWriteWrap(__func__, GetAnonymousDeviceID(dev.deviceId));
@@ -864,6 +854,16 @@ void ConnectionManager::UpdateGrabState(bool changeState, int32_t sessionId)
     grabState_ = DeviceGrabState::NO_GRAB;
 }
 
+int ConnectionManager::GetProtocolType() const
+{
+    return static_cast<int>(protocolType_);
+}
+
+void ConnectionManager::SetProtocolType(ProtocolType protocol)
+{
+    protocolType_ = protocol;
+}
+
 void ConnectionManager::AddSessionListener(int castSessionId, std::shared_ptr<IConnectManagerSessionListener> listener)
 {
     std::lock_guard<std::mutex> lock(mutex_);
@@ -964,6 +964,21 @@ bool ConnectionManager::NotifyConnectStage(const CastInnerRemoteDevice &device, 
 
     sessionListener->NotifyConnectStage(device.deviceId, result, reasonCode);
     return true;
+}
+
+bool ConnectionManager::NotifyListenerToLoadSinkSA(const std::string& networkId)
+{
+    auto listener = GetListener();
+    if (!listener) {
+        return false;
+    }
+    return listener->LoadSinkSA(networkId);
+}
+
+std::string ConnectionManager::GetConnectingDeviceId()
+{
+    std::lock_guard<std::mutex> lock(mutex_);
+    return connectingDeviceId_;
 }
 
 void CastBindTargetCallback::OnBindResult(const PeerTargetId &targetId, int32_t result, int32_t status,
