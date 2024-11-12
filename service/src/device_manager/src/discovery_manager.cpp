@@ -162,8 +162,6 @@ void DiscoveryManager::GetAndReportTrustedDevices()
     }
 }
 
-
-
 void DiscoveryManager::StartDmDiscovery()
 {
     CLOGI("StartDmDiscovery in");
@@ -492,6 +490,7 @@ void DiscoveryManager::UpdateDeviceStateLocked()
         }
     }
 }
+
 void DiscoveryManager::SetDeviceNotFresh()
 {
     CLOGI("in");
