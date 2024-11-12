@@ -86,12 +86,13 @@ public:
     void UpdateGrabState(bool changeState, int32_t sessionId);
 
     int GetProtocolType() const;
-    void SetProtocolType(int protocols);
+    void SetProtocolType(ProtocolType protocol);
 
     std::unique_ptr<CastLocalDevice> GetLocalDeviceInfo();
     void NotifySessionIsReady(int transportId);
     void NotifyDeviceIsOffline(const std::string &deviceId);
     bool NotifyConnectStage(const CastInnerRemoteDevice &device, int result, int32_t reasonCode = REASON_DEFAULT);
+    bool NotifyListenerToLoadSinkSA(const std::string &networkId);
 
     void AddSessionListener(int castSessionId, std::shared_ptr<IConnectManagerSessionListener> listener);
     void RemoveSessionListener(int castSessionId);
@@ -101,11 +102,13 @@ public:
 
     void SetRTSPPort(int port);
     void SendConsultInfo(const std::string &deviceId, int port);
+    std::string GetConnectingDeviceId();
     bool IsSingle(const CastInnerRemoteDevice &device);
     bool IsHuaweiDevice(const CastInnerRemoteDevice &device);
     bool IsThirdDevice(const CastInnerRemoteDevice &device);
 
     std::map<std::string, bool> isBindTargetMap_;
+    std::string connectingDeviceId_{};
 
 private:
     bool BindTarget(const CastInnerRemoteDevice &dev);
@@ -135,7 +138,7 @@ private:
     void ResetListener();
 
     std::mutex mutex_;
-    int protocolType_ = 0;
+    ProtocolType protocolType_ = ProtocolType::CAST_PLUS_MIRROR;
     std::shared_ptr<IConnectionManagerListener> listener_;
     std::map<int, std::shared_ptr<IConnectManagerSessionListener>> sessionListeners_;
     std::map<int, int> transIdToCastSessionIdMap_;

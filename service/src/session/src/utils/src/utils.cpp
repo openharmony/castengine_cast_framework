@@ -110,13 +110,13 @@ uint32_t Utils::ByteArrayToInt(const uint8_t *input, unsigned int length)
     return output;
 }
 
-int32_t Utils::StringToInt(const std::string &str)
+int32_t Utils::StringToInt(const std::string &str, int base)
 {
     if (str.size() == 0) {
         return 0;
     }
     char *nextPtr = nullptr;
-    long result = strtol(str.c_str(), &nextPtr, DECIMALISM);
+    long result = strtol(str.c_str(), &nextPtr, base);
     if (errno == ERANGE || *nextPtr != '\0') {
         return 0;
     }

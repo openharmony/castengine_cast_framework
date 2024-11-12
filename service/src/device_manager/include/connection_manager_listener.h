@@ -37,6 +37,7 @@ public:
     virtual void GrabDevice(int32_t sessionId) = 0;
     virtual int32_t GetSessionProtocolType(int sessionId, ProtocolType &protocolType) = 0;
     virtual int32_t SetSessionProtocolType(int sessionId, ProtocolType protocolType) = 0;
+    virtual bool LoadSinkSA(const std::string &networkId) = 0;
 };
 
 class IConnectManagerSessionListener {
