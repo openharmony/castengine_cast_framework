@@ -77,7 +77,7 @@ public:
 
     bool OpenConsultSession(const std::string &deviceId);
     void OnConsultDataReceived(int transportId, const void *data, unsigned int dataLen);
-    void OnConsultSessionOpened(int transportId, bool isSource);
+    bool OnConsultSessionOpened(int transportId, bool isSource);
 
     bool ConnectDevice(const CastInnerRemoteDevice &dev, const ProtocolType &protocolType);
     void DisconnectDevice(const std::string &deviceId);
@@ -128,6 +128,7 @@ private:
     void DestroyConsulationSession(const std::string &deviceId);
     int GetCastSessionId(int transportId);
 
+    bool ParseAndCheckJsonData(const std::string &data, json &jsonData);
     std::unique_ptr<CastInnerRemoteDevice> GetRemoteFromJsonData(const std::string &Data);
 
     int GetRTSPPort();
