@@ -19,6 +19,7 @@
 #include "utils.h"
 #include <cctype>
 #include <glib.h>
+#include <sys/prctl.h>
 #include "wifi_device.h"
 
 namespace OHOS {
@@ -174,6 +175,20 @@ std::string Utils::Mask(const std::string &str)
     }
 }
 
+
+void Utils::SetThreadName(const std::string &name)
+{
+    if (name.size() == 0) {
+        return;
+    }
+
+    static std::atomic<unsigned int> suffix = 0;
+    std::string threadName = name + "-" + std::to_string(suffix++);
+    if (prctl(PR_SET_NAME, threadName.c_str()) < 0) {
+        // CLOGE("prctl errno %d", errno);
+        return;
+    }
+}
 } // namespace CastEngineService
 } // namespace CastEngine
 } // namespace OHOS
