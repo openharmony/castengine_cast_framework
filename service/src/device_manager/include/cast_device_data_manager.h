@@ -84,9 +84,12 @@ public:
     bool IsDeviceUsed(const std::string &deviceId);
 
     int GetSessionIdByDeviceId(const std::string &deviceId);
+    int GetCastSessionIdByDeviceId(const std::string &deviceId);
     bool UpdateDeviceByDeviceId(const std::string &deviceId);
-    bool IsDoubleFrameDevice(const std::string &deviceId);
     std::optional<std::string> GetDeviceNameByDeviceId(const std::string &deviceId);
+    bool RemoveDeviceInfo(std::string deviceId, bool isWifi);
+    bool SetDeviceNotFresh(const std::string &deviceId);
+    bool IsDoubleFrameDevice(const std::string &deviceId);
 
 private:
     struct DeviceInfoCollection {

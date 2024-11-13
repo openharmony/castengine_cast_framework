@@ -65,6 +65,7 @@ public:
     void ReportDeviceFound(const std::vector<std::pair<CastRemoteDevice, bool>> &deviceList);
     void ReportSessionCreate(const sptr<ICastSessionImpl> &castSession);
     void ReportDeviceOffline(const std::string &deviceId);
+    bool LoadSinkSA(const std::string &networkId);
     sptr<ICastSessionImpl> GetCastSessionInner(std::string sessionId);
 
     class CastServiceLoadCallback : public SystemAbilityLoadCallbackStub {
@@ -119,6 +120,7 @@ public:
     void GrabDevice(int32_t sessionId) override;
     int32_t GetSessionProtocolType(int sessionId, ProtocolType &protocolType) override;
     int32_t SetSessionProtocolType(int sessionId, ProtocolType protocolType) override;
+    bool LoadSinkSA(const std::string &networkId) override;
 
 private:
     wptr<CastSessionManagerService> service_;

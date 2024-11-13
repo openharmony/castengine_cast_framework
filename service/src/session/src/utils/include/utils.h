@@ -62,7 +62,7 @@ public:
     static bool StartWith(const std::string &mainStr, const std::string &subStr);
     static int IntToByteArray(int num, int length, uint8_t *output);
     static uint32_t ByteArrayToInt(const uint8_t *input, unsigned int length);
-    static int32_t StringToInt(const std::string &str);
+    static int32_t StringToInt(const std::string &str, int base = DECIMALISM);
     static std::string GetWifiIp();
     static bool IsArrayAllZero(const uint8_t *input, int length);
     static std::string Mask(const std::string &str);
@@ -83,6 +83,7 @@ private:
     constexpr static int MASK_PRINT_POSTFIX_LEN = 2;
 };
 
+inline const std::string UUID_CHINADRM = "3d5e6d35-9b9a-41e8-b843-dd3c6e72c42c";
 inline constexpr char SANDBOX_PATH[] = "/data/service/el1/public/cast_engine_service";
 inline constexpr char PARAM_MEDIA_DUMP[] = "debug.cast.media.dump";
 inline constexpr char PARAM_VIDEO_CACHE[] = "debug.cast.video.cache";
