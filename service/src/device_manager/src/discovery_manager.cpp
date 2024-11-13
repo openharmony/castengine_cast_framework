@@ -374,39 +374,50 @@ void DiscoveryManager::NotifyDeviceIsOnline(const DmDeviceInfo &dmDeviceInfo)
 
 void DiscoveryManager::ParseDeviceInfo(const DmDeviceInfo &dmDevice, CastInnerRemoteDevice &castDevice)
 {
-    CLOGD("parse castData extraData is %s", dmDevice.extraData.c_str());
+    CLOGD("dm device extraData parse, %s", dmDevice.extraData.c_str());
     std::pair<std::string, std::string> ret = CastDeviceDataManager::GetInstance()
         .GetDeviceNameByDeviceId(dmDevice.deviceId);
     std::string deviceName = ret.first.empty() ? "" : ret.first;
+    std::string discoveryType = ret.second.empty() ? "" : ret.second;
     json jsonObj = json::parse(dmDevice.extraData, nullptr, false);
 
-    if (!jsonObj.is_discarded()) {
-        if (jsonObj.contains(PARAM_KEY_WIFI_IP) && jsonObj[PARAM_KEY_WIFI_IP].is_string()) {
-            castDevice.wifiIp = jsonObj[PARAM_KEY_WIFI_IP];
-            castDevice.deviceName = !castDevice.deviceName.empty() ? castDevice.deviceName : deviceName;
-        }
-        if (jsonObj.contains(PARAM_KEY_WIFI_PORT) && jsonObj[PARAM_KEY_WIFI_PORT].is_number()) {
-            castDevice.wifiPort = jsonObj[PARAM_KEY_WIFI_PORT];
-            castDevice.deviceName = !castDevice.deviceName.empty() ? castDevice.deviceName : deviceName;
-        }
-        if (jsonObj.contains(PARAM_KEY_BLE_MAC) && jsonObj[PARAM_KEY_BLE_MAC].is_string()) {
-            castDevice.bleMac = jsonObj[PARAM_KEY_BLE_MAC];
+    if (jsonObj.is_discarded()) {
+        CLOGE("dm device extraData parse error, %s", dmDevice.extraData.c_str());
+        return;
+    }
+
+    // 获取解析的数据
+    if (jsonObj.contains(PARAM_KEY_WIFI_IP) && jsonObj[PARAM_KEY_WIFI_IP].is_string()) {
+        castDevice.wifiIp = jsonObj[PARAM_KEY_WIFI_IP];
+        castDevice.deviceName = !castDevice.deviceName.empty() ? castDevice.deviceName : deviceName;
+        castDevice.remoteIp = jsonObj[PARAM_KEY_WIFI_IP];
+        castDevice.localWifiIp = Utils::GetWifiIp();
+        castDevice.localIp = castDevice.localWifiIp;
+        castDevice.isWifiFresh = true;
+        castDevice.mediumTypes |= static_cast<uint32_t>(NotifyMediumType::COAP);
+    }
+
+    if (jsonObj.contains(PARAM_KEY_WIFI_PORT) && jsonObj[PARAM_KEY_WIFI_PORT].is_number()) {
+        castDevice.wifiPort = jsonObj[PARAM_KEY_WIFI_PORT];
+        castDevice.deviceName = !castDevice.deviceName.empty() ? castDevice.deviceName : deviceName;
+    }
+
+    if (jsonObj.contains(PARAM_KEY_BLE_MAC) && jsonObj[PARAM_KEY_BLE_MAC].is_string()) {
+        castDevice.bleMac = jsonObj[PARAM_KEY_BLE_MAC];
+        if (discoveryType == "WIFI") {
             castDevice.deviceName = !deviceName.empty() ? deviceName : castDevice.deviceName;
         }
-        if (jsonObj.contains(PARAM_KEY_CUSTOM_DATA) && jsonObj[PARAM_KEY_CUSTOM_DATA].is_string()) {
-            std::string customData = jsonObj[PARAM_KEY_CUSTOM_DATA];
-            json softbusCustData = json::parse(customData, nullptr, false);
-            if (softbusCustData.contains("castPlus") && softbusCustData["castPlus"].is_string()) {
-                std::string castData = softbusCustData["castPlus"];
-                castDevice.customData = castData;
-            }
-            if (softbusCustData.contains("castId") && softbusCustData["castId"].is_string()) {
-                castDevice.udid = softbusCustData["castId"];
-            }
-        }
-    } else {
-        CLOGE("dm device extraData parse error");
+        castDevice.mediumTypes |= static_cast<uint32_t>(NotifyMediumType::BLE);
+        castDevice.isBleFresh = true;
     }
+
+    CLOGI("name %{public}s, %{public}s, ip %{public}s, ble %{public}s, wifiFresh %{public}d, bleFresh %{public}d"
+        " discoveryType:%{public}s, capability %{public}d, mediumTypes %{public}u",
+        Mask(castDevice.deviceName).c_str(), Mask(castDevice.deviceId).c_str(), Mask(castDevice.wifiIp).c_str(),
+        Mask(castDevice.bleMac).c_str(), castDevice.isWifiFresh, castDevice.isBleFresh, discoveryType.c_str(),
+        castDevice.capability, castDevice.mediumTypes);
+    
+    ParseCustomData(jsonObj, castDevice);
 }
 
 void DiscoveryManager::ParseCustomData(const json &jsonObj, CastInnerRemoteDevice &castDevice)
