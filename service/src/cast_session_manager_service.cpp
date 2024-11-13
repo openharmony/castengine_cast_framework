@@ -361,6 +361,16 @@ int32_t ConnectionManagerListener::SetSessionProtocolType(int sessionId, Protoco
     return CAST_ENGINE_SUCCESS;
 }
 
+bool ConnectionManagerListener::LoadSinkSA(const std::string &networkId)
+{
+    auto service = service_.promote();
+    if (!service) {
+        CLOGE("service is null");
+        return false;
+    }
+    return service->LoadSinkSA(networkId);
+}
+
 int32_t CastSessionManagerService::RegisterListener(sptr<ICastServiceListenerImpl> listener)
 {
     CLOGI("RegisterListener in");
@@ -755,6 +765,38 @@ void CastSessionManagerService::ReportDeviceOffline(const std::string &deviceId)
     SharedRLock lock(mutex_);
     for (const auto &listener : listeners_) {
         listener.second.first->OnDeviceOffline(deviceId);
+    }
+}
+
+bool CastSessionManagerService::LoadSinkSA(const std::string &networkId)
+{
+    CLOGI("LoadSinkSA in");
+    auto samgr = SystemAbilityManagerClient::GetInstance().GetSystemAbilityManager();
+    if (samgr == nullptr) {
+        CLOGE("Failed to get SA manager");
+        return false;
+    }
+    sptr<CastServiceLoadCallback> loadCallback = new (std::nothrow) CastServiceLoadCallback();
+    if (loadCallback == nullptr) {
+        CLOGE("Failed to new object");
+        return false;
+    }
+
+    constexpr int32_t sleepTimeMs = 30;
+    constexpr int32_t retryTimeMax = 150; // The service startup timeout interval is 4s.
+    int32_t result = samgr->LoadSystemAbility(CAST_ENGINE_SA_ID, networkId, loadCallback);
+    for (int32_t retryTime = 1; (result != ERR_OK) && (retryTime < retryTimeMax); ++retryTime) {
+        std::this_thread::sleep_for(std::chrono::milliseconds(sleepTimeMs));
+        result = samgr->LoadSystemAbility(CAST_ENGINE_SA_ID, networkId, loadCallback);
+        CLOGD("Attemp to reLoad SA for the %d time.", retryTime);
+    }
+
+    if (result != ERR_OK) {
+        CLOGE("systemAbilityId: %d load failed, result code: %d", CAST_ENGINE_SA_ID, result);
+        return false;
+    } else {
+        CLOGI("Load sink SA success!");
+        return true;
     }
 }
 
