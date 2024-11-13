@@ -375,12 +375,12 @@ void DiscoveryManager::NotifyDeviceIsOnline(const DmDeviceInfo &dmDeviceInfo)
 void DiscoveryManager::ParseDeviceInfo(const DmDeviceInfo &dmDevice, CastInnerRemoteDevice &castDevice)
 {
     CLOGD("dm device extraData parse, %s", dmDevice.extraData.c_str());
+
     std::pair<std::string, std::string> ret = CastDeviceDataManager::GetInstance()
         .GetDeviceNameByDeviceId(dmDevice.deviceId);
     std::string deviceName = ret.first.empty() ? "" : ret.first;
     std::string discoveryType = ret.second.empty() ? "" : ret.second;
     json jsonObj = json::parse(dmDevice.extraData, nullptr, false);
-
     if (jsonObj.is_discarded()) {
         CLOGE("dm device extraData parse error, %s", dmDevice.extraData.c_str());
         return;
