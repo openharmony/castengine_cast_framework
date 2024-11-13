@@ -428,7 +428,6 @@ void DiscoveryManager::ParseCustomData(const json &jsonObj, CastInnerRemoteDevic
 void DiscoveryManager::ParseCapability(const std::string castData, CastInnerRemoteDevice &newDevice)
 {
     auto firstByte = static_cast<uint32_t>(Utils::StringToInt(castData.substr(0, 2), 16));
-    auto secondByte = static_cast<uint32_t>(Utils::StringToInt(castData.substr(2), 16));
     if ((firstByte & MIRROR_CAPABILITY) != 0) {
         newDevice.capabilityInfo |= static_cast<uint32_t>(ProtocolType::CAST_PLUS_MIRROR);
     }
