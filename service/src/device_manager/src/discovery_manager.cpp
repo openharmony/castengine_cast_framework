@@ -375,9 +375,11 @@ void DiscoveryManager::NotifyDeviceIsOnline(const DmDeviceInfo &dmDeviceInfo)
 void DiscoveryManager::ParseDeviceInfo(const DmDeviceInfo &dmDevice, CastInnerRemoteDevice &castDevice)
 {
     CLOGD("parse castData extraData is %s", dmDevice.extraData.c_str());
-    auto ret = CastDeviceDataManager::GetInstance().GetDeviceNameByDeviceId(dmDevice.deviceId);
-    std::string deviceName = ret != std::nullopt ? *ret : "";
+    std::pair<std::string, std::string> ret = CastDeviceDataManager::GetInstance()
+        .GetDeviceNameByDeviceId(dmDevice.deviceId);
+    std::string deviceName = ret.first.empty() ? "" : ret.first;
     json jsonObj = json::parse(dmDevice.extraData, nullptr, false);
+
     if (!jsonObj.is_discarded()) {
         if (jsonObj.contains(PARAM_KEY_WIFI_IP) && jsonObj[PARAM_KEY_WIFI_IP].is_string()) {
             castDevice.wifiIp = jsonObj[PARAM_KEY_WIFI_IP];
@@ -533,6 +535,7 @@ bool DiscoveryManager::IsNeedNotify(const CastInnerRemoteDevice &newDevice)
         CLOGD("prop is true, notify %{public}s ", Mask(newDevice.deviceName).c_str());
         return true;
     }
+
     if (newDevice.deviceType == DeviceType::DEVICE_HW_TV) {
         if (newDevice.customData.empty() || newDevice.customData.length() < CAST_DATA_LENGTH) {
             return false;
@@ -541,6 +544,7 @@ bool DiscoveryManager::IsNeedNotify(const CastInnerRemoteDevice &newDevice)
         CLOGI("%{public}s is not huawei device, notify device", Mask(newDevice.deviceName).c_str());
         return true;
     }
+
     return true;
 }
 

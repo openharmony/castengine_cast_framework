@@ -450,24 +450,28 @@ bool CastDeviceDataManager::UpdateDeviceByDeviceId(const std::string &deviceId)
     return false;
 }
 
-std::optional<std::string> CastDeviceDataManager::GetDeviceNameByDeviceId(const std::string &deviceId)
+std::pair<std::string, std::string> CastDeviceDataManager::GetDeviceNameByDeviceId(const std::string &deviceId)
 {
     std::lock_guard<std::mutex> lock(mutex_);
     auto it = GetDeviceLocked(deviceId);
+    std::pair<std::string, std::string> deviceName ("", "");
     if (it == devices_.end()) {
         CLOGE("No device found");
-        return std::nullopt;
+        return deviceName;
     }
 
     if (strlen(it->wifiDeviceInfo.deviceName) > 0) {
-        CLOGI("WIFI device name is not empty %s", it->wifiDeviceInfo.deviceName);
-        return std::string(it->wifiDeviceInfo.deviceName);
+        deviceName.first = it->wifiDeviceInfo.deviceName;
+        deviceName.second = "WIFI";
+        return deviceName;
     } else if (strlen(it->bleDeviceInfo.deviceName) > 0) {
-        CLOGI("BLE device name is not empty %s", it->bleDeviceInfo.deviceName);
-        return std::string(it->bleDeviceInfo.deviceName);
+        deviceName.first = it->bleDeviceInfo.deviceName;
+        deviceName.second = "BLE";
+        return deviceName;
     }
+
     CLOGW("Device name is empty");
-    return std::nullopt;
+    return deviceName;
 }
 
 bool CastDeviceDataManager::IsDoubleFrameDevice(const std::string &deviceId)

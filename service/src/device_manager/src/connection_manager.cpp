@@ -249,6 +249,185 @@ DmDeviceInfo ConnectionManager::GetDmDeviceInfo(const std::string &deviceId)
     return {};
 }
 
+bool ConnectionManager::EnableDiscoverable()
+{
+    std::lock_guard lock(mutex_);
+    if (isDiscoverable_) {
+        CLOGW("service has been set discoverable");
+        return true;
+    }
+
+    isDiscoverable_ = true;
+    return true;
+}
+
+bool ConnectionManager::DisableDiscoverable()
+{
+    std::lock_guard lock(mutex_);
+    if (!isDiscoverable_) {
+        return true;
+    }
+
+    isDiscoverable_ = false;
+    return true;
+}
+
+void ConnectionManager::GrabDevice()
+{
+    CLOGI("GrabDevice in");
+    if (grabState_ == DeviceGrabState::NO_GRAB) {
+        return;
+    }
+    if (listener_ == nullptr) {
+        return;
+    }
+    listener_->GrabDevice(sessionId_);
+}
+
+bool ConnectionManager::OpenConsultSession(const std::string &deviceId)
+{
+    CLOGI("start open consult session");
+    // The session can only be opened using a network ID instead of a UDID in OH system
+    auto networkId = CastDeviceDataManager::GetInstance().GetDeviceNetworkId(deviceId);
+    if (networkId == std::nullopt) {
+        return false;
+    }
+
+    EstablishConsultWriteWrap(__func__, GetBIZSceneType(GetProtocolType()), GetAnonymousDeviceID(deviceId));
+
+    SessionAttribute attr{};
+    attr.dataType = TYPE_BYTES;
+    attr.linkTypeNum = MAX_LINK_TYPE_NUM;
+    attr.linkType[FIRST_PRIO_INDEX] = LINK_TYPE_WIFI_P2P;
+    attr.linkType[SECOND_PRIO_INDEX] = LINK_TYPE_WIFI_WLAN_5G;
+    attr.linkType[THIRD_PRIO_INDEX] = LINK_TYPE_WIFI_WLAN_2G;
+    auto transportId = OpenSession(SESSION_NAME, SESSION_NAME, networkId->c_str(), "", &attr);
+    if (transportId <= INVALID_ID) {
+        CLOGW("Failed to open session, and try again, id:%{public}d", transportId);
+        transportId = OpenSession(SESSION_NAME, SESSION_NAME, networkId->c_str(), "", &attr);
+        if (transportId <= INVALID_ID) {
+            CLOGE("Failed to open session finally, id:%{public}d", transportId);
+            CastEngineDfx::WriteErrorEvent(OPEN_SESSION_FAIL);
+            auto errorCode = GetErrorCode(CAST_ENGINE_SYSTEM_ID, CAST_ENGINE_CAST_PLUS_MODULE_ID, OPEN_SESSION_FAIL);
+            HiSysEventWriteWrap(__func__, {
+                    {"BIZ_SCENE", GetBIZSceneType(GetProtocolType())},
+                    {"BIZ_STAGE", static_cast<int32_t>(BIZSceneStage::ESTABLISH_CONSULT_SESSION)},
+                    {"STAGE_RES", static_cast<int32_t>(StageResType::STAGE_RES_IDLE)},
+                    {"ERROR_CODE", errorCode}}, {
+                    {"TO_CALL_PKG", DEVICE_MANAGER_NAME},
+                    {"LOCAL_SESS_NAME", ""},
+                    {"PEER_SESS_NAME", ""},
+                    {"PEER_UDID", GetAnonymousDeviceID(deviceId)}});
+
+            return false;
+        }
+    }
+    if (!CastDeviceDataManager::GetInstance().SetDeviceTransId(deviceId, transportId)) {
+        CloseSession(transportId);
+        return false;
+    }
+
+    HiSysEventWriteWrap(__func__, {
+            {"BIZ_SCENE", GetBIZSceneType(GetProtocolType())},
+            {"BIZ_STAGE", static_cast<int32_t>(BIZSceneStage::ESTABLISH_CONSULT_SESSION)},
+            {"STAGE_RES", static_cast<int32_t>(StageResType::STAGE_RES_SUCCESS)},
+            {"ERROR_CODE", CAST_RADAR_SUCCESS}}, {
+            {"TO_CALL_PKG", DEVICE_MANAGER_NAME},
+            {"LOCAL_SESS_NAME", ""},
+            {"PEER_SESS_NAME", ""},
+            {"PEER_UDID", GetAnonymousDeviceID(deviceId)}});
+
+    UpdateDeviceState(deviceId, RemoteDeviceState::CONNECTED);
+    CLOGI("Out, sessionId = %{public}d", transportId);
+    return true;
+}
+
+void ConnectionManager::OnConsultDataReceived(int transportId, const void *data, unsigned int dataLen)
+{
+    std::string dataStr(static_cast<const char *>(data), dataLen);
+    CLOGD("Received data: len:%{public}u, data:%s", dataLen, dataStr.c_str());
+
+    auto device = GetRemoteFromJsonData(dataStr);
+    if (device == nullptr) {
+        return;
+    }
+    const std::string &deviceId = device->deviceId;
+    auto dmDevice = GetDmDeviceInfo(deviceId);
+    if (deviceId.compare(dmDevice.deviceId) != 0) {
+        CLOGE("Failed to get DmDeviceInfo");
+        return;
+    }
+    int castSessionId = INVALID_ID;
+
+    constexpr int32_t sleepTimeMs = 50;
+    constexpr int32_t retryTimes = 20;
+    int32_t retryTime = 0;
+
+    while (castSessionId == INVALID_ID) {
+        if (castSessionId != INVALID_ID || retryTime > retryTimes) {
+            break;
+        }
+        std::this_thread::sleep_for(std::chrono::milliseconds(sleepTimeMs));
+        castSessionId = GetCastSessionId(transportId);
+        retryTime++;
+    }
+    if (castSessionId == INVALID_ID) {
+        CLOGE("session id invalid");
+        return;
+    }
+    CLOGI("protocolType is %d", device->protocolType);
+    if (device->protocolType == ProtocolType::CAST_PLUS_STREAM) {
+        SetSessionProtocolType(castSessionId, device->protocolType);
+    }
+
+    if (!CastDeviceDataManager::GetInstance().AddDevice(*device, dmDevice)) {
+        return;
+    }
+    if (!CastDeviceDataManager::GetInstance().SetDeviceRole(deviceId, true) ||
+        !UpdateDeviceState(deviceId, RemoteDeviceState::CONNECTED)) {
+        CastDeviceDataManager::GetInstance().RemoveDevice(deviceId);
+        return;
+    }
+    if (!listener_->NotifyRemoteDeviceIsReady(castSessionId, *device)) {
+        CastDeviceDataManager::GetInstance().RemoveDevice(deviceId);
+    }
+
+    DestroyConsulationSession(deviceId);
+}
+
+int ConnectionManager::GetCastSessionId(int transportId)
+{
+    std::lock_guard<std::mutex> lock(mutex_);
+    for (const auto &element : transIdToCastSessionIdMap_) {
+        if (element.first == transportId) {
+            return element.second;
+        }
+    }
+    CLOGE("Invalid transport id:%{public}d", transportId);
+    return INVALID_ID;
+}
+
+bool ConnectionManager::OnConsultSessionOpened(int transportId, bool isSource)
+{
+    std::thread([transportId, isSource]() {
+        if (isSource) {
+            auto device = CastDeviceDataManager::GetInstance().GetDeviceByTransId(transportId);
+            if (device == std::nullopt) {
+                return;
+            }
+
+            if (ConnectionManager::GetInstance().IsHuaweiDevice(*device)) {
+                ConnectionManager::GetInstance().QueryP2PIp(*device);
+            }
+            return;
+        }
+        ConnectionManager::GetInstance().GrabDevice();
+        ConnectionManager::GetInstance().NotifySessionIsReady(transportId);
+        }).detach();
+
+    return true;
+}
+
 bool ConnectionManager::ConnectDevice(const CastInnerRemoteDevice &dev, const ProtocolType &protocolType)
 {
     DeviceDiscoveryWriteWrap(__func__, GetAnonymousDeviceID(dev.deviceId));
@@ -290,6 +469,124 @@ bool ConnectionManager::ConnectDevice(const CastInnerRemoteDevice &dev, const Pr
     }
     CLOGI("ConnectDevice out, %s", deviceId.c_str());
     return true;
+}
+
+void ConnectionManager::DisconnectDevice(const std::string &deviceId)
+{
+    CLOGI("DisconnectDevice in, deviceId %{public}s", Utils::Mask(deviceId).c_str());
+
+    DiscoveryManager::GetInstance().StopDiscovery();
+    if (!CastDeviceDataManager::GetInstance().IsDeviceUsed(deviceId)) {
+        CLOGE("Device(%s) is not used, remove it", deviceId.c_str());
+        CastDeviceDataManager::GetInstance().UpdateDeviceByDeviceId(deviceId);
+        return;
+    }
+
+    DestroyConsulationSession(deviceId);
+    auto isActiveAuth = CastDeviceDataManager::GetInstance().GetDeviceIsActiveAuth(deviceId);
+    if (isActiveAuth == std::nullopt) {
+        return;
+    }
+    auto networkId = CastDeviceDataManager::GetInstance().GetDeviceNetworkId(deviceId);
+    if (networkId == std::nullopt) {
+        return;
+    }
+
+    CastDeviceDataManager::GetInstance().UpdateDeviceByDeviceId(deviceId);
+}
+
+bool ConnectionManager::UpdateDeviceState(const std::string &deviceId, RemoteDeviceState state)
+{
+    CLOGD("UpdateDeviceState: %s", REMOTE_DEVICE_STATE_STRING[static_cast<size_t>(state)].c_str());
+    return CastDeviceDataManager::GetInstance().SetDeviceState(deviceId, state);
+}
+
+void ConnectionManager::UpdateGrabState(bool changeState, int32_t sessionId)
+{
+    CLOGI("GrabDevice in");
+    std::lock_guard<std::mutex> lock(mutex_);
+    sessionId_ = sessionId;
+    if (changeState) {
+        grabState_ = DeviceGrabState::GRAB_ALLOWED;
+        return;
+    }
+    grabState_ = DeviceGrabState::NO_GRAB;
+}
+
+int ConnectionManager::GetProtocolType() const
+{
+    return static_cast<int>(protocolType_);
+}
+
+void ConnectionManager::SetProtocolType(ProtocolType protocol)
+{
+    protocolType_ = protocol;
+}
+
+std::unique_ptr<CastLocalDevice> ConnectionManager::GetLocalDeviceInfo()
+{
+    CLOGI("GetLocalDeviceInfo in");
+    DmDeviceInfo local;
+    if (DeviceManager::GetInstance().GetLocalDeviceInfo(PKG_NAME, local) != DM_OK) {
+        CLOGE("Cannot get the local device info from DM");
+        return nullptr;
+    };
+    auto device = std::make_unique<CastLocalDevice>();
+    device->deviceId = local.deviceId;
+    device->deviceType = DeviceType::DEVICE_CAST_PLUS;
+    device->deviceName = local.deviceName;
+    CLOGI("GetLocalDeviceInfo out");
+    return device;
+}
+
+void ConnectionManager::NotifySessionIsReady(int transportId)
+{
+    int castSessionId = listener_->NotifySessionIsReady();
+    if (castSessionId == INVALID_ID) {
+        CLOGE("sessionId is invalid");
+        return;
+    }
+
+    std::lock_guard<std::mutex> lock(mutex_);
+    transIdToCastSessionIdMap_.insert({ transportId, castSessionId });
+}
+
+void ConnectionManager::NotifyDeviceIsOffline(const std::string &deviceId)
+{
+    CLOGI("NotifyDeviceIsOffline in");
+    std::lock_guard<std::mutex> lock(mutex_);
+    if (!listener_) {
+        return;
+    }
+    listener_->NotifyDeviceIsOffline(deviceId);
+}
+
+bool ConnectionManager::NotifyConnectStage(const CastInnerRemoteDevice &device, int result, int32_t reasonCode)
+{
+    CLOGI("result %{public}d, reasonCode %{public}d", result, reasonCode);
+
+    auto sessionListener = GetSessionListener(device.localCastSessionId);
+    if (sessionListener == nullptr) {
+        CLOGE("sessionListener is NULL");
+        return false;
+    }
+
+    if (result == ConnectStageResult::AUTH_FAILED || result == ConnectStageResult::CONNECT_FAIL ||
+        result == ConnectStageResult::DISCONNECT_START) {
+        UpdateDeviceState(device.deviceId, RemoteDeviceState::FOUND);
+    }
+
+    sessionListener->NotifyConnectStage(device.deviceId, result, reasonCode);
+    return true;
+}
+
+bool ConnectionManager::NotifyListenerToLoadSinkSA(const std::string& networkId)
+{
+    auto listener = GetListener();
+    if (!listener) {
+        return false;
+    }
+    return listener->LoadSinkSA(networkId);
 }
 
 bool ConnectionManager::BindTarget(const CastInnerRemoteDevice &dev)
@@ -403,92 +700,6 @@ bool ConnectionManager::QueryP2PIp(const CastInnerRemoteDevice &dev)
     return true;
 }
 
-bool ConnectionManager::OpenConsultSession(const std::string &deviceId)
-{
-    CLOGI("start open consult session");
-    // The session can only be opened using a network ID instead of a UDID in OH system
-    auto networkId = CastDeviceDataManager::GetInstance().GetDeviceNetworkId(deviceId);
-    if (networkId == std::nullopt) {
-        return false;
-    }
-
-    EstablishConsultWriteWrap(__func__, GetBIZSceneType(GetProtocolType()), GetAnonymousDeviceID(deviceId));
-
-    SessionAttribute attr{};
-    attr.dataType = TYPE_BYTES;
-    attr.linkTypeNum = MAX_LINK_TYPE_NUM;
-    attr.linkType[FIRST_PRIO_INDEX] = LINK_TYPE_WIFI_P2P;
-    attr.linkType[SECOND_PRIO_INDEX] = LINK_TYPE_WIFI_WLAN_5G;
-    attr.linkType[THIRD_PRIO_INDEX] = LINK_TYPE_WIFI_WLAN_2G;
-    auto transportId = OpenSession(SESSION_NAME, SESSION_NAME, networkId->c_str(), "", &attr);
-    if (transportId <= INVALID_ID) {
-        CLOGW("Failed to open session, and try again, id:%{public}d", transportId);
-        transportId = OpenSession(SESSION_NAME, SESSION_NAME, networkId->c_str(), "", &attr);
-        if (transportId <= INVALID_ID) {
-            CLOGE("Failed to open session finally, id:%{public}d", transportId);
-            CastEngineDfx::WriteErrorEvent(OPEN_SESSION_FAIL);
-            auto errorCode = GetErrorCode(CAST_ENGINE_SYSTEM_ID, CAST_ENGINE_CAST_PLUS_MODULE_ID, OPEN_SESSION_FAIL);
-            HiSysEventWriteWrap(__func__, {
-                    {"BIZ_SCENE", GetBIZSceneType(GetProtocolType())},
-                    {"BIZ_STAGE", static_cast<int32_t>(BIZSceneStage::ESTABLISH_CONSULT_SESSION)},
-                    {"STAGE_RES", static_cast<int32_t>(StageResType::STAGE_RES_IDLE)},
-                    {"ERROR_CODE", errorCode}}, {
-                    {"TO_CALL_PKG", DEVICE_MANAGER_NAME},
-                    {"LOCAL_SESS_NAME", ""},
-                    {"PEER_SESS_NAME", ""},
-                    {"PEER_UDID", GetAnonymousDeviceID(deviceId)}});
-
-            return false;
-        }
-    }
-    if (!CastDeviceDataManager::GetInstance().SetDeviceTransId(deviceId, transportId)) {
-        CloseSession(transportId);
-        return false;
-    }
-
-    HiSysEventWriteWrap(__func__, {
-            {"BIZ_SCENE", GetBIZSceneType(GetProtocolType())},
-            {"BIZ_STAGE", static_cast<int32_t>(BIZSceneStage::ESTABLISH_CONSULT_SESSION)},
-            {"STAGE_RES", static_cast<int32_t>(StageResType::STAGE_RES_SUCCESS)},
-            {"ERROR_CODE", CAST_RADAR_SUCCESS}}, {
-            {"TO_CALL_PKG", DEVICE_MANAGER_NAME},
-            {"LOCAL_SESS_NAME", ""},
-            {"PEER_SESS_NAME", ""},
-            {"PEER_UDID", GetAnonymousDeviceID(deviceId)}});
-
-    UpdateDeviceState(deviceId, RemoteDeviceState::CONNECTED);
-    CLOGI("Out, sessionId = %{public}d", transportId);
-    return true;
-}
-
-std::unique_ptr<CastLocalDevice> ConnectionManager::GetLocalDeviceInfo()
-{
-    CLOGI("GetLocalDeviceInfo in");
-    DmDeviceInfo local;
-    if (DeviceManager::GetInstance().GetLocalDeviceInfo(PKG_NAME, local) != DM_OK) {
-        CLOGE("Cannot get the local device info from DM");
-        return nullptr;
-    };
-    auto device = std::make_unique<CastLocalDevice>();
-    device->deviceId = local.deviceId;
-    device->deviceType = DeviceType::DEVICE_CAST_PLUS;
-    device->deviceName = local.deviceName;
-    CLOGI("GetLocalDeviceInfo out");
-    return device;
-}
-
-void ConnectionManager::SendConsultInfo(const std::string &deviceId, int port)
-{
-    CLOGI("SendConsultInfo In");
-    auto remote = CastDeviceDataManager::GetInstance().GetDeviceByDeviceId(deviceId);
-    if (remote == std::nullopt) {
-        CLOGE("Get remote device is empty");
-        return;
-    }
-
-    SendConsultData(*remote, port);
-}
-
 void ConnectionManager::SendConsultData(const CastInnerRemoteDevice &device, int port)
 {
     CLOGI("In");
@@ -560,32 +771,6 @@ void ConnectionManager::EncryptPort(int port, const uint8_t *sessionKey, json &b
     body[PORT_KEY] = encryptedPortUtf8;
 }
 
-std::string ConnectionManager::convLatin1ToUTF8(std::string &latin1)
-{
-    iconv_t cd = iconv_open("utf8", "iso88591");
-    if (cd == (iconv_t)-1) {
-        CLOGD("andy Failed to open iconv conversion descriptor");
-        return "";
-    }
-
-    size_t inSize = latin1.size();
-    size_t outSize = inSize * 2;
-    std::string utf8(outSize, 0);
-
-    char *inbuf = &latin1[0];
-    char *outbuf = &utf8[0];
-    size_t result = iconv(cd, &inbuf, &inSize, &outbuf, &outSize);
-    if (result == (size_t)-1) {
-        CLOGD("Failed to convert encoding");
-        iconv_close(cd);
-        return "";
-    }
-
-    iconv_close(cd);
-    utf8.resize(outbuf - &utf8[0]);
-    return utf8;
-}
-
 void ConnectionManager::EncryptIp(const std::string &ip, const std::string &key, const uint8_t *sessionKey, json &body)
 {
     if (ip.empty()) {
@@ -613,48 +798,88 @@ std::unique_ptr<uint8_t[]> ConnectionManager::intToByteArray(int32_t num)
     return result;
 }
 
-void ConnectionManager::OnConsultSessionOpened(int transportId, bool isSource)
+std::string ConnectionManager::convLatin1ToUTF8(std::string &latin1)
 {
-    std::thread([transportId, isSource]() {
-        if (isSource) {
-            auto device = CastDeviceDataManager::GetInstance().GetDeviceByTransId(transportId);
-            if (device == std::nullopt) {
-                return;
-            }
+    iconv_t cd = iconv_open("utf8", "iso88591");
+    if (cd == (iconv_t)-1) {
+        CLOGD("andy Failed to open iconv conversion descriptor");
+        return "";
+    }
 
-            if (ConnectionManager::GetInstance().IsHuaweiDevice(*device)) {
-                ConnectionManager::GetInstance().QueryP2PIp(*device);
-            }
-            return;
-        }
-        ConnectionManager::GetInstance().GrabDevice();
-        ConnectionManager::GetInstance().NotifySessionIsReady(transportId);
-        }).detach();
-    return;
+    size_t inSize = latin1.size();
+    size_t outSize = inSize * 2;
+    std::string utf8(outSize, 0);
+
+    char *inbuf = &latin1[0];
+    char *outbuf = &utf8[0];
+    size_t result = iconv(cd, &inbuf, &inSize, &outbuf, &outSize);
+    if (result == (size_t)-1) {
+        CLOGD("Failed to convert encoding");
+        iconv_close(cd);
+        return "";
+    }
+
+    iconv_close(cd);
+    utf8.resize(outbuf - &utf8[0]);
+    return utf8;
 }
 
-void ConnectionManager::NotifySessionIsReady(int transportId)
+void ConnectionManager::DestroyConsulationSession(const std::string &deviceId)
 {
-    int castSessionId = listener_->NotifySessionIsReady();
-    if (castSessionId == INVALID_ID) {
-        CLOGE("sessionId is invalid");
+    CLOGI("DestroyConsulationSession in");
+    int transportId = CastDeviceDataManager::GetInstance().ResetDeviceTransId(deviceId);
+    if (transportId != INVALID_ID) {
+        CloseSession(transportId);
+    }
+
+    auto isSink = CastDeviceDataManager::GetInstance().GetDeviceRole(deviceId);
+    if (isSink == std::nullopt || (*isSink)) {
+        // The sink's Server is only removed when DisableDiscoverable or Deinit is performed.
         return;
     }
-
-    std::lock_guard<std::mutex> lock(mutex_);
-    transIdToCastSessionIdMap_.insert({ transportId, castSessionId });
 }
 
-int ConnectionManager::GetCastSessionId(int transportId)
+bool ConnectionManager::ParseAndCheckJsonData(const std::string &data, json &jsonData)
 {
-    std::lock_guard<std::mutex> lock(mutex_);
-    for (const auto &element : transIdToCastSessionIdMap_) {
-        if (element.first == transportId) {
-            return element.second;
-        }
+    if (!json::accept(data)) {
+        CLOGE("something wrong for the json data!");
+        return false;
     }
-    CLOGE("Invalid transport id:%{public}d", transportId);
-    return INVALID_ID;
+    json jsonObject = json::parse(data, nullptr, false);
+    if (!jsonObject.contains(DATA_KEY)) {
+        CLOGE("json object have no data!");
+        return false;
+    }
+
+    if (jsonObject[DATA_KEY].is_string()) {
+        std::string dataString = jsonObject[DATA_KEY];
+        jsonData = json::parse(dataString, nullptr, false);
+    } else if (jsonObject[DATA_KEY].is_object()) {
+        jsonData = jsonObject[DATA_KEY];
+    } else {
+        CLOGE("data key in json object is invalid!");
+        return false;
+    }
+    if (jsonData.is_discarded()) {
+        CLOGE("json object discarded!");
+        return false;
+    }
+
+    if (jsonData.contains(DEVICE_ID_KEY) && !jsonData[DEVICE_ID_KEY].is_string()) {
+        CLOGE("DEVICE_ID_KEY json data is not string");
+        return false;
+    }
+
+    if (jsonData.contains(DEVICE_NAME_KEY) && !jsonData[DEVICE_NAME_KEY].is_string()) {
+        CLOGE("DEVICE_NAME_KEY json data is not string");
+        return false;
+    }
+
+    if (jsonData.contains(KEY_SESSION_ID) && !jsonData[KEY_SESSION_ID].is_number()) {
+        CLOGE("KEY_SESSION_ID json data is not number");
+        return false;
+    }
+    return true;
 }
 
 std::unique_ptr<CastInnerRemoteDevice> ConnectionManager::GetRemoteFromJsonData(const std::string &data)
@@ -715,155 +940,6 @@ std::unique_ptr<CastInnerRemoteDevice> ConnectionManager::GetRemoteFromJsonData(
     return device;
 }
 
-void ConnectionManager::OnConsultDataReceived(int transportId, const void *data, unsigned int dataLen)
-{
-    std::string dataStr(static_cast<const char *>(data), dataLen);
-    CLOGD("Received data: len:%{public}u, data:%s", dataLen, dataStr.c_str());
-
-    auto device = GetRemoteFromJsonData(dataStr);
-    if (device == nullptr) {
-        return;
-    }
-    const std::string &deviceId = device->deviceId;
-    auto dmDevice = GetDmDeviceInfo(deviceId);
-    if (deviceId.compare(dmDevice.deviceId) != 0) {
-        CLOGE("Failed to get DmDeviceInfo");
-        return;
-    }
-    int castSessionId = INVALID_ID;
-
-    constexpr int32_t sleepTimeMs = 50;
-    constexpr int32_t retryTimes = 20;
-    int32_t retryTime = 0;
-
-    while (castSessionId == INVALID_ID) {
-        if (castSessionId != INVALID_ID || retryTime > retryTimes) {
-            break;
-        }
-        std::this_thread::sleep_for(std::chrono::milliseconds(sleepTimeMs));
-        castSessionId = GetCastSessionId(transportId);
-        retryTime++;
-    }
-    if (castSessionId == INVALID_ID) {
-        CLOGE("session id invalid");
-        return;
-    }
-    CLOGI("protocolType is %d", device->protocolType);
-    if (device->protocolType == ProtocolType::CAST_PLUS_STREAM) {
-        SetSessionProtocolType(castSessionId, device->protocolType);
-    }
-
-    if (!CastDeviceDataManager::GetInstance().AddDevice(*device, dmDevice)) {
-        return;
-    }
-    if (!CastDeviceDataManager::GetInstance().SetDeviceRole(deviceId, true) ||
-        !UpdateDeviceState(deviceId, RemoteDeviceState::CONNECTED)) {
-        CastDeviceDataManager::GetInstance().RemoveDevice(deviceId);
-        return;
-    }
-    if (!listener_->NotifyRemoteDeviceIsReady(castSessionId, *device)) {
-        CastDeviceDataManager::GetInstance().RemoveDevice(deviceId);
-    }
-
-    DestroyConsulationSession(deviceId);
-}
-
-void ConnectionManager::DestroyConsulationSession(const std::string &deviceId)
-{
-    CLOGI("DestroyConsulationSession in");
-    int transportId = CastDeviceDataManager::GetInstance().ResetDeviceTransId(deviceId);
-    if (transportId != INVALID_ID) {
-        CloseSession(transportId);
-    }
-
-    auto isSink = CastDeviceDataManager::GetInstance().GetDeviceRole(deviceId);
-    if (isSink == std::nullopt || (*isSink)) {
-        // The sink's Server is only removed when DisableDiscoverable or Deinit is performed.
-        return;
-    }
-}
-
-bool ConnectionManager::EnableDiscoverable()
-{
-    std::lock_guard lock(mutex_);
-    if (isDiscoverable_) {
-        CLOGW("service has been set discoverable");
-        return true;
-    }
-
-    isDiscoverable_ = true;
-    return true;
-}
-
-bool ConnectionManager::DisableDiscoverable()
-{
-    std::lock_guard lock(mutex_);
-    if (!isDiscoverable_) {
-        return true;
-    }
-
-    isDiscoverable_ = false;
-    return true;
-}
-
-void ConnectionManager::GrabDevice()
-{
-    CLOGI("GrabDevice in");
-    if (grabState_ == DeviceGrabState::NO_GRAB) {
-        return;
-    }
-    if (listener_ == nullptr) {
-        return;
-    }
-    listener_->GrabDevice(sessionId_);
-}
-
-void ConnectionManager::DisconnectDevice(const std::string &deviceId)
-{
-    CLOGI("DisconnectDevice in, deviceId %{public}s", Utils::Mask(deviceId).c_str());
-
-    DiscoveryManager::GetInstance().StopDiscovery();
-    if (!CastDeviceDataManager::GetInstance().IsDeviceUsed(deviceId)) {
-        CLOGE("Device(%s) is not used, remove it", deviceId.c_str());
-        CastDeviceDataManager::GetInstance().UpdateDeviceByDeviceId(deviceId);
-        return;
-    }
-
-    DestroyConsulationSession(deviceId);
-    auto isActiveAuth = CastDeviceDataManager::GetInstance().GetDeviceIsActiveAuth(deviceId);
-    if (isActiveAuth == std::nullopt) {
-        return;
-    }
-    auto networkId = CastDeviceDataManager::GetInstance().GetDeviceNetworkId(deviceId);
-    if (networkId == std::nullopt) {
-        return;
-    }
-
-    CastDeviceDataManager::GetInstance().UpdateDeviceByDeviceId(deviceId);
-}
-
-void ConnectionManager::UpdateGrabState(bool changeState, int32_t sessionId)
-{
-    CLOGI("GrabDevice in");
-    std::lock_guard<std::mutex> lock(mutex_);
-    sessionId_ = sessionId;
-    if (changeState) {
-        grabState_ = DeviceGrabState::GRAB_ALLOWED;
-        return;
-    }
-    grabState_ = DeviceGrabState::NO_GRAB;
-}
-
-int ConnectionManager::GetProtocolType() const
-{
-    return static_cast<int>(protocolType_);
-}
-
-void ConnectionManager::SetProtocolType(ProtocolType protocol)
-{
-    protocolType_ = protocol;
-}
-
 void ConnectionManager::AddSessionListener(int castSessionId, std::shared_ptr<IConnectManagerSessionListener> listener)
 {
     std::lock_guard<std::mutex> lock(mutex_);
@@ -913,12 +989,6 @@ void ConnectionManager::ResetListener()
     RemoveSessionListener(INVALID_ID);
 }
 
-bool ConnectionManager::UpdateDeviceState(const std::string &deviceId, RemoteDeviceState state)
-{
-    CLOGD("UpdateDeviceState: %s", REMOTE_DEVICE_STATE_STRING[static_cast<size_t>(state)].c_str());
-    return CastDeviceDataManager::GetInstance().SetDeviceState(deviceId, state);
-}
-
 int32_t ConnectionManager::GetSessionProtocolType(int sessionId, ProtocolType &protocolType)
 {
     std::lock_guard<std::mutex> lock(mutex_);
@@ -937,42 +1007,16 @@ int32_t ConnectionManager::SetSessionProtocolType(int sessionId, ProtocolType pr
     return listener_->SetSessionProtocolType(sessionId, protocolType);
 }
 
-void ConnectionManager::NotifyDeviceIsOffline(const std::string &deviceId)
+void ConnectionManager::SendConsultInfo(const std::string &deviceId, int port)
 {
-    CLOGI("NotifyDeviceIsOffline in");
-    std::lock_guard<std::mutex> lock(mutex_);
-    if (!listener_) {
+    CLOGI("SendConsultInfo In");
+    auto remote = CastDeviceDataManager::GetInstance().GetDeviceByDeviceId(deviceId);
+    if (remote == std::nullopt) {
+        CLOGE("Get remote device is empty");
         return;
     }
-    listener_->NotifyDeviceIsOffline(deviceId);
-}
 
-bool ConnectionManager::NotifyConnectStage(const CastInnerRemoteDevice &device, int result, int32_t reasonCode)
-{
-    CLOGI("result %{public}d, reasonCode %{public}d", result, reasonCode);
-
-    auto sessionListener = GetSessionListener(device.localCastSessionId);
-    if (sessionListener == nullptr) {
-        CLOGE("sessionListener is NULL");
-        return false;
-    }
-
-    if (result == ConnectStageResult::AUTH_FAILED || result == ConnectStageResult::CONNECT_FAIL ||
-        result == ConnectStageResult::DISCONNECT_START) {
-        UpdateDeviceState(device.deviceId, RemoteDeviceState::FOUND);
-    }
-
-    sessionListener->NotifyConnectStage(device.deviceId, result, reasonCode);
-    return true;
-}
-
-bool ConnectionManager::NotifyListenerToLoadSinkSA(const std::string& networkId)
-{
-    auto listener = GetListener();
-    if (!listener) {
-        return false;
-    }
-    return listener->LoadSinkSA(networkId);
+    SendConsultData(*remote, port);
 }
 
 std::string ConnectionManager::GetConnectingDeviceId()
@@ -1168,12 +1212,6 @@ void CastDeviceStateCallback::OnDeviceReady(const DmDeviceInfo &deviceInfo)
     CLOGI("device(%s) is ready", deviceInfo.deviceId);
 }
 
-void ConnectionManager::SetRTSPPort(int port)
-{
-    std::lock_guard<std::mutex> lock(mutex_);
-    rtspPort_ = port;
-}
-
 bool ConnectionManager::IsSingle(const CastInnerRemoteDevice &device)
 {
     if (device.deviceTypeId == THIRD_TV) {
@@ -1211,6 +1249,13 @@ int ConnectionManager::GetRTSPPort()
     std::lock_guard<std::mutex> lock(mutex_);
     return rtspPort_;
 }
+
+void ConnectionManager::SetRTSPPort(int port)
+{
+    std::lock_guard<std::mutex> lock(mutex_);
+    rtspPort_ = port;
+}
+
 } // namespace CastEngineService
 } // namespace CastEngine
 } // namespace OHOS
