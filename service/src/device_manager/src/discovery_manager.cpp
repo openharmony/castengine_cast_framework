@@ -58,13 +58,7 @@ constexpr int INT_SEVEN = 7;
 
 // Bit bit of byte 0
 constexpr uint32_t BASE = 1;
-constexpr uint32_t HUAWEI_IDENTIFICATION = BASE << 7;
 constexpr uint32_t MIRROR_CAPABILITY = BASE << 3;
-
-// Bit bit of byte 1
-constexpr uint32_t DEVICE_COORDINATION_CAPABILITY = BASE << 7;
-constexpr uint32_t DRM_CAPABILITY = BASE << 6;
-constexpr uint32_t CAST_STREAM_CAPABILITY = BASE << 5;
 
 DeviceType ConvertDeviceType(uint16_t deviceTypeId)
 {
@@ -439,20 +433,6 @@ void DiscoveryManager::ParseCapability(const std::string castData, CastInnerRemo
         newDevice.capabilityInfo |= static_cast<uint32_t>(ProtocolType::CAST_PLUS_MIRROR);
     }
 
-    std::string coordCapa;
-    if ((firstByte & HUAWEI_IDENTIFICATION) != 0) {
-        if ((secondByte & CAST_STREAM_CAPABILITY) != 0) {
-            newDevice.capabilityInfo |= static_cast<uint32_t>(ProtocolType::CAST_PLUS_STREAM);
-        }
-
-        if ((secondByte & DRM_CAPABILITY) != 0) {
-            newDevice.drmCapabilities.push_back(UUID_CHINADRM);
-        }
-
-        if ((secondByte & DEVICE_COORDINATION_CAPABILITY) != 0) {
-            coordCapa = " coordinationCapa = 1";
-        }
-    }
     if ((newDevice.capabilityInfo & static_cast<uint32_t>(ProtocolType::CAST_PLUS_STREAM)) != 0) {
         if (newDevice.capability == CapabilityType::DLNA) {
             newDevice.capability = CapabilityType::CAST_AND_DLNA;
@@ -460,10 +440,11 @@ void DiscoveryManager::ParseCapability(const std::string castData, CastInnerRemo
             newDevice.capability = CapabilityType::CAST_PLUS;
         }
     }
+
     CLOGI("device %{public}s castData:%{public}s authVersion:%{public}s capabilityInfo:%{public}u drmCapa:%{public}d"
-        "%{public}s capability:0x%{public}x",
+        "capability:0x%{public}x",
         Mask(newDevice.deviceName).c_str(), castData.c_str(), newDevice.authVersion.c_str(), newDevice.capabilityInfo,
-        (newDevice.drmCapabilities.size() > 0), coordCapa.c_str(), newDevice.capability);
+        (newDevice.drmCapabilities.size() > 0), newDevice.capability);
 }
 
 void DiscoveryManager::UpdateDeviceStateLocked()
