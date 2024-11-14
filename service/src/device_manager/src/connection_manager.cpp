@@ -1115,7 +1115,7 @@ void CastBindTargetCallback::HandleConnectDeviceAction(const CastInnerRemoteDevi
         uint8_t sessionKey[SESSION_KEY_LENGTH] = {0};
         if (authVersion == AUTH_VERSION_1) {
             // 获取sessionKey
-            if (!GetSessionKey(authInfo, sessionKey)) {                CLOGE("authVersion is 1.0, get sessionkey fail");
+            if (!GetSessionKey(authInfo, sessionKey)) {
                 CLOGE("authVersion is 1.0, get sessionkey fail");
                 return;
             }
