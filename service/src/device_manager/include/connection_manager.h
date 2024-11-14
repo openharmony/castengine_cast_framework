@@ -49,10 +49,10 @@ class CastBindTargetCallback : public BindTargetCallback {
 public:
     void OnBindResult(const PeerTargetId &targetId, int32_t result, int32_t status, std::string content) override;
 private:
-    void HandleBindAction(const PeerTargetId &targetId, int action, const json &authInfo);
-    void HandleConnectDeviceAction(const PeerTargetId &targetId, const json &authInfo);
+    void HandleBindAction(const CastInnerRemoteDevice &device, int action, const json &authInfo);
+    void HandleConnectDeviceAction(const CastInnerRemoteDevice &device, const json &authInfo);
     bool GetSessionKey(const json &authInfo, uint8_t *sessionkey);
-    void HandleQueryIpAction(const PeerTargetId &targetId, const json &authInfo);
+    void HandleQueryIpAction(const CastInnerRemoteDevice &remoteDevice, const json &authInfo);
     static const std::map<int32_t, int32_t> RESULT_REASON_MAP;
     static const std::map<int32_t, int32_t> STATUS_REASON_MAP;
 };
@@ -75,7 +75,7 @@ public:
     bool DisableDiscoverable();
     void GrabDevice();
 
-    bool OpenConsultSession(const std::string &deviceId);
+    bool OpenConsultSession(const CastInnerRemoteDevice &device);
     void OnConsultDataReceived(int transportId, const void *data, unsigned int dataLen);
     bool OnConsultSessionOpened(int transportId, bool isSource);
 
@@ -102,7 +102,9 @@ public:
 
     void SetRTSPPort(int port);
     void SendConsultInfo(const std::string &deviceId, int port);
+
     std::string GetConnectingDeviceId();
+    void SetConnectingDeviceId(std::string deviceId);
     bool IsSingle(const CastInnerRemoteDevice &device);
     bool IsHuaweiDevice(const CastInnerRemoteDevice &device);
     bool IsThirdDevice(const CastInnerRemoteDevice &device);
