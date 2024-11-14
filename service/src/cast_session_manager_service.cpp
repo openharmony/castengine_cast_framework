@@ -24,6 +24,7 @@
 #include <ipc_skeleton.h>
 #include "if_system_ability_manager.h"
 #include "iservice_registry.h"
+#include "dm_constants.h"
 #include "system_ability_definition.h"
 
 #include "cast_engine_dfx.h"
@@ -489,41 +490,38 @@ int32_t CastSessionManagerService::CreateCastSession(const CastSessionProperty &
     sptr<ICastSessionImpl> &castSession)
 {
     SharedWLock lock(mutex_);
-    if (!Permission::CheckPidPermission()) {
-        return ERR_NO_PERMISSION;
-    }
-    CLOGD("CreateCastSession in, protocol:%{public}d, endType:%{public}d.", property.protocolType, property.endType);
+    CLOGI("CreateCastSession in, protocol:%{public}d, endType:%{public}d.", property.protocolType, property.endType);
     if (serviceStatus_ != ServiceStatus::CONNECTED) {
         CLOGE("not connected");
         return ERR_SERVICE_STATE_NOT_MATCH;
     }
 
     if (localDevice_.deviceId.empty()) {
-        auto local = ConnectionManager::GetInstance().GetLocalDeviceInfo();
-        if (local == nullptr) {
+        CastLocalDevice local;
+        int32_t ret = ConnectionManager::GetInstance().GetLocalDeviceInfo(local);
+        if (ret != DM_OK) {
+            return ret;
+        }
+        localDevice_ = local;
+    }
+
+    for (auto it = sessionMap_.begin(); it != sessionMap_.end();) {
+        ProtocolType protocolType;
+        if (it->second->GetSessionProtocolType(protocolType) == CAST_ENGINE_ERROR) {
+            CLOGE("GetSessionProtocolType failed");
             return CAST_ENGINE_ERROR;
         }
-        localDevice_ = *local;
+        auto curSessionState = it->second->GetSessionState();
+        if (protocolType == ProtocolType::CAST_PLUS_MIRROR &&
+            property.protocolType == ProtocolType::CAST_PLUS_STREAM &&
+            curSessionState == static_cast<uint8_t>(SessionState::PLAYING)) {
+            CLOGI("MirrorSession exits, return mirrorSession.");
+            castSession = it->second;
+            return CAST_ENGINE_SUCCESS;
+        }
+        it++;
     }
 
-    auto tmp = new (std::nothrow) CastSessionImpl(property, localDevice_);
-    if (tmp == nullptr) {
-        CLOGE("CastSessionImpl is null");
-        return ERR_NO_MEMORY;
-    }
-    sptr<ICastSessionImpl> session(static_cast<ICastSessionImpl *>(tmp));
-    tmp->Init();
-    tmp->SetServiceCallbackForRelease([this](int32_t sessionId) { DestroyCastSession(sessionId); });
-
-    sessionIndex_++;
-    std::string sessionId{};
-    session->GetSessionId(sessionId);
-    sessionMap_.insert({ Utils::StringToInt(sessionId), session });
-
-    CLOGD("CreateCastSession success, session(%{public}d) count:%{public}zu",
-        Utils::StringToInt(sessionId), sessionMap_.size());
-    castSession = session;
-    ConnectionManager::GetInstance().UpdateGrabState(true, Utils::StringToInt(sessionId));
     return CAST_ENGINE_SUCCESS;
 }
 
