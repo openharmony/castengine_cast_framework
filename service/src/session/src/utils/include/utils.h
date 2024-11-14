@@ -69,6 +69,9 @@ public:
 
     static bool Base64Encode(const std::string &source, std::string &encoded);
     static bool Base64Decode(const std::string &encoded, std::string &decoded);
+    static int32_t GetCurrentActiveAccountUserId();
+    static std::string GetOhosAccountId();
+    static int SetFirstTokenID();
     static void SetThreadName(const std::string &name);
 
 private:

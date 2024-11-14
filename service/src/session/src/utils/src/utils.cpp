@@ -21,11 +21,17 @@
 #include <glib.h>
 #include <sys/prctl.h>
 #include "wifi_device.h"
+#include "ohos_account_kits.h"
+#include "os_account_manager.h"
+#include "os_account_constants.h"
+#include "ipc_skeleton.h"
+#include "token_setproc.h"
 
 namespace OHOS {
 namespace CastEngine {
 namespace CastEngineService {
 
+constexpr static int32_t DEFAULT_OS_ACCOUNT_ID = 100;
 bool Utils::Base64Encode(const std::string &source, std::string &encoded)
 {
     gchar *out = g_base64_encode(reinterpret_cast<const guchar *>(source.c_str()), source.size());
@@ -173,6 +179,35 @@ std::string Utils::Mask(const std::string &str)
     } else {
         return str.substr(0, MASK_PRINT_PREFIX_LEN) + "***" + str.substr(str.length() - MASK_PRINT_POSTFIX_LEN);
     }
+}
+
+int32_t Utils::GetCurrentActiveAccountUserId()
+{
+    std::vector<int> activatedOsAccountIds;
+    OHOS::ErrCode res = OHOS::AccountSA::OsAccountManager::QueryActiveOsAccountIds(activatedOsAccountIds);
+    if (res != OHOS::ERR_OK || activatedOsAccountIds.size() <= 0) {
+        return DEFAULT_OS_ACCOUNT_ID;
+    }
+    int osAccountId = activatedOsAccountIds[0];
+
+    return osAccountId;
+}
+
+std::string Utils::GetOhosAccountId()
+{
+    AccountSA::OhosAccountInfo accountInfo;
+    OHOS::ErrCode res = AccountSA::OhosAccountKits::GetInstance().GetOhosAccountInfo(accountInfo);
+    if (res != OHOS::ERR_OK || accountInfo.uid_ == "") {
+        return "";
+    }
+    return accountInfo.uid_;
+}
+
+int Utils::SetFirstTokenID()
+{
+    uint32_t tokenId = IPCSkeleton::GetCallingTokenID();
+    auto ret = SetFirstCallerTokenID(tokenId);
+    return ret;
 }
 
 
