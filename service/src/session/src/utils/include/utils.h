@@ -69,6 +69,7 @@ public:
 
     static bool Base64Encode(const std::string &source, std::string &encoded);
     static bool Base64Decode(const std::string &encoded, std::string &decoded);
+    static void SetThreadName(const std::string &name);
 
 private:
     static const int BYTE_TO_BIT_OFFSET = 8;

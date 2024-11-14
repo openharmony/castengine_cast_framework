@@ -284,16 +284,17 @@ void ConnectionManager::GrabDevice()
     listener_->GrabDevice(sessionId_);
 }
 
-bool ConnectionManager::OpenConsultSession(const std::string &deviceId)
+bool ConnectionManager::OpenConsultSession(const CastInnerRemoteDevice &device)
 {
     CLOGI("start open consult session");
     // The session can only be opened using a network ID instead of a UDID in OH system
-    auto networkId = CastDeviceDataManager::GetInstance().GetDeviceNetworkId(deviceId);
+    auto networkId = CastDeviceDataManager::GetInstance().GetDeviceNetworkId(device.deviceId);
     if (networkId == std::nullopt) {
+        CLOGE("networkId is null");
         return false;
     }
 
-    EstablishConsultWriteWrap(__func__, GetBIZSceneType(GetProtocolType()), GetAnonymousDeviceID(deviceId));
+    EstablishConsultWriteWrap(__func__, GetBIZSceneType(GetProtocolType()), GetAnonymousDeviceID(device.deviceId));
 
     SessionAttribute attr{};
     attr.dataType = TYPE_BYTES;
@@ -308,21 +309,10 @@ bool ConnectionManager::OpenConsultSession(const std::string &deviceId)
         if (transportId <= INVALID_ID) {
             CLOGE("Failed to open session finally, id:%{public}d", transportId);
             CastEngineDfx::WriteErrorEvent(OPEN_SESSION_FAIL);
-            auto errorCode = GetErrorCode(CAST_ENGINE_SYSTEM_ID, CAST_ENGINE_CAST_PLUS_MODULE_ID, OPEN_SESSION_FAIL);
-            HiSysEventWriteWrap(__func__, {
-                    {"BIZ_SCENE", GetBIZSceneType(GetProtocolType())},
-                    {"BIZ_STAGE", static_cast<int32_t>(BIZSceneStage::ESTABLISH_CONSULT_SESSION)},
-                    {"STAGE_RES", static_cast<int32_t>(StageResType::STAGE_RES_IDLE)},
-                    {"ERROR_CODE", errorCode}}, {
-                    {"TO_CALL_PKG", DEVICE_MANAGER_NAME},
-                    {"LOCAL_SESS_NAME", ""},
-                    {"PEER_SESS_NAME", ""},
-                    {"PEER_UDID", GetAnonymousDeviceID(deviceId)}});
-
             return false;
         }
     }
-    if (!CastDeviceDataManager::GetInstance().SetDeviceTransId(deviceId, transportId)) {
+    if (!CastDeviceDataManager::GetInstance().SetDeviceTransId(device.deviceId, transportId)) {
         CloseSession(transportId);
         return false;
     }
@@ -335,9 +325,9 @@ bool ConnectionManager::OpenConsultSession(const std::string &deviceId)
             {"TO_CALL_PKG", DEVICE_MANAGER_NAME},
             {"LOCAL_SESS_NAME", ""},
             {"PEER_SESS_NAME", ""},
-            {"PEER_UDID", GetAnonymousDeviceID(deviceId)}});
+            {"PEER_UDID", GetAnonymousDeviceID(device.deviceId)}});
 
-    UpdateDeviceState(deviceId, RemoteDeviceState::CONNECTED);
+    UpdateDeviceState(device.deviceId, RemoteDeviceState::CONNECTED);
     CLOGI("Out, sessionId = %{public}d", transportId);
     return true;
 }
@@ -445,13 +435,16 @@ bool ConnectionManager::ConnectDevice(const CastInnerRemoteDevice &dev, const Pr
         return false;
     }
 
+    protocolType_ = protocolType;
+    SetConnectingDeviceId(deviceId);
+
     DiscoveryManager::GetInstance().StopDiscovery();
 
     std::string networkId;
     if (IsDeviceTrusted(dev.deviceId, networkId) && IsSingle(dev)) {
         DeviceAuthWriteWrap(__func__, GetBIZSceneType(GetProtocolType()), GetAnonymousDeviceID(dev.deviceId));
         if (!CastDeviceDataManager::GetInstance().SetDeviceNetworkId(deviceId, networkId) ||
-            !OpenConsultSession(deviceId)) {
+            !OpenConsultSession(dev)) {
             (void)UpdateDeviceState(deviceId, RemoteDeviceState::FOUND);
             return false;
         }
@@ -971,10 +964,17 @@ std::shared_ptr<IConnectManagerSessionListener> ConnectionManager::GetSessionLis
     }
     return it->second;
 }
+
 void ConnectionManager::SetListener(std::shared_ptr<IConnectionManagerListener> listener)
 {
     std::lock_guard<std::mutex> lock(mutex_);
     listener_ = listener;
+}
+
+std::shared_ptr<IConnectionManagerListener> ConnectionManager::GetListener()
+{
+    std::lock_guard<std::mutex> lock(mutex_);
+    return listener_;
 }
 
 bool ConnectionManager::HasListener()
@@ -1025,6 +1025,12 @@ std::string ConnectionManager::GetConnectingDeviceId()
     return connectingDeviceId_;
 }
 
+void ConnectionManager::SetConnectingDeviceId(std::string deviceId)
+{
+    std::lock_guard<std::mutex> lock(mutex_);
+    connectingDeviceId_ = deviceId;
+}
+
 void CastBindTargetCallback::OnBindResult(const PeerTargetId &targetId, int32_t result, int32_t status,
     std::string content)
 {
@@ -1047,7 +1053,7 @@ void CastBindTargetCallback::OnBindResult(const PeerTargetId &targetId, int32_t 
             if (jsonInfo.contains(KEY_BIND_TARGET_ACTION) && jsonInfo[KEY_BIND_TARGET_ACTION].is_number()) {
                 action = jsonInfo[KEY_BIND_TARGET_ACTION];
             }
-            return HandleBindAction(targetId, action, jsonInfo);
+            return HandleBindAction(*remote, action, jsonInfo);
         case DmAuthStatus::STATUS_DM_SHOW_PIN_INPUT_UI:
         case DmAuthStatus::STATUS_DM_CLOSE_PIN_INPUT_UI:
         case DmAuthStatus::STATUS_DM_SHOW_AUTHORIZE_UI:
@@ -1060,16 +1066,17 @@ void CastBindTargetCallback::OnBindResult(const PeerTargetId &targetId, int32_t 
     }
 }
 
-void CastBindTargetCallback::HandleBindAction(const PeerTargetId &targetId, int action, const json &authInfo)
+void CastBindTargetCallback::HandleBindAction(const CastInnerRemoteDevice &device, int action, const json &authInfo)
 {
-    CLOGI("action is %d", action);
+    CLOGI("action is %{public}d", action);
+
     switch (action) {
         case ACTION_CONNECT_DEVICE: {
-            HandleConnectDeviceAction(targetId, authInfo);
+            HandleConnectDeviceAction(device, authInfo);
             return;
         }
         case ACTION_QUERY_P2P_IP: {
-            HandleQueryIpAction(targetId, authInfo);
+            HandleQueryIpAction(device, authInfo);
             return;
         }
         case ACTION_SEND_MESSAGE: {
@@ -1077,51 +1084,52 @@ void CastBindTargetCallback::HandleBindAction(const PeerTargetId &targetId, int 
             return;
         }
         default: {
-            CLOGW("unknow action %d", action);
+            CLOGW("unknow action %{public}d", action);
             return;
         }
     }
 }
 
-void CastBindTargetCallback::HandleConnectDeviceAction(const PeerTargetId &targetId, const json &authInfo)
+void CastBindTargetCallback::HandleConnectDeviceAction(const CastInnerRemoteDevice &device, const json &authInfo)
 {
     CLOGI("handle connect device action");
-    if (authInfo.contains(NETWORK_ID) && !authInfo[NETWORK_ID].is_string()) {
+    if (!authInfo.contains(NETWORK_ID) || !authInfo[NETWORK_ID].is_string()) {
         CLOGE("networkId json data is not string");
         return;
     }
-    
+
     const std::string networkId = authInfo[NETWORK_ID];
-    const std::string deviceId = targetId.deviceId;
-    if (!CastDeviceDataManager::GetInstance().SetDeviceNetworkId(targetId.deviceId, networkId)) {
+    const std::string deviceId = device.deviceId;
+    if (!CastDeviceDataManager::GetInstance().SetDeviceNetworkId(device.deviceId, networkId)) {
         return;
     }
-    
+
     if (authInfo.contains(KEY_TRANSFER_MODE) && authInfo[KEY_TRANSFER_MODE].is_number()) {
         int mode = authInfo[KEY_TRANSFER_MODE];
         ChannelType type = mode == TRANSFER_MODE_SOFTBUS_SINGLE ? ChannelType::SOFT_BUS : ChannelType::LEGACY_CHANNEL;
         CastDeviceDataManager::GetInstance().SetDeviceChannleType(deviceId, type);
     }
-    
+
     if (authInfo.contains(AUTH_VERSION_KEY) && authInfo[AUTH_VERSION_KEY].is_string()) {
         std::string authVersion = authInfo[AUTH_VERSION_KEY];
-        CLOGE("authVersion is %s", authVersion.c_str());
+        uint8_t sessionKey[SESSION_KEY_LENGTH] = {0};
         if (authVersion == AUTH_VERSION_1) {
             // 获取sessionKey
-            uint8_t sessionKey[SESSION_KEY_LENGTH] = {0};
-            bool result = GetSessionKey(authInfo, sessionKey);
-            if (!result) {
-                CLOGE("auth version 1.0, get sessionkey fail");
+            if (!GetSessionKey(authInfo, sessionKey)) {
+                CLOGE("authVersion is 1.0, get sessionkey fail");
                 return;
             }
-            result = CastDeviceDataManager::GetInstance().SetDeviceSessionKey(deviceId, sessionKey);
-            CLOGD("auth version 1.0, set sessionkey result is %d", result);
+            bool result = CastDeviceDataManager::GetInstance().SetDeviceSessionKey(deviceId, sessionKey);
+            CLOGI("auth version 1.0, set sessionkey result is %{public}d", result);
+            ConnectionManager::GetInstance().NotifyConnectStage(device, ConnectStageResult::AUTH_SUCCESS);
         } else {
-            uint8_t sessionKey[SESSION_KEY_LENGTH] = {0};
             RAND_bytes(sessionKey, SESSION_KEY_LENGTH);
             bool result = CastDeviceDataManager::GetInstance().SetDeviceSessionKey(deviceId, sessionKey);
-            CLOGD("auth version 2.0, set sessionkey result is %d", result);
-            ConnectionManager::GetInstance().OpenConsultSession(deviceId);
+            CLOGI("authVersion is 2.0, set sessionkey result is %{public}d", result);
+            std::thread([device]() {
+                Utils::SetThreadName("HandleConnectDeviceAction");
+                ConnectionManager::GetInstance().OpenConsultSession(device);
+            }).detach();
         }
     }
 }
@@ -1140,24 +1148,32 @@ bool CastBindTargetCallback::GetSessionKey(const json &authInfo, uint8_t *sessio
     }
 }
 
-void CastBindTargetCallback::HandleQueryIpAction(const PeerTargetId &targetId, const json &authInfo)
+void CastBindTargetCallback::HandleQueryIpAction(const CastInnerRemoteDevice &remoteDevice, const json &authInfo)
 {
     CLOGI("query p2p finish, notify session auth success");
-    auto remote = CastDeviceDataManager::GetInstance().GetDeviceByDeviceId(targetId.deviceId);
-    if (remote == std::nullopt) {
-        CLOGE("Get remote device is empty");
-        return;
-    }
     std::string localIp;
     std::string remoteIp;
     if (authInfo.contains(KEY_LOCAL_P2P_IP) && authInfo[KEY_LOCAL_P2P_IP].is_string()) {
         localIp = authInfo[KEY_LOCAL_P2P_IP];
     }
-    
+
     if (authInfo.contains(KEY_REMOTE_P2P_IP) && authInfo[KEY_REMOTE_P2P_IP].is_string()) {
         remoteIp = authInfo[KEY_REMOTE_P2P_IP];
     }
-    CastDeviceDataManager::GetInstance().SetDeviceIp(targetId.deviceId, localIp, remoteIp);
+
+    if (localIp.empty() || remoteIp.empty()) {
+        CLOGI("Get remote device p2p ip is empty");
+        if (remoteDevice.localWifiIp.empty() || remoteDevice.wifiIp.empty()) {
+            CLOGI("device p2p ip is empty start disconnect");
+            return;
+        } else {
+            localIp = remoteDevice.localWifiIp;
+            remoteIp = remoteDevice.wifiIp;
+        }
+    }
+
+    CastDeviceDataManager::GetInstance().SetDeviceIp(remoteDevice.deviceId, localIp, remoteIp);
+    ConnectionManager::GetInstance().NotifyConnectStage(remoteDevice, ConnectStageResult::AUTH_SUCCESS);
 }
 
 void CastUnBindTargetCallback::OnUnbindResult(const PeerTargetId &targetId, int32_t result, std::string content)
@@ -1193,7 +1209,7 @@ void CastDeviceStateCallback::OnDeviceOnline(const DmDeviceInfo &deviceInfo)
         CLOGI("current device is not single device %s ", deviceId.c_str());
         return;
     }
-    ConnectionManager::GetInstance().OpenConsultSession(deviceId);
+    ConnectionManager::GetInstance().OpenConsultSession(*remote);
 }
 
 void CastDeviceStateCallback::OnDeviceOffline(const DmDeviceInfo &deviceInfo)
