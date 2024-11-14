@@ -142,6 +142,9 @@ static constexpr uint32_t MASK_ERROR_CODE = 0xffff;
 static constexpr uint8_t OFFSET_MODULE_ID = 16;
 static constexpr uint8_t OFFSET_SUBSYSTEM = 21;
 
+#define CAST_ENGINE_ERR_CODE(moduleID) \
+    ((SUBSYSTEM_CAST_ENGINE << OFFSET_SUBSYSTEM) | (static_cast<uint32_t>(moduleID) << OFFSET_MODULE_ID))
+
 enum RadarErrCode : int32_t {
     SUCCESS = 0,
 
