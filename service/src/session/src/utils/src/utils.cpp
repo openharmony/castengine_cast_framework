@@ -185,7 +185,6 @@ void Utils::SetThreadName(const std::string &name)
     static std::atomic<unsigned int> suffix = 0;
     std::string threadName = name + "-" + std::to_string(suffix++);
     if (prctl(PR_SET_NAME, threadName.c_str()) < 0) {
-        // CLOGE("prctl errno %d", errno);
         return;
     }
 }
