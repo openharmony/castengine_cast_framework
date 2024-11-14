@@ -36,6 +36,7 @@
 #include "encrypt_decrypt.h"
 #include "utils.h"
 #include <iconv.h>
+#include "radar_constants.h"
 
 using nlohmann::json;
 using namespace OHOS::DistributedHardware;
@@ -48,7 +49,6 @@ namespace CastEngineService {
 DEFINE_CAST_ENGINE_LABEL("Cast-Connection-Manager");
 namespace {
 using namespace OHOS::DistributedHardware;
-constexpr char SESSION_NAME[] = "CastPlusSessionName";
 
 constexpr int SOFTBUS_OK = 0;
 
@@ -76,10 +76,29 @@ constexpr int SESSION_KEY_LENGTH = 16;
 const std::string VERSION = "OH1.0";
 constexpr int OPERATION_CONSULT = 3;
 
-constexpr int FIRST_PRIO_INDEX = 0;
-constexpr int SECOND_PRIO_INDEX = 1;
-constexpr int THIRD_PRIO_INDEX = 2;
-constexpr int MAX_LINK_TYPE_NUM = 3;
+const std::map<uint16_t, DeviceType> DEVICE_TYPE_CONVERT_MAP = {
+    { DEVICE_TYPE_TV, DeviceType::DEVICE_HW_TV },
+    { DEVICE_TYPE_CAR, DeviceType::DEVICE_HICAR },
+    { DEVICE_TYPE_PAD, DeviceType::DEVICE_MATEBOOK },
+    { DEVICE_TYPE_PC, DeviceType::DEVICE_MATEBOOK },
+    { DEVICE_TYPE_2IN1, DeviceType::DEVICE_MATEBOOK },
+};
+
+const std::map<uint16_t, SubDeviceType> SUB_DEVICE_TYPE_CONVERT_MAP = {
+    { DEVICE_TYPE_PAD, SubDeviceType::SUB_DEVICE_MATEBOOK_PAD },
+};
+
+DeviceType ConvertDeviceType(uint16_t deviceTypeId)
+{
+    return DEVICE_TYPE_CONVERT_MAP.count(deviceTypeId) ?
+        DEVICE_TYPE_CONVERT_MAP.at(deviceTypeId) : DeviceType::DEVICE_CAST_PLUS;
+}
+
+SubDeviceType ConvertSubDeviceType(uint16_t deviceTypeId)
+{
+    return SUB_DEVICE_TYPE_CONVERT_MAP.count(deviceTypeId) ?
+        SUB_DEVICE_TYPE_CONVERT_MAP.at(deviceTypeId) : SubDeviceType::SUB_DEVICE_DEFAULT;
+}
 
 /*
  * send to json key auth version, hichain 1.0 or 2.0
@@ -147,6 +166,147 @@ void DeviceAuthWriteWrap(const std::string& funcName, int sceneType, const std::
 }
 
 } // namespace
+
+namespace SoftBus {
+constexpr char PEER_NAME[] = "CastPlusSessionName";
+int32_t g_bindSocketId = INVALID_ID;
+
+static void OnShutdown(int32_t socket, ShutdownReason reason)
+{
+    CLOGI("OnShutdown, socket id = %{public}d", socket);
+    auto device = CastDeviceDataManager::GetInstance().GetDeviceByTransId(socket);
+    if (device == std::nullopt) {
+        CLOGE("Failed to get device by socketId.");
+        return;
+    }
+    CLOGI("notify disconnect %{public}d", socket);
+}
+
+static void OnBytes(int32_t socket, const void *data, uint32_t dataLen)
+{
+    CLOGI("OnBytes, socket id = %{public}d", socket);
+    ConnectionManager::GetInstance().OnConsultDataReceivedFromSink(socket, data, dataLen);
+}
+
+QosTV mirrorQos1st[] = {
+    { .qos = QOS_TYPE_MIN_BW,            .value = 80 * 1024 * 1024 }, // 最小带宽80M
+    { .qos = QOS_TYPE_MAX_LATENCY,      .value = 16000 }, // 最大建链时延16s
+    { .qos = QOS_TYPE_RTT_LEVEL,        .value = QosRttLevel::RTT_LEVEL_LOW },
+};
+
+QosTV mirrorQos2nd[] = {
+    { .qos = QOS_TYPE_MIN_BW,            .value = 80 * 1024 * 1024 }, // 最小带宽80M
+    { .qos = QOS_TYPE_MAX_LATENCY,      .value = 6000 }, // 最大建链时延6s
+    { .qos = QOS_TYPE_RTT_LEVEL,        .value = QosRttLevel::RTT_LEVEL_LOW },
+};
+
+QosTV singleMirrorQos[] = {
+    { .qos = QOS_TYPE_MIN_BW,            .value = 80 * 1024 * 1024 }, // 最小带宽80M
+    { .qos = QOS_TYPE_MAX_LATENCY,      .value = 5000 }, // 最大建链时延5s
+    { .qos = QOS_TYPE_RTT_LEVEL,        .value = QosRttLevel::RTT_LEVEL_LOW },
+};
+
+QosTV streamQos1st[] = {
+    { .qos = QOS_TYPE_MIN_BW,            .value = 4 * 1024 * 1024 }, // 最小带宽4M, Wifi优先
+    { .qos = QOS_TYPE_MAX_LATENCY,      .value = 16000 }, // 最大建链时延16s
+};
+
+QosTV streamQos2nd[] = {
+    { .qos = QOS_TYPE_MIN_BW,            .value = 4 * 1024 * 1024 }, // 最小带宽4M, Wifi优先
+    { .qos = QOS_TYPE_MAX_LATENCY,      .value = 6000 }, // 最大建链时延6s
+};
+
+QosTV singleStreamQos[] = {
+    { .qos = QOS_TYPE_MIN_BW,            .value = 80 * 1024 * 1024 }, // 最小带宽80M
+    { .qos = QOS_TYPE_MAX_LATENCY,      .value = 5000 }, // 最大建链时延5s
+};
+
+ISocketListener listener = {
+    .OnShutdown = OnShutdown,
+    .OnBytes = OnBytes,
+};
+
+int32_t CreateSocket(const std::optional<std::string> &networkId, const ProtocolType &protocolType)
+{
+    CLOGI("CreateSocket in, protocol type is %{public}d", protocolType);
+    SocketInfo messageSessionInfo = {
+        .name = (char *)PEER_NAME,
+        .peerName = (char *)PEER_NAME,
+        .peerNetworkId = (char *)networkId->c_str(),
+        .pkgName = (char *)PKG_NAME,
+        .dataType = DATA_TYPE_BYTES,
+    };
+
+    int32_t socketId = Socket(messageSessionInfo);
+    if (socketId <= 0) {
+        CLOGE("Create fail socket = %{public}d", socketId);
+        return socketId;
+    }
+
+    CLOGI("Create socket successfully");
+    return socketId;
+}
+
+int BindSocket(int32_t socketId, const ProtocolType &protocolType, bool isSingle, int32_t times)
+{
+    CLOGI("BindSocket in, protocol type is %{public}d isSingle:%{public}d", protocolType, isSingle);
+    Utils::SetFirstTokenID();
+
+    if (socketId <= INVALID_ID) {
+        CLOGE("bind socket = %{public}d error", socketId);
+        return socketId;
+    }
+
+    int32_t result = INVALID_ID;
+    // Synchronization method. A failure message is returned after timeout.
+    if (protocolType == ProtocolType::CAST_PLUS_STREAM) {
+        if (isSingle) {
+            result = Bind(socketId, singleStreamQos, sizeof(singleStreamQos) / sizeof(QosTV), &SoftBus::listener);
+        } else {
+            if (times == 1) {
+                result = Bind(socketId, streamQos1st, sizeof(streamQos1st) / sizeof(QosTV), &SoftBus::listener);
+            } else {
+                result = Bind(socketId, streamQos2nd, sizeof(streamQos2nd) / sizeof(QosTV), &SoftBus::listener);
+            }
+        }
+    } else {
+        if (isSingle) {
+            result = Bind(socketId, singleMirrorQos, sizeof(singleMirrorQos) / sizeof(QosTV), &SoftBus::listener);
+        } else {
+            if (times == 1) {
+                result = Bind(socketId, mirrorQos1st, sizeof(mirrorQos1st) / sizeof(QosTV), &SoftBus::listener);
+            } else {
+                result = Bind(socketId, mirrorQos2nd, sizeof(mirrorQos2nd) / sizeof(QosTV), &SoftBus::listener);
+            }
+        }
+    }
+    if (result != SOFTBUS_OK) {
+        CLOGE("Bind fail result = %{public}d", result);
+        return result;
+    }
+
+    CLOGI("Bind socket successfully");
+    return SOFTBUS_OK;
+}
+} // namespace SoftBus
+
+/*
+ * auth success
+ */
+constexpr int AUTH_SUCCESS_FROM_SINK = 0;
+/*
+ * connection failed
+ */
+constexpr int CONNECTION_FAILED = 9;
+ 
+/*
+ * send to json key consultResult
+ */
+const std::string CONSULT_RESULT = "consultResult";
+
+// consult key
+const std::string ACCOUNT_ID_KEY = "accountId";
+const std::string USER_ID_KEY = "userId";
 
 /*
 * User's unusual action or other event scenarios could cause changing of STATE or RESULT which delivered
@@ -295,28 +455,15 @@ bool ConnectionManager::OpenConsultSession(const CastInnerRemoteDevice &device)
     }
 
     EstablishConsultWriteWrap(__func__, GetBIZSceneType(GetProtocolType()), GetAnonymousDeviceID(device.deviceId));
-
-    SessionAttribute attr{};
-    attr.dataType = TYPE_BYTES;
-    attr.linkTypeNum = MAX_LINK_TYPE_NUM;
-    attr.linkType[FIRST_PRIO_INDEX] = LINK_TYPE_WIFI_P2P;
-    attr.linkType[SECOND_PRIO_INDEX] = LINK_TYPE_WIFI_WLAN_5G;
-    attr.linkType[THIRD_PRIO_INDEX] = LINK_TYPE_WIFI_WLAN_2G;
-    auto transportId = OpenSession(SESSION_NAME, SESSION_NAME, networkId->c_str(), "", &attr);
-    if (transportId <= INVALID_ID) {
-        CLOGW("Failed to open session, and try again, id:%{public}d", transportId);
-        transportId = OpenSession(SESSION_NAME, SESSION_NAME, networkId->c_str(), "", &attr);
-        if (transportId <= INVALID_ID) {
-            CLOGE("Failed to open session finally, id:%{public}d", transportId);
-            CastEngineDfx::WriteErrorEvent(OPEN_SESSION_FAIL);
-            return false;
-        }
-    }
-    if (!CastDeviceDataManager::GetInstance().SetDeviceTransId(device.deviceId, transportId)) {
-        CloseSession(transportId);
+    int32_t errorCode = SUCCESS;
+    int socketId = OpenSoftBusSocket(networkId, device, errorCode);
+    if (socketId <= INVALID_ID) {
+        CLOGE("session id invalid");
+        NotifyConnectStage(device, ConnectStageResult::DISCONNECT_START, REASON_DEFAULT);
         return false;
     }
 
+    OnConsultSessionOpened(socketId, true);
     HiSysEventWriteWrap(__func__, {
             {"BIZ_SCENE", GetBIZSceneType(GetProtocolType())},
             {"BIZ_STAGE", static_cast<int32_t>(BIZSceneStage::ESTABLISH_CONSULT_SESSION)},
@@ -328,7 +475,7 @@ bool ConnectionManager::OpenConsultSession(const CastInnerRemoteDevice &device)
             {"PEER_UDID", GetAnonymousDeviceID(device.deviceId)}});
 
     UpdateDeviceState(device.deviceId, RemoteDeviceState::CONNECTED);
-    CLOGI("Out, sessionId = %{public}d", transportId);
+    CLOGI("Out, socketId = %{public}d", socketId);
     return true;
 }
 
@@ -399,21 +546,106 @@ int ConnectionManager::GetCastSessionId(int transportId)
 
 bool ConnectionManager::OnConsultSessionOpened(int transportId, bool isSource)
 {
+    auto time = std::chrono::time_point_cast<std::chrono::milliseconds>(std::chrono::system_clock::now());
+    auto openSessionCost = time.time_since_epoch().count() - openSessionTime_;
+    CLOGI("%{public}s, openSession:%{public}lld, total %{public}lld, unit:ms", authTimeString_.c_str(),
+        openSessionCost, totalAuthTime_ + openSessionCost);
     std::thread([transportId, isSource]() {
+        Utils::SetThreadName("OnConsultSessionOpened");
         if (isSource) {
             auto device = CastDeviceDataManager::GetInstance().GetDeviceByTransId(transportId);
             if (device == std::nullopt) {
+                CLOGE("Failed to get device by sessionId.");
                 return;
             }
 
-            if (ConnectionManager::GetInstance().IsHuaweiDevice(*device)) {
+            bool isWifiChannelFirst = ConnectionManager::GetInstance().IsWifiChannelFirst(device->deviceId);
+            if (isWifiChannelFirst) {
+                CLOGE("select wifi channel localip %s, remoteIp %s", (device->localWifiIp).c_str(),
+                    (device->wifiIp).c_str());
+                CastDeviceDataManager::GetInstance().SetDeviceIp(device->deviceId, device->localWifiIp, device->wifiIp);
+            }
+            if (ConnectionManager::GetInstance().IsHuaweiDevice(*device) && !isWifiChannelFirst) {
                 ConnectionManager::GetInstance().QueryP2PIp(*device);
+            } else {
+                ConnectionManager::GetInstance().NotifyConnectStage(*device, ConnectStageResult::AUTH_SUCCESS);
             }
             return;
         }
         ConnectionManager::GetInstance().GrabDevice();
         ConnectionManager::GetInstance().NotifySessionIsReady(transportId);
-        }).detach();
+    }).detach();
+
+    return true;
+}
+
+void ConnectionManager::OnConsultDataReceivedFromSink(int transportId, const void *data, unsigned int dataLen)
+{
+    std::string dataString(reinterpret_cast<const char *>(data), dataLen);
+    CLOGI("Received data: %{public}s", dataString.c_str());
+
+    if (!json::accept(dataString)) {
+        CLOGE("received data string does not conform to JSON format");
+        return;
+    }
+    json jsonObject = json::parse(dataString, nullptr, false);
+    if (jsonObject.contains(OPERATION_TYPE_KEY)) {
+        if (!jsonObject[OPERATION_TYPE_KEY].is_number()) {
+            CLOGE("OPERATION_TYPE_KEY json data is not number");
+            return;
+        }
+        int operType = jsonObject[OPERATION_TYPE_KEY];
+        if (operType != OPERATION_CONSULT) {
+            CLOGE("cast operation type %d, return", operType);
+            return;
+        }
+    }
+
+    if (jsonObject.contains(DATA_KEY)) {
+        if (!jsonObject[DATA_KEY].is_string()) {
+            CLOGE("data key is empty, get body string fail");
+            return;
+        }
+
+        std::string bodyString = jsonObject[DATA_KEY];
+        if (!json::accept(bodyString)) {
+            CLOGE("received body string does not conform to JSON format");
+            return;
+        }
+        json body = json::parse(bodyString, nullptr, false);
+        handleConsultData(body, transportId);
+    }
+}
+
+bool ConnectionManager::handleConsultData(const json &body, int transportId)
+{
+    CLOGI("handleConsultData data from sink %{public}s", body.dump().c_str());
+    if (body.contains(CONSULT_RESULT) && !body[CONSULT_RESULT].is_number()) {
+        CLOGE("consult result data is not number");
+        return false;
+    }
+
+    auto device = CastDeviceDataManager::GetInstance().GetDeviceByTransId(transportId);
+    if (device == std::nullopt) {
+        CLOGE("handleConsultData device is null");
+        return false;
+    }
+
+    int consultResult = body[CONSULT_RESULT];
+    switch (consultResult) {
+        case AUTH_SUCCESS_FROM_SINK: {
+            CLOGI("handleConsultData auth success, consult result is %{public}d", consultResult);
+            break;
+        }
+        case CONNECTION_FAILED: {
+            CLOGI("handleConsultData connect fail, consult result is %{public}d", consultResult);
+            break;
+        }
+        default: {
+            CLOGE("unhandled message, consult result is %d", consultResult);
+            break;
+        }
+    }
 
     return true;
 }
@@ -438,10 +670,20 @@ bool ConnectionManager::ConnectDevice(const CastInnerRemoteDevice &dev, const Pr
     protocolType_ = protocolType;
     SetConnectingDeviceId(deviceId);
 
+    if (IsNeedDiscoveryDevice(dev)) {
+        CLOGI("need discovery device");
+        DiscoveryManager::GetInstance().StartDiscovery();
+        std::thread([this, dev]() {
+            Utils::SetThreadName("ConnectTargetDevice");
+            WaitAndConnectTargetDevice(dev);
+        }).detach();
+        return true;
+    }
+    isWifiFresh_ = dev.isWifiFresh;
     DiscoveryManager::GetInstance().StopDiscovery();
 
     std::string networkId;
-    if (IsDeviceTrusted(dev.deviceId, networkId) && IsSingle(dev)) {
+    if (IsDeviceTrusted(dev.deviceId, networkId) && IsSingle(dev) && SourceCheckConnectAccess(networkId)) {
         DeviceAuthWriteWrap(__func__, GetBIZSceneType(GetProtocolType()), GetAnonymousDeviceID(dev.deviceId));
         if (!CastDeviceDataManager::GetInstance().SetDeviceNetworkId(deviceId, networkId) ||
             !OpenConsultSession(dev)) {
@@ -516,20 +758,22 @@ void ConnectionManager::SetProtocolType(ProtocolType protocol)
     protocolType_ = protocol;
 }
 
-std::unique_ptr<CastLocalDevice> ConnectionManager::GetLocalDeviceInfo()
+int32_t ConnectionManager::GetLocalDeviceInfo(CastLocalDevice &device)
 {
     CLOGI("GetLocalDeviceInfo in");
     DmDeviceInfo local;
-    if (DeviceManager::GetInstance().GetLocalDeviceInfo(PKG_NAME, local) != DM_OK) {
+    int32_t ret = DeviceManager::GetInstance().GetLocalDeviceInfo(PKG_NAME, local);
+    if (ret != DM_OK) {
         CLOGE("Cannot get the local device info from DM");
-        return nullptr;
+        return ret;
     };
-    auto device = std::make_unique<CastLocalDevice>();
-    device->deviceId = local.deviceId;
-    device->deviceType = DeviceType::DEVICE_CAST_PLUS;
-    device->deviceName = local.deviceName;
-    CLOGI("GetLocalDeviceInfo out");
-    return device;
+    device.deviceId = local.deviceId;
+    device.deviceType = ConvertDeviceType(local.deviceTypeId);
+    device.subDeviceType = ConvertSubDeviceType(local.deviceTypeId);
+    device.deviceName = local.deviceName;
+    CLOGI("GetLocalDeviceInfo out, dmTypeId:%{public}d deviceType:%{public}d subDeviceType:%{public}d",
+        local.deviceTypeId, device.deviceType, device.subDeviceType);
+    return ret;
 }
 
 void ConnectionManager::NotifySessionIsReady(int transportId)
@@ -582,6 +826,138 @@ bool ConnectionManager::NotifyListenerToLoadSinkSA(const std::string& networkId)
     return listener->LoadSinkSA(networkId);
 }
 
+bool ConnectionManager::SourceCheckConnectAccess(std::string &peerNetworkId)
+{
+    std::string localNetworkId = "";
+    if (DeviceManager::GetInstance().GetLocalDeviceNetWorkId(PKG_NAME, localNetworkId) != 0) {
+        CLOGI("GetLocalDeviceNetWorkId fail %s", localNetworkId.c_str());
+        return false;
+    }
+    DmAccessCaller dmSrcCaller = {
+        .accountId = Utils::GetOhosAccountId(),
+        .pkgName = PKG_NAME,
+        .networkId = localNetworkId,
+        .userId = Utils::GetCurrentActiveAccountUserId(),
+        .tokenId = 0,
+    };
+    DmAccessCallee dmDstCallee = {
+        .networkId = peerNetworkId,
+        .peerId = "",
+    };
+    bool ret = DeviceManager::GetInstance().CheckAccessControl(dmSrcCaller, dmDstCallee);
+    CLOGI("peerNetworkId:%{public}s, has connect Access:%{public}d", Utils::Mask(peerNetworkId).c_str(), ret);
+    return ret;
+}
+
+bool ConnectionManager::SinkCheckConnectAccess(json &data, std::string &peerDeviceId)
+{
+    if (!data.contains(ACCOUNT_ID_KEY)) {
+        CLOGI("ACCOUNT_ID_KEY is not exit, no need to check access");
+        return true;
+    }
+    if (!data[ACCOUNT_ID_KEY].is_string()) {
+        CLOGE("ACCOUNT_ID_KEY json data is not string");
+        return false;
+    }
+    if (!data.contains(USER_ID_KEY) || !data[USER_ID_KEY].is_number()) {
+        CLOGE("ACCOUNT_ID_KEY json data is not exit or is not number");
+        return false;
+    }
+    std::string accountId = data[ACCOUNT_ID_KEY];
+    int userId = data[USER_ID_KEY];
+    auto dmDevice = GetDmDeviceInfo(peerDeviceId);
+    if (peerDeviceId.compare(dmDevice.deviceId) != 0) {
+        CLOGE("Failed to get DmDeviceInfo");
+        return false;
+    }
+    std::string localNetworkId = "";
+    if (DeviceManager::GetInstance().GetLocalDeviceNetWorkId(PKG_NAME, localNetworkId) != 0) {
+        CLOGI("GetLocalDeviceNetWorkId fail %s", localNetworkId.c_str());
+        return false;
+    }
+    DmAccessCaller dmSrcCaller = {
+        .accountId = accountId,
+        .pkgName = PKG_NAME,
+        .networkId = dmDevice.networkId,
+        .userId = userId,
+        .tokenId = 0,
+    };
+    DmAccessCallee dmDstCallee = {
+        .accountId = Utils::GetOhosAccountId(),
+        .networkId = localNetworkId,
+        .peerId = "",
+        .userId = Utils::GetCurrentActiveAccountUserId(),
+    };
+    bool ret = DeviceManager::GetInstance().CheckAccessControl(dmSrcCaller, dmDstCallee);
+    CLOGI("peerDeviceId:%{public}s, has connect Access:%{public}d", Utils::Mask(peerDeviceId).c_str(), ret);
+    return ret;
+}
+
+bool ConnectionManager::IsWifiChannelFirst(const std::string &deviceId)
+{
+    if (deviceId.empty()) {
+        return false;
+    }
+    if (protocolType_ != ProtocolType::CAST_PLUS_STREAM) {
+        CLOGI("protocal type is %{public}d, not stream", protocolType_);
+        return false;
+    }
+
+    if (!isWifiFresh_) {
+        CLOGI("deviceId %s, wifi is not fresh", deviceId.c_str());
+        return false;
+    }
+    auto remote = CastDeviceDataManager::GetInstance().GetDeviceByDeviceId(deviceId);
+    if (remote == std::nullopt) {
+        CLOGE("Get remote device is empty");
+        return false;
+    }
+    CastInnerRemoteDevice device = *remote;
+    CLOGI("deviceId %s, wifi ip local %s, remote %s, link ip local %s, remote %s", deviceId.c_str(),
+        device.localWifiIp.c_str(), device.wifiIp.c_str(), device.localIp.c_str(), device.remoteIp.c_str());
+    return !device.localWifiIp.empty() && !device.wifiIp.empty();
+}
+
+bool ConnectionManager::IsNeedDiscoveryDevice(const CastInnerRemoteDevice &dev)
+{
+    return IsHuaweiDevice(dev) && !dev.isWifiFresh && !dev.isBleFresh;
+}
+
+void ConnectionManager::WaitAndConnectTargetDevice(const CastInnerRemoteDevice &dev)
+{
+    CLOGI("In");
+    constexpr int maxCount = 100;
+    constexpr int sleepTime = 50;
+    bool result = false;
+    for (int index = 0; index <= maxCount; index++) {
+        if (GetConnectingDeviceId().empty()) {
+            CLOGI("connecting deviceId is empty, return");
+            result = true;
+            break;
+        }
+        auto temp = CastDeviceDataManager::GetInstance().GetDeviceByDeviceId(dev.deviceId);
+        if (temp == std::nullopt || IsNeedDiscoveryDevice(*temp)) {
+            std::this_thread::sleep_for(std::chrono::milliseconds(sleepTime));
+            continue;
+        } else {
+            CastInnerRemoteDevice device = *temp;
+            CLOGI("find target device %{public}s wifiFresh is %{public}d", Utils::Mask(dev.deviceId).c_str(),
+                device.isWifiFresh);
+            if (!device.isWifiFresh) {
+                device.wifiIp = "";
+                device.wifiPort = 0;
+            }
+            result = ConnectDevice(device, protocolType_);
+            break;
+        }
+    }
+    // auto end = std::chrono::time_point_cast<std::chrono::milliseconds>(std::chrono::system_clock::now());
+    CLOGI("wait target device time (endTime - startTime ms), result %{public}d", result);
+    if (!result) {
+        NotifyConnectStage(dev, ConnectStageResult::DISCONNECT_START, REASON_DEFAULT);
+    }
+}
+
 bool ConnectionManager::BindTarget(const CastInnerRemoteDevice &dev)
 {
     CLOGD("device info is %s, device name %s, customData %s", dev.deviceId.c_str(), dev.deviceName.c_str(),
@@ -631,14 +1007,15 @@ bool ConnectionManager::BuildBindParam(const CastInnerRemoteDevice &device,
     if (IsSingle(device)) { // bind target by dm
         bindParam[PARAM_KEY_AUTH_TYPE] = AUTH_WITH_PIN;
     } else { // bind target by meta node
-        std::unique_ptr<CastLocalDevice> local = GetLocalDeviceInfo();
-        if (local == nullptr) {
-            CLOGE("CastLocalDevice is null");
+        CastLocalDevice local;
+        int32_t ret = GetLocalDeviceInfo(local);
+        if (ret != DM_OK) {
+            CLOGE("CastLocalDevice get failed");
             return false;
         }
         bindParam[DistributedHardware::PARAM_KEY_META_TYPE] = "5";
         bindParam[KEY_TRANSFER_MODE] = std::to_string(TRANSFER_MODE_SOFTBUS_SINGLE);
-        bindParam[DEVICE_NAME_KEY] = local->deviceName;
+        bindParam[DEVICE_NAME_KEY] = local.deviceName;
         bindParam[AUTH_VERSION_KEY] = GetAuthVersion(device);
         bindParam[KEY_SESSION_ID] = std::to_string(device.sessionId);
         bindParam["udid"] = device.udid;
@@ -722,14 +1099,15 @@ void ConnectionManager::SendConsultData(const CastInnerRemoteDevice &device, int
 
 std::string ConnectionManager::GetConsultationData(const CastInnerRemoteDevice &device, int port, json &body)
 {
-    auto local = GetLocalDeviceInfo();
-    if (local == nullptr) {
-        CLOGE("local device info is nullptr");
+    CastLocalDevice local;
+    auto ret = GetLocalDeviceInfo(local);
+    if (ret != DM_OK) {
+        CLOGE("local device info get failed");
         return "";
     }
 
-    body[DEVICE_ID_KEY] = local->deviceId;
-    body[DEVICE_NAME_KEY] = local->deviceName;
+    body[DEVICE_ID_KEY] = local.deviceId;
+    body[DEVICE_NAME_KEY] = local.deviceName;
     body[KEY_SESSION_ID] = device.sessionId;
     body[KEY_TRANSFER_MODE] = TRANSFER_MODE_SOFTBUS_SINGLE;
 
@@ -741,7 +1119,7 @@ std::string ConnectionManager::GetConsultationData(const CastInnerRemoteDevice &
         body[TYPE_SESSION_KEY] = device.sessionKey;
     }
 
-    CLOGI("Encrypt data, localIp %s, remote is %s, port %d", device.localIp.c_str(), device.remoteIp.c_str(), port);
+    CLOGI("Encrypt data localIp %s, remoteIp %s, port %d", device.localIp.c_str(), device.remoteIp.c_str(), port);
     EncryptPort(port, device.sessionKey, body);
     EncryptIp(device.localIp, SOURCE_IP_KEY, device.sessionKey, body);
     EncryptIp(device.remoteIp, SINK_IP_KEY, device.sessionKey, body);
@@ -878,59 +1256,91 @@ bool ConnectionManager::ParseAndCheckJsonData(const std::string &data, json &jso
 std::unique_ptr<CastInnerRemoteDevice> ConnectionManager::GetRemoteFromJsonData(const std::string &data)
 {
     CLOGI("GetRemoteFromJsonData in");
-    json jsonObject;
-    if (!jsonObject.accept(data)) {
-        CLOGE("something wrong for the json data!");
-        return nullptr;
-    }
-    jsonObject = json::parse(data, nullptr, false);
-    if (!jsonObject.contains(DATA_KEY)) {
-        CLOGE("json object have no data!");
-        return nullptr;
-    }
-
-    json remote;
-    if (jsonObject[DATA_KEY].is_string()) {
-        std::string dataString = jsonObject[DATA_KEY];
-        remote = json::parse(dataString, nullptr, false);
-    } else if (jsonObject[DATA_KEY].is_object()) {
-        remote = jsonObject[DATA_KEY];
-    } else {
-        CLOGE("data key in json object is invalid!");
-        return nullptr;
-    }
-
-    if (remote.is_discarded()) {
-        CLOGE("json object discarded!");
-        return nullptr;
-    }
-
-    if (remote.contains(DEVICE_ID_KEY) && !remote[DEVICE_ID_KEY].is_string()) {
-        CLOGE("DEVICE_ID_KEY json data is not string");
-        return nullptr;
-    }
-
-    if (remote.contains(DEVICE_NAME_KEY) && !remote[DEVICE_NAME_KEY].is_string()) {
-        CLOGE("DEVICE_NAME_KEY json data is not string");
-        return nullptr;
-    }
-
-    if (remote.contains(KEY_SESSION_ID) && !remote[KEY_SESSION_ID].is_number()) {
-        CLOGE("KEY_SESSION_ID json data is not number");
+    json jsonData;
+    if (!ParseAndCheckJsonData(data, jsonData)) {
         return nullptr;
     }
 
     auto device = std::make_unique<CastInnerRemoteDevice>();
-    device->deviceId = remote.contains(DEVICE_ID_KEY) ? remote[DEVICE_ID_KEY] : "";
-    device->deviceName = remote.contains(DEVICE_NAME_KEY) ? remote[DEVICE_NAME_KEY] : "";
+    if (!device) {
+        CLOGE("make unique failed");
+        return nullptr;
+    }
+    device->deviceId = jsonData.contains(DEVICE_ID_KEY) ? jsonData[DEVICE_ID_KEY] : "";
+    device->deviceName = jsonData.contains(DEVICE_NAME_KEY) ? jsonData[DEVICE_NAME_KEY] : "";
     device->deviceType = DeviceType::DEVICE_CAST_PLUS;
-    if (remote.contains(KEY_SESSION_ID)) {
-        device->sessionId = remote[KEY_SESSION_ID];
+    if (jsonData.contains(KEY_SESSION_ID)) {
+        device->sessionId = jsonData[KEY_SESSION_ID];
     }
-    if (remote.contains(PROTOCOL_TYPE_KEY) && remote[PROTOCOL_TYPE_KEY].is_number()) {
-        device->protocolType = remote[PROTOCOL_TYPE_KEY];
+    if (jsonData.contains(PROTOCOL_TYPE_KEY) && jsonData[PROTOCOL_TYPE_KEY].is_number()) {
+        device->protocolType = jsonData[PROTOCOL_TYPE_KEY];
     }
+    if (!SinkCheckConnectAccess(jsonData, device->deviceId)) {
+        return nullptr;
+    }
+    
     return device;
+}
+
+int ConnectionManager::OpenSoftBusSocket(const std::optional<std::string> &networkId,
+                                         const CastInnerRemoteDevice &device, int32_t &errorCode)
+{
+    // Only transortId > INVALID_ID does NOT meaning openSession successfully,
+    // result from OnOpenSession also count.
+    CLOGI("OpenSoftBusSocket in");
+    constexpr int32_t attemptCountMax = 2;
+    int socketId = INVALID_ID;
+    int bindResult = INVALID_ID;
+    bool isSingle = IsSingle(device);
+    auto time = std::chrono::time_point_cast<std::chrono::milliseconds>(std::chrono::system_clock::now());
+    openSessionTime_ = time.time_since_epoch().count();
+    std::lock_guard<std::mutex> lock(openConsultingSessionMutex_);
+    for (int attemptCount = 1; attemptCount <= attemptCountMax; ++attemptCount) {
+        CLOGI("Attemp to OpenSession in %{public}d times.", attemptCount);
+        if (IsDeviceConnectStateChange(device)) {
+            CLOGE("device state is not connecting, do nothting");
+            socketId = INVALID_ID;
+            errorCode = CONNECTION_DEVICE_IS_MISSING;
+            break;
+        }
+        socketId = SoftBus::CreateSocket(networkId, protocolType_);
+        if (socketId <= INVALID_ID) {
+            CLOGE("Failed to open session, and try again, socketId: %{public}d", socketId);
+            errorCode = socketId;
+            continue;
+        }
+
+        bindResult = SoftBus::BindSocket(socketId, protocolType_, isSingle, attemptCount);
+        if (bindResult != SOFTBUS_OK) {
+            CLOGE("Failed to bind socket, result %{public}d", bindResult);
+            Shutdown(socketId);
+            socketId = INVALID_ID;
+            errorCode = bindResult;
+            continue;
+        }
+        if (IsDeviceConnectStateChange(device) ||
+            !CastDeviceDataManager::GetInstance().SetDeviceTransId(device.deviceId, socketId)) {
+            CLOGE("deviceState is %{public}d",
+                  static_cast<int>(CastDeviceDataManager::GetInstance().GetDeviceState(device.deviceId)));
+            Shutdown(socketId);
+            socketId = INVALID_ID;
+            errorCode = CONNECTION_DEVICE_IS_MISSING;
+            break;
+        }
+        break;
+    }
+    return socketId;
+}
+
+bool ConnectionManager::IsDeviceConnectStateChange(const CastInnerRemoteDevice &device)
+{
+    auto newDevice = CastDeviceDataManager::GetInstance().GetDeviceByDeviceId(device.deviceId);
+    if (!CastDeviceDataManager::GetInstance().IsDeviceConnecting(device.deviceId) ||
+        (newDevice && newDevice->localCastSessionId != device.localCastSessionId)) {
+        return true;
+    }
+
+    return false;
 }
 
 void ConnectionManager::AddSessionListener(int castSessionId, std::shared_ptr<IConnectManagerSessionListener> listener)
@@ -1183,16 +1593,13 @@ void CastUnBindTargetCallback::OnUnbindResult(const PeerTargetId &targetId, int3
 
 void CastDeviceStateCallback::OnDeviceOnline(const DmDeviceInfo &deviceInfo)
 {
-    CLOGI("device(%s) is online", deviceInfo.deviceId);
-    DiscoveryManager::GetInstance().NotifyDeviceIsOnline(deviceInfo);
+    CLOGI("device(%{public}s) is online", Utils::Mask(deviceInfo.deviceId).c_str());
     std::string deviceId = std::string(deviceInfo.deviceId);
-    if (ConnectionManager::GetInstance().isBindTargetMap_.find(deviceId) ==
-        ConnectionManager::GetInstance().isBindTargetMap_.end()) {
+    if (!ConnectionManager::GetInstance().IsBindTarget(deviceId)) {
         return;
     }
 
     CLOGD("Online for bind target, networkId:%s", deviceInfo.networkId);
-    ConnectionManager::GetInstance().isBindTargetMap_.erase(deviceId);
     if (!CastDeviceDataManager::GetInstance().SetDeviceNetworkId(deviceId, deviceInfo.networkId)) {
         return;
     }
@@ -1209,6 +1616,7 @@ void CastDeviceStateCallback::OnDeviceOnline(const DmDeviceInfo &deviceInfo)
         CLOGI("current device is not single device %s ", deviceId.c_str());
         return;
     }
+    ConnectionManager::GetInstance().NotifyListenerToLoadSinkSA(deviceInfo.networkId);
     ConnectionManager::GetInstance().OpenConsultSession(*remote);
 }
 
@@ -1258,6 +1666,17 @@ bool ConnectionManager::IsThirdDevice(const CastInnerRemoteDevice &device)
         return true;
     }
     return device.bleMac.empty() && device.wifiPort == 0;
+}
+
+bool ConnectionManager::IsBindTarget(std::string deviceId)
+{
+    std::unique_lock<std::mutex> lock(mutex_);
+    if (isBindTargetMap_.find(deviceId) == isBindTargetMap_.end()) {
+        return false;
+    }
+
+    isBindTargetMap_.erase(deviceId);
+    return true;
 }
 
 int ConnectionManager::GetRTSPPort()

@@ -34,6 +34,7 @@
 #include "device_manager_callback.h"
 #include "session.h"
 #include "json.hpp"
+#include "socket.h"
 
 namespace OHOS {
 namespace CastEngine {
@@ -78,6 +79,8 @@ public:
     bool OpenConsultSession(const CastInnerRemoteDevice &device);
     void OnConsultDataReceived(int transportId, const void *data, unsigned int dataLen);
     bool OnConsultSessionOpened(int transportId, bool isSource);
+    void OnConsultDataReceivedFromSink(int transportId, const void *data, unsigned int dataLen);
+    bool handleConsultData(const json &body, int transportId);
 
     bool ConnectDevice(const CastInnerRemoteDevice &dev, const ProtocolType &protocolType);
     void DisconnectDevice(const std::string &deviceId);
@@ -88,7 +91,8 @@ public:
     int GetProtocolType() const;
     void SetProtocolType(ProtocolType protocol);
 
-    std::unique_ptr<CastLocalDevice> GetLocalDeviceInfo();
+    int32_t GetLocalDeviceInfo(CastLocalDevice &device);
+
     void NotifySessionIsReady(int transportId);
     void NotifyDeviceIsOffline(const std::string &deviceId);
     bool NotifyConnectStage(const CastInnerRemoteDevice &device, int result, int32_t reasonCode = REASON_DEFAULT);
@@ -108,9 +112,16 @@ public:
     bool IsSingle(const CastInnerRemoteDevice &device);
     bool IsHuaweiDevice(const CastInnerRemoteDevice &device);
     bool IsThirdDevice(const CastInnerRemoteDevice &device);
+    bool IsBindTarget(std::string deviceId);
+
+    bool SourceCheckConnectAccess(std::string &peerNetworkId);
+    bool SinkCheckConnectAccess(json &data, std::string &peerDeviceId);
 
     std::map<std::string, bool> isBindTargetMap_;
     std::string connectingDeviceId_{};
+    time_t openSessionTime_;
+    std::string authTimeString_ = "";
+    long totalAuthTime_ = 0;
 
 private:
     bool BindTarget(const CastInnerRemoteDevice &dev);
@@ -132,6 +143,13 @@ private:
 
     bool ParseAndCheckJsonData(const std::string &data, json &jsonData);
     std::unique_ptr<CastInnerRemoteDevice> GetRemoteFromJsonData(const std::string &Data);
+    int OpenSoftBusSocket(
+        const std::optional<std::string> &networkId, const CastInnerRemoteDevice &device, int32_t &errorCode);
+    void WaitAndConnectTargetDevice(const CastInnerRemoteDevice &dev);
+
+    bool IsWifiChannelFirst(const std::string &deviceId);
+    bool IsNeedDiscoveryDevice(const CastInnerRemoteDevice &dev);
+    bool IsDeviceConnectStateChange(const CastInnerRemoteDevice &device);
 
     int GetRTSPPort();
     std::shared_ptr<IConnectManagerSessionListener> GetSessionListener(int castSessionId);
@@ -149,6 +167,10 @@ private:
     DeviceGrabState grabState_{ DeviceGrabState::NO_GRAB };
     int32_t sessionId_{ -1 };
     int rtspPort_{ INVALID_PORT };
+    bool isWifiFresh_ = false;
+
+    // For synchronizing result of openSession between OpenConsultSession and OnOpenSession.
+    std::mutex openConsultingSessionMutex_;
 };
 
 class CastDeviceStateCallback : public DeviceStateCallback {
