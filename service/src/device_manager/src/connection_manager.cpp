@@ -309,17 +309,6 @@ bool ConnectionManager::OpenConsultSession(const CastInnerRemoteDevice &device)
         if (transportId <= INVALID_ID) {
             CLOGE("Failed to open session finally, id:%{public}d", transportId);
             CastEngineDfx::WriteErrorEvent(OPEN_SESSION_FAIL);
-            auto errorCode = GetErrorCode(CAST_ENGINE_SYSTEM_ID, CAST_ENGINE_CAST_PLUS_MODULE_ID, OPEN_SESSION_FAIL);
-            HiSysEventWriteWrap(__func__, {
-                    {"BIZ_SCENE", GetBIZSceneType(GetProtocolType())},
-                    {"BIZ_STAGE", static_cast<int32_t>(BIZSceneStage::ESTABLISH_CONSULT_SESSION)},
-                    {"STAGE_RES", static_cast<int32_t>(StageResType::STAGE_RES_IDLE)},
-                    {"ERROR_CODE", errorCode}}, {
-                    {"TO_CALL_PKG", DEVICE_MANAGER_NAME},
-                    {"LOCAL_SESS_NAME", ""},
-                    {"PEER_SESS_NAME", ""},
-                    {"PEER_UDID", GetAnonymousDeviceID(device.deviceId)}});
-
             return false;
         }
     }
