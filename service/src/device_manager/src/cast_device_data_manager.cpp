@@ -321,14 +321,14 @@ RemoteDeviceState CastDeviceDataManager::GetDeviceState(const std::string &devic
     return GetDeviceStateLocked(deviceId);
 }
 
-bool CastDeviceDataManager::IsDeviceConnecting(const std::string &deviceId)
-{
-    return GetDeviceState(deviceId) == RemoteDeviceState::CONNECTING;
-}
-
 bool CastDeviceDataManager::IsDeviceConnected(const std::string &deviceId)
 {
     return GetDeviceState(deviceId) == RemoteDeviceState::CONNECTED;
+}
+
+bool CastDeviceDataManager::IsDeviceConnecting(const std::string &deviceId)
+{
+    return GetDeviceState(deviceId) == RemoteDeviceState::CONNECTING;
 }
 
 bool CastDeviceDataManager::IsDeviceUsed(const std::string &deviceId)

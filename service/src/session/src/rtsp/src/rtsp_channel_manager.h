@@ -21,7 +21,6 @@
 #include <mutex>
 
 #include "channel.h"
-#include "handler.h"
 #include "message.h"
 #include "rtsp_listener_inner.h"
 #include "cast_engine_common.h"
@@ -30,10 +29,9 @@ namespace OHOS {
 namespace CastEngine {
 namespace CastEngineService {
 namespace CastSessionRtsp {
-
-class RtspChannelManager : public Handler, public Message {
+class RtspChannelManager : public Message, public std::enable_shared_from_this<RtspChannelManager> {
 public:
-    RtspChannelManager(RtspListenerInner *listener, ProtocolType protocolType);
+    RtspChannelManager(std::shared_ptr<RtspListenerInner> listener, ProtocolType protocolType);
     ~RtspChannelManager();
 
     void OnConnected(ChannelLinkType channelLinkType);
@@ -49,7 +47,6 @@ public:
     std::shared_ptr<IChannelListener> GetChannelListener();
 
     bool SendRtspData(const std::string &request);
-    void CfgNegTimeout(bool isClear);
     void SetNegAlgorithmId(int algorithmId);
 
 private:
@@ -66,31 +63,29 @@ private:
 
     class ChannelListener : public IChannelListener {
     public:
-        explicit ChannelListener(RtspChannelManager *channelManager) : channelManager_(channelManager) {}
-        ~ChannelListener()
-        {
-            channelManager_ = nullptr;
-        }
+        explicit ChannelListener(std::shared_ptr<RtspChannelManager> channelManager) : channelManager_(channelManager)
+        {}
+        ~ChannelListener() {}
 
         void OnDataReceived(const uint8_t *buffer, unsigned int length, long timeCost) final;
 
     private:
-        RtspChannelManager *channelManager_;
+        std::weak_ptr<RtspChannelManager> channelManager_;
     };
 
     constexpr static int SESSION_KEY_LENGTH = 16;
 
     bool SendData(const std::string &dataFrame);
-    void HandleMessage(const Message &msg) override;
 
     uint8_t sessionKeys_[SESSION_KEY_LENGTH] = {0};
     uint32_t sessionKeyLength_{ 0 };
-    RtspListenerInner *listener_;
+    std::weak_ptr<RtspListenerInner> listener_;
     bool isSessionActive_{ false };
     std::shared_ptr<Channel> channel_;
     std::shared_ptr<ChannelListener> channelListener_;
     int algorithmId_{ 0 };
     ProtocolType protocolType_;
+    std::mutex mutex_;
 };
 } // namespace CastSessionRtsp
 } // namespace CastEngineService

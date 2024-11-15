@@ -95,7 +95,7 @@ public:
     void Init(std::shared_ptr<IDiscoveryManagerListener> listener);
     void Deinit();
 
-    void StartDiscovery();
+    void StartDiscovery(int protocols, std::vector<std::string> drmSchemes);
     void StopDiscovery();
 
     bool StartAdvertise();
@@ -137,13 +137,15 @@ private:
 
     std::mutex mutex_;
     int32_t uid_{ 0 };
-    int protocolType_ = 0;
+    bool isNotifyDevice_{ false };
+    int protocolType_;
     std::vector<std::string> drmSchemes_;
     std::shared_ptr<IDiscoveryManagerListener> listener_;
     std::shared_ptr<EventRunner> eventRunner_;
     std::shared_ptr<DiscoveryEventHandler> eventHandler_;
     std::unordered_map<CastInnerRemoteDevice, int> remoteDeviceMap_;
     int32_t scanCount_;
+    bool hasStartDiscovery_ = false;
 };
 } // namespace CastEngineService
 } // namespace CastEngine

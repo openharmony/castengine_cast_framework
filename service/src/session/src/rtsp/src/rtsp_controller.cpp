@@ -41,9 +41,6 @@ std::shared_ptr<IRtspController> IRtspController::GetInstance(std::shared_ptr<IR
 RtspController::RtspController(std::shared_ptr<IRtspListener> listener, ProtocolType protocolType, EndType endType)
     : protocolType_(protocolType), listener_(listener), endType_(endType)
 {
-    rtspNetManager_ = std::make_unique<RtspChannelManager>(this, protocolType);
-    ResponseFuncMapInit();
-    RequestFuncMapInit();
     CLOGI("Out, endType %{public}d", endType);
 }
 
@@ -309,19 +306,22 @@ bool RtspController::StopEngine()
     return true;
 }
 
-std::string RtspController::ParseCipherItem(const std::string &item) const
+std::set<std::string> RtspController::ParseCipherItem(const std::string &item) const
 {
     if (item.empty()) {
-        return "";
+        return {};
     }
+    std::set<std::string> supportedCipherLists;
     std::vector<std::string> cipherLists;
     Utils::SplitString(item, cipherLists, ", ");
     for (size_t index = 0; index < cipherLists.size(); index++) {
-        if (Utils::ToLower(cipherLists[index]) == EncryptDecrypt::GetInstance().PC_ENCRYPT_ALG) {
-            return EncryptDecrypt::GetInstance().PC_ENCRYPT_ALG;
+        if (Utils::ToLower(cipherLists[index]) == EncryptDecrypt::CIPHER_AES_CTR_128) {
+            supportedCipherLists.insert(EncryptDecrypt::CIPHER_AES_CTR_128);
+        } else if (Utils::ToLower(cipherLists[index]) == EncryptDecrypt::CIPHER_AES_GCM_128) {
+            supportedCipherLists.insert(EncryptDecrypt::CIPHER_AES_GCM_128);
         }
     }
-    return "";
+    return supportedCipherLists;
 }
 
 bool RtspController::ProcessAnnounceRequest(RtspParse &request)
@@ -349,18 +349,26 @@ bool RtspController::ProcessAnnounceRequest(RtspParse &request)
     int version = instance.GetVersion();
     CLOGD("AuthNeg: Get algStr is %{public}s version %{public}d", encryptStr.c_str(), version);
 
-    std::string sendStr = ParseCipherItem(encryptStr);
-    if (sendStr.empty() && (listener_ != nullptr)) {
-        listener_->OnError(ERROR_CODE_DEFAULT);
+    std::set<std::string> cipherList = ParseCipherItem(encryptStr);
+    if (cipherList.empty() && (listener_ != nullptr)) {
+        CLOGE("cipherList is empty");
         return false;
     }
 
     EncryptionParamInfo encryptionParamInfo{};
-    encryptionParamInfo.controlChannelAlgId = static_cast<uint32_t>(instance.GetEncryptMatch(sendStr));
-    encryptionParamInfo.dataChannelAlgId = static_cast<uint32_t>(instance.GetEncryptMatch(sendStr));
+    encryptionParamInfo.controlChannelAlgId = static_cast<uint32_t>(instance.GetControlEncryptCipher(cipherList));
+    encryptionParamInfo.dataChannelAlgId = static_cast<uint32_t>(instance.GetMediaEncryptCipher(cipherList));
     negotiatedParamInfo_.SetEncryptionParamInfo(encryptionParamInfo);
 
     if (endType_ == EndType::CAST_SOURCE) {
+        std::string sendStr;
+        for (auto &cipher : cipherList) {
+            if (sendStr.empty()) {
+                sendStr = cipher;
+                continue;
+            }
+            sendStr += ", " + cipher;
+        }
         std::string req = RtspEncap::EncapAnnounce(sendStr, ++currentSeq_, version);
         rtspNetManager_->SendRtspData(req);
         waitRsp_ = WaitResponse::WAITING_RSP_ANNOUNCE;

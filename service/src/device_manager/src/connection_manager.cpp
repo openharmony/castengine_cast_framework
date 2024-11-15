@@ -106,8 +106,7 @@ SubDeviceType ConvertSubDeviceType(uint16_t deviceTypeId)
 const std::string AUTH_VERSION_KEY = "authVersion";
 const std::string AUTH_VERSION_1 = "1.0";
 const std::string AUTH_VERSION_2 = "2.0";
-
-constexpr int THIRD_TV = 0x2E;
+const std::string AUTH_VERSION_3 = "DM";
 
 const std::string KEY_BIND_TARGET_ACTION = "action";
 constexpr int ACTION_CONNECT_DEVICE = 0;
@@ -117,12 +116,6 @@ constexpr int ACTION_SEND_MESSAGE = 2;
 const std::string KEY_LOCAL_P2P_IP = "localP2PIp";
 const std::string KEY_REMOTE_P2P_IP = "remoteP2PIp";
 const std::string NETWORK_ID = "networkId";
-
-constexpr static int SECOND_BYTE_OFFSET = 8;
-constexpr static int THIRD_BYTE_OFFSET = 16;
-constexpr static int FOURTH_BYTE_OFFSET = 24;
-
-constexpr static int INT_FOUR = 4;
 
 void DeviceDiscoveryWriteWrap(const std::string& funcName, const std::string& puid)
 {
@@ -144,20 +137,6 @@ void EstablishConsultWriteWrap(const std::string& funcName, int sceneType, const
             {"BIZ_SCENE", sceneType},
             {"BIZ_STAGE", static_cast<int32_t>(BIZSceneStage::ESTABLISH_CONSULT_SESSION)},
             {"STAGE_RES", static_cast<int32_t>(StageResType::STAGE_RES_IDLE)},
-            {"ERROR_CODE", CAST_RADAR_SUCCESS}}, {
-            {"TO_CALL_PKG", DEVICE_MANAGER_NAME},
-            {"LOCAL_SESS_NAME", ""},
-            {"PEER_SESS_NAME", ""},
-            {"PEER_UDID", puid}});
-}
-
-void DeviceAuthWriteWrap(const std::string& funcName, int sceneType, const std::string& puid)
-{
-    HiSysEventWriteWrap(funcName, {
-            {"BIZ_SCENE", sceneType},
-            {"BIZ_STATE", static_cast<int32_t>(BIZStateType::BIZ_STATE_BEGIN)},
-            {"BIZ_STAGE", static_cast<int32_t>(BIZSceneStage::DEVICE_AUTHENTICATION)},
-            {"STAGE_RES", static_cast<int32_t>(StageResType::STAGE_RES_SUCCESS)},
             {"ERROR_CODE", CAST_RADAR_SUCCESS}}, {
             {"TO_CALL_PKG", DEVICE_MANAGER_NAME},
             {"LOCAL_SESS_NAME", ""},
@@ -289,6 +268,11 @@ int BindSocket(int32_t socketId, const ProtocolType &protocolType, bool isSingle
     return SOFTBUS_OK;
 }
 } // namespace SoftBus
+constexpr static int SECOND_BYTE_OFFSET = 8;
+constexpr static int THIRD_BYTE_OFFSET = 16;
+constexpr static int FOURTH_BYTE_OFFSET = 24;
+
+constexpr static int INT_FOUR = 4;
 
 /*
  * auth success
@@ -312,7 +296,7 @@ const std::string USER_ID_KEY = "userId";
 * User's unusual action or other event scenarios could cause changing of STATE or RESULT which delivered
 * by DM.
 */
-const std::map<int32_t, int32_t> CastBindTargetCallback::RESULT_REASON_MAP = {
+const std::map<int, int32_t> CastBindTargetCallback::RESULT_REASON_MAP = {
     // SINK peer click distrust button during 3-state authentication.
     { ERR_DM_AUTH_PEER_REJECT, REASON_DISTRUST_BY_SINK },
     // SINK peer click cancel button during pin code inputting.
@@ -325,7 +309,7 @@ const std::map<int32_t, int32_t> CastBindTargetCallback::RESULT_REASON_MAP = {
     { STOP_BIND, REASON_STOP_BIND_BY_SOURCE }
 };
 
-const std::map<int32_t, int32_t> CastBindTargetCallback::STATUS_REASON_MAP = {
+const std::map<int, int32_t> CastBindTargetCallback::STATUS_REASON_MAP = {
     // DEFAULT event
     { DmAuthStatus::STATUS_DM_AUTH_DEFAULT, REASON_DEFAULT },
     // Sink peer click trust during 3-state authentication.
@@ -494,29 +478,30 @@ void ConnectionManager::OnConsultDataReceived(int transportId, const void *data,
         CLOGE("Failed to get DmDeviceInfo");
         return;
     }
-    int castSessionId = INVALID_ID;
 
     constexpr int32_t sleepTimeMs = 50;
     constexpr int32_t retryTimes = 20;
-    int32_t retryTime = 0;
-
-    while (castSessionId == INVALID_ID) {
-        if (castSessionId != INVALID_ID || retryTime > retryTimes) {
-            break;
-        }
+    int castSessionId = GetCastSessionId(transportId);
+    for (int32_t retryTime = 1; castSessionId == INVALID_ID && retryTime < retryTimes; retryTime++) {
+        CLOGD("Retry for the %d(th) time after sleeping %dms", retryTime, sleepTimeMs);
         std::this_thread::sleep_for(std::chrono::milliseconds(sleepTimeMs));
         castSessionId = GetCastSessionId(transportId);
-        retryTime++;
     }
+
     if (castSessionId == INVALID_ID) {
-        CLOGE("session id invalid");
+        CLOGE("Invalid CastSessionId!");
         return;
     }
     CLOGI("protocolType is %d", device->protocolType);
     if (device->protocolType == ProtocolType::CAST_PLUS_STREAM) {
         SetSessionProtocolType(castSessionId, device->protocolType);
     }
-
+    if (!listener_) {
+        CLOGE("Detect absence of listener_.");
+        return;
+    }
+    listener_->ReportSessionCreate(castSessionId);
+    device->localCastSessionId = castSessionId;
     if (!CastDeviceDataManager::GetInstance().AddDevice(*device, dmDevice)) {
         return;
     }
@@ -535,13 +520,12 @@ void ConnectionManager::OnConsultDataReceived(int transportId, const void *data,
 int ConnectionManager::GetCastSessionId(int transportId)
 {
     std::lock_guard<std::mutex> lock(mutex_);
-    for (const auto &element : transIdToCastSessionIdMap_) {
-        if (element.first == transportId) {
-            return element.second;
-        }
+    if (transIdToCastSessionIdMap_.count(transportId) == 1) {
+        return transIdToCastSessionIdMap_[transportId];
+    } else {
+        CLOGE("Invalid transport id:%{public}d", transportId);
+        return INVALID_ID;
     }
-    CLOGE("Invalid transport id:%{public}d", transportId);
-    return INVALID_ID;
 }
 
 bool ConnectionManager::OnConsultSessionOpened(int transportId, bool isSource)
@@ -655,12 +639,10 @@ bool ConnectionManager::ConnectDevice(const CastInnerRemoteDevice &dev, const Pr
     DeviceDiscoveryWriteWrap(__func__, GetAnonymousDeviceID(dev.deviceId));
 
     auto &deviceId = dev.deviceId;
-    CLOGI("ConnectDevice in, %s", deviceId.c_str());
-
-    if (CastDeviceDataManager::GetInstance().IsDeviceUsed(deviceId)) {
-        CLOGD("Device: %s is used.", deviceId.c_str());
-        return true;
-    }
+    CLOGI("deviceId %{public}s, protocolType %{public}d, capabilityInfo %{public}d, wifiIp %{public}s, "
+          "bleMac %{public}s, isLeagacy %{public}d, isFresh wifi %{public}d, ble %{public}d",
+          Utils::Mask(deviceId).c_str(), protocolType, dev.capabilityInfo, Utils::Mask(dev.wifiIp).c_str(),
+          Utils::Mask(dev.bleMac).c_str(), dev.isLeagacy, dev.isWifiFresh, dev.isBleFresh);
 
     if (!UpdateDeviceState(deviceId, RemoteDeviceState::CONNECTING)) {
         CLOGE("Device(%s) is missing", deviceId.c_str());
@@ -672,7 +654,7 @@ bool ConnectionManager::ConnectDevice(const CastInnerRemoteDevice &dev, const Pr
 
     if (IsNeedDiscoveryDevice(dev)) {
         CLOGI("need discovery device");
-        DiscoveryManager::GetInstance().StartDiscovery();
+        DiscoveryManager::GetInstance().StartDiscovery(static_cast<int>(protocolType), {});
         std::thread([this, dev]() {
             Utils::SetThreadName("ConnectTargetDevice");
             WaitAndConnectTargetDevice(dev);
@@ -684,7 +666,7 @@ bool ConnectionManager::ConnectDevice(const CastInnerRemoteDevice &dev, const Pr
 
     std::string networkId;
     if (IsDeviceTrusted(dev.deviceId, networkId) && IsSingle(dev) && SourceCheckConnectAccess(networkId)) {
-        DeviceAuthWriteWrap(__func__, GetBIZSceneType(GetProtocolType()), GetAnonymousDeviceID(dev.deviceId));
+        NotifyListenerToLoadSinkSA(networkId);
         if (!CastDeviceDataManager::GetInstance().SetDeviceNetworkId(deviceId, networkId) ||
             !OpenConsultSession(dev)) {
             (void)UpdateDeviceState(deviceId, RemoteDeviceState::FOUND);
@@ -697,12 +679,13 @@ bool ConnectionManager::ConnectDevice(const CastInnerRemoteDevice &dev, const Pr
         (void)UpdateDeviceState(deviceId, RemoteDeviceState::FOUND);
         return false;
     }
+    std::unique_lock<std::mutex> lock(mutex_);
     if (isBindTargetMap_.find(deviceId) != isBindTargetMap_.end()) {
         isBindTargetMap_[deviceId] = true;
     } else {
         isBindTargetMap_.insert({ deviceId, true });
     }
-    CLOGI("ConnectDevice out, %s", deviceId.c_str());
+    CLOGI("ConnectDevice out, %{public}s", Utils::Mask(deviceId).c_str());
     return true;
 }
 
@@ -710,6 +693,8 @@ void ConnectionManager::DisconnectDevice(const std::string &deviceId)
 {
     CLOGI("DisconnectDevice in, deviceId %{public}s", Utils::Mask(deviceId).c_str());
 
+    std::unique_lock<std::mutex> lock(mutex_);
+    connectingDeviceId_ = "";
     DiscoveryManager::GetInstance().StopDiscovery();
     if (!CastDeviceDataManager::GetInstance().IsDeviceUsed(deviceId)) {
         CLOGE("Device(%s) is not used, remove it", deviceId.c_str());
@@ -717,7 +702,11 @@ void ConnectionManager::DisconnectDevice(const std::string &deviceId)
         return;
     }
 
+    protocolType_ = ProtocolType::CAST_PLUS_MIRROR;
+    lock.unlock();
+    UpdateDeviceState(deviceId, RemoteDeviceState::FOUND);
     DestroyConsulationSession(deviceId);
+    CastDeviceDataManager::GetInstance().GetDeviceByDeviceId(deviceId);
     auto isActiveAuth = CastDeviceDataManager::GetInstance().GetDeviceIsActiveAuth(deviceId);
     if (isActiveAuth == std::nullopt) {
         return;
@@ -778,12 +767,17 @@ int32_t ConnectionManager::GetLocalDeviceInfo(CastLocalDevice &device)
 
 void ConnectionManager::NotifySessionIsReady(int transportId)
 {
+    if (!listener_) {
+        CLOGE("Detect absence of listener_.");
+        return;
+    }
     int castSessionId = listener_->NotifySessionIsReady();
     if (castSessionId == INVALID_ID) {
         CLOGE("sessionId is invalid");
         return;
     }
 
+    CLOGD("Update cast session id map: %d: %d", transportId, castSessionId);
     std::lock_guard<std::mutex> lock(mutex_);
     transIdToCastSessionIdMap_.insert({ transportId, castSessionId });
 }
@@ -791,11 +785,11 @@ void ConnectionManager::NotifySessionIsReady(int transportId)
 void ConnectionManager::NotifyDeviceIsOffline(const std::string &deviceId)
 {
     CLOGI("NotifyDeviceIsOffline in");
-    std::lock_guard<std::mutex> lock(mutex_);
-    if (!listener_) {
+    auto listener = GetListener();
+    if (!listener) {
         return;
     }
-    listener_->NotifyDeviceIsOffline(deviceId);
+    listener->NotifyDeviceIsOffline(deviceId);
 }
 
 bool ConnectionManager::NotifyConnectStage(const CastInnerRemoteDevice &device, int result, int32_t reasonCode)
@@ -972,26 +966,12 @@ bool ConnectionManager::BindTarget(const CastInnerRemoteDevice &dev)
     BuildBindParam(dev, bindParam);
     int ret = DeviceManager::GetInstance().BindTarget(PKG_NAME, targetId, bindParam,
         std::make_shared<CastBindTargetCallback>());
-    if (ret == ERR_DM_AUTH_BUSINESS_BUSY) {
-        CLOGE("bind fail, target is binding %d", ret);
-        auto networkId = CastDeviceDataManager::GetInstance().GetDeviceNetworkId(dev.deviceId);
-        PeerTargetId targetId = {
-            .deviceId = *networkId,
-        };
-        std::map<std::string, std::string> unbindParam{};
-        if (!CastDeviceDataManager::GetInstance().IsDoubleFrameDevice(dev.deviceId)) {
-            DeviceManager::GetInstance().UnbindTarget(PKG_NAME, targetId, unbindParam, nullptr);
-        } else {
-            unbindParam.insert(
-                std::pair<std::string, std::string>(PARAM_KEY_META_TYPE, std::to_string(5)));
-            DeviceManager::GetInstance().UnbindTarget(PKG_NAME, targetId, unbindParam, nullptr);
-        }
-        return false;
-    }
-
     if (ret != DM_OK) {
         CLOGE("ConnectDevice BindTarget fail, ret = %{public}d)", ret);
-        CastEngineDfx::WriteErrorEvent(AUTHENTICATE_DEVICE_FAIL);
+        if (ret == ERR_DM_AUTH_BUSINESS_BUSY) {
+            DeviceManager::GetInstance().UnbindTarget(
+                PKG_NAME, targetId, bindParam, std::make_shared<CastUnBindTargetCallback>());
+        }
         return false;
     }
 
@@ -1132,12 +1112,15 @@ void ConnectionManager::EncryptPort(int port, const uint8_t *sessionKey, json &b
     int portArraySize = 4;
     ConstPacketData inputData = { portArray.get(), portArraySize };
 
-    uint8_t encryptedPort[portArraySize + EncryptDecrypt::AES_IV_LEN];
-    PacketData outputData = { encryptedPort, 0 };
-    EncryptDecrypt::GetInstance().EncryptData(EncryptDecrypt::CTR_CODE, sessionKey, SESSION_KEY_LENGTH, inputData,
-        outputData);
-    CLOGD("encrypt result is %d ", outputData.length);
-    std::string encryptedPortLatin1(reinterpret_cast<const char *>(outputData.data), outputData.length);
+    int encryptedDataLen = 0;
+    auto encryptedData = EncryptDecrypt::GetInstance().EncryptData(EncryptDecrypt::CTR_CODE, { sessionKey,
+        SESSION_KEY_LENGTH }, inputData, encryptedDataLen);
+    if (!encryptedData) {
+        CLOGE("encrypt error");
+        return;
+    }
+    CLOGD("encrypt result is %d ", encryptedDataLen);
+    std::string encryptedPortLatin1(reinterpret_cast<const char *>(encryptedData.get()), encryptedDataLen);
     std::string encryptedPortUtf8 = convLatin1ToUTF8(encryptedPortLatin1);
     body[PORT_KEY] = encryptedPortUtf8;
 }
@@ -1148,11 +1131,15 @@ void ConnectionManager::EncryptIp(const std::string &ip, const std::string &key,
         return;
     }
     ConstPacketData inputData = { reinterpret_cast<const uint8_t *>(ip.c_str()), ip.size() };
-    uint8_t encrypted[ip.size() + EncryptDecrypt::AES_IV_LEN];
-    PacketData outputData = { encrypted, 0 };
-    EncryptDecrypt::GetInstance().EncryptData(EncryptDecrypt::CTR_CODE, sessionKey, SESSION_KEY_LENGTH, inputData,
-        outputData);
-    for (int i = 0; i < outputData.length; i++) {
+    int encryptedDataLen = 0;
+    auto encryptedData = EncryptDecrypt::GetInstance().EncryptData(EncryptDecrypt::CTR_CODE, { sessionKey,
+        SESSION_KEY_LENGTH }, inputData, encryptedDataLen);
+    if (!encryptedData) {
+        CLOGE("encrypt error");
+        return;
+    }
+    uint8_t *encrypted = encryptedData.get();
+    for (int i = 0; i < encryptedDataLen; i++) {
         body[key].push_back(encrypted[i]);
     }
     CLOGI("encrypt %s finish", key.c_str());
@@ -1160,12 +1147,13 @@ void ConnectionManager::EncryptIp(const std::string &ip, const std::string &key,
 
 std::unique_ptr<uint8_t[]> ConnectionManager::intToByteArray(int32_t num)
 {
+    unsigned int number = static_cast<unsigned int>(num);
     std::unique_ptr<uint8_t[]> result = std::make_unique<uint8_t[]>(INT_FOUR);
-    int i = 0;
-    result[i] = (num >> FOURTH_BYTE_OFFSET) & 0xFF;
-    result[++i] = (num >> THIRD_BYTE_OFFSET) & 0xFF;
-    result[++i] = (num >> SECOND_BYTE_OFFSET) & 0xFF;
-    result[++i] = num & 0xFF;
+    unsigned int i = 0;
+    result[i] = (number >> FOURTH_BYTE_OFFSET) & 0xFF;
+    result[++i] = (number >> THIRD_BYTE_OFFSET) & 0xFF;
+    result[++i] = (number >> SECOND_BYTE_OFFSET) & 0xFF;
+    result[++i] = number & 0xFF;
     return result;
 }
 
@@ -1401,20 +1389,20 @@ void ConnectionManager::ResetListener()
 
 int32_t ConnectionManager::GetSessionProtocolType(int sessionId, ProtocolType &protocolType)
 {
-    std::lock_guard<std::mutex> lock(mutex_);
-    if (!listener_) {
+    auto listener = GetListener();
+    if (!listener) {
         return CAST_ENGINE_ERROR;
     }
-    return listener_->GetSessionProtocolType(sessionId, protocolType);
+    return listener->GetSessionProtocolType(sessionId, protocolType);
 }
 
 int32_t ConnectionManager::SetSessionProtocolType(int sessionId, ProtocolType protocolType)
 {
-    std::lock_guard<std::mutex> lock(mutex_);
-    if (!listener_) {
+    auto listener = GetListener();
+    if (!listener) {
         return CAST_ENGINE_ERROR;
     }
-    return listener_->SetSessionProtocolType(sessionId, protocolType);
+    return listener->SetSessionProtocolType(sessionId, protocolType);
 }
 
 void ConnectionManager::SendConsultInfo(const std::string &deviceId, int port)
@@ -1622,39 +1610,32 @@ void CastDeviceStateCallback::OnDeviceOnline(const DmDeviceInfo &deviceInfo)
 
 void CastDeviceStateCallback::OnDeviceOffline(const DmDeviceInfo &deviceInfo)
 {
-    CLOGI("device(%s) is offline", deviceInfo.deviceId);
-    ConnectionManager::GetInstance().NotifyDeviceIsOffline(deviceInfo.deviceId);
+    CLOGI("device(%{public}s) is offline", Utils::Mask(deviceInfo.deviceId).c_str());
 }
 
 void CastDeviceStateCallback::OnDeviceChanged(const DmDeviceInfo &deviceInfo)
 {
-    CLOGI("device(%s) is changed", deviceInfo.deviceId);
+    CLOGI("device(%{public}s) is changed", Utils::Mask(deviceInfo.deviceId).c_str());
 }
 
 void CastDeviceStateCallback::OnDeviceReady(const DmDeviceInfo &deviceInfo)
 {
-    CLOGI("device(%s) is ready", deviceInfo.deviceId);
+    CLOGI("device(%{public}s) is ready", Utils::Mask(deviceInfo.deviceId).c_str());
 }
 
 bool ConnectionManager::IsSingle(const CastInnerRemoteDevice &device)
 {
-    if (device.deviceTypeId == THIRD_TV) {
-        return false;
-    }
-
-    if (device.customData.empty() && device.wifiPort == 0 && device.bleMac.empty()) {
+    if (device.authVersion == AUTH_VERSION_3) {
+        CLOGI("Is huawei single device");
         return true;
-    }
-
-    if (device.customData.empty()) {
-        return device.wifiPort != 0 || !device.bleMac.empty();
     }
     return false;
 }
 
 bool ConnectionManager::IsHuaweiDevice(const CastInnerRemoteDevice &device)
 {
-    if (!device.customData.empty()) {
+    if (device.authVersion == AUTH_VERSION_2) {
+        CLOGI("Is huawei device");
         return true;
     }
     return false;
@@ -1662,10 +1643,12 @@ bool ConnectionManager::IsHuaweiDevice(const CastInnerRemoteDevice &device)
 
 bool ConnectionManager::IsThirdDevice(const CastInnerRemoteDevice &device)
 {
-    if (device.deviceTypeId == THIRD_TV) {
+    if (device.authVersion == AUTH_VERSION_1) {
+        CLOGI("Is third device");
         return true;
     }
-    return device.bleMac.empty() && device.wifiPort == 0;
+
+    return false;
 }
 
 bool ConnectionManager::IsBindTarget(std::string deviceId)
