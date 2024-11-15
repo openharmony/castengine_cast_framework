@@ -1626,7 +1626,7 @@ void CastDeviceStateCallback::OnDeviceReady(const DmDeviceInfo &deviceInfo)
 bool ConnectionManager::IsSingle(const CastInnerRemoteDevice &device)
 {
     if (device.authVersion == AUTH_VERSION_3) {
-        CLOGI("Is huawei single device");
+        CLOGI("Is hw single device");
         return true;
     }
     return false;
@@ -1635,7 +1635,7 @@ bool ConnectionManager::IsSingle(const CastInnerRemoteDevice &device)
 bool ConnectionManager::IsHuaweiDevice(const CastInnerRemoteDevice &device)
 {
     if (device.authVersion == AUTH_VERSION_2) {
-        CLOGI("Is huawei device");
+        CLOGI("Is hw device");
         return true;
     }
     return false;
