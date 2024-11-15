@@ -51,7 +51,6 @@ const std::string KEY_PROJECTION_MODE = "projectionMode";
 const std::string PROJECTION_MODE_MIRROR = "MIRROR";
 const std::string PROJECTION_MODE_STREAM = "MEDIA_RESOURCE";
 const std::string KEY_UNBIND_TARGET_CAUSE = "unbindCause";
-constexpr const char *AIRSHARING_MODULE_NAME = "com.huawei.android.airsharing+CastPlusDiscoveryModule";
 
 constexpr int CAUSE_AUTH_SUCCESS = 0;
 constexpr int CAUSE_AUTH_FAILED = 1;
