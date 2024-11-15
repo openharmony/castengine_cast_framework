@@ -138,7 +138,66 @@ void DiscoveryManager::Deinit()
     StopDiscovery();
     ResetListener();
     DeviceManager::GetInstance().UnInitDeviceManager(PKG_NAME);
-    eventRunner_->Stop();
+}
+
+void DiscoveryManager::StartDiscovery(int protocols, std::vector<std::string> drmSchemes)
+{
+    HiSysEventWriteWrap(__func__, {
+            {"BIZ_SCENE", static_cast<int32_t>(BIZSceneType::DEVICE_DISCOVERY)},
+            {"BIZ_STATE", static_cast<int32_t>(BIZStateType::BIZ_STATE_BEGIN)},
+            {"BIZ_STAGE", static_cast<int32_t>(BIZSceneStage::START_DISCOVERY)},
+            {"STAGE_RES", static_cast<int32_t>(StageResType::STAGE_RES_IDLE)},
+            {"ERROR_CODE", CAST_RADAR_SUCCESS}}, {
+            {"TO_CALL_PKG", ""},
+            {"LOCAL_SESS_NAME", ""},
+            {"PEER_SESS_NAME", ""},
+            {"PEER_UDID", ""}});
+
+    CLOGI("StartDiscovery in");
+    protocolType_ = protocols;
+    drmSchemes_ = drmSchemes;
+    CastLocalDevice localDevice;
+    ConnectionManager::GetInstance().GetLocalDeviceInfo(localDevice);
+    std::lock_guard<std::mutex> lock(mutex_);
+    std::thread([this]() {
+        Utils::SetThreadName("DiscoveryEventRunner");
+        if (eventRunner_ != nullptr) {
+            eventRunner_->Run();
+        }
+    }).detach();
+    scanCount_ = 0;
+    for (auto it = remoteDeviceMap_.begin(); it != remoteDeviceMap_.end();) {
+        std::string deviceId = it->first.deviceId;
+        CastDeviceDataManager::GetInstance().SetDeviceNotFresh(deviceId);
+        it++;
+    }
+    remoteDeviceMap_.clear();
+    std::string connectDeviceId = ConnectionManager::GetInstance().GetConnectingDeviceId();
+    if (!connectDeviceId.empty()) {
+        auto device =  CastDeviceDataManager::GetInstance().GetDeviceByDeviceId(connectDeviceId);
+        if (device != std::nullopt) {
+            device->deviceName = "";
+            remoteDeviceMap_[*device] = scanCount_ + 1;
+        }
+    }
+    uid_ = IPCSkeleton::GetCallingUid();
+    hasStartDiscovery_ = true;
+    eventHandler_->RemoveEvent(EVENT_START_DISCOVERY);
+    eventHandler_->SendEvent(EVENT_START_DISCOVERY);
+    CLOGI("StartDiscovery out");
+}
+
+void DiscoveryManager::StopDiscovery()
+{
+    CLOGI("StopDiscovery in");
+    hasStartDiscovery_ = false;
+    SetDeviceNotFresh();
+    eventHandler_->RemoveAllEvents();
+    if (eventRunner_ != nullptr) {
+        eventRunner_->Stop();
+    }
+
+    StopDmDiscovery();
 }
 
 void DiscoveryManager::GetAndReportTrustedDevices()
@@ -212,40 +271,6 @@ bool DiscoveryManager::StopAdvertise()
 int DiscoveryManager::GetProtocolType() const
 {
     return protocolType_;
-}
-
-void DiscoveryManager::StartDiscovery()
-{
-    HiSysEventWriteWrap(__func__, {
-            {"BIZ_SCENE", static_cast<int32_t>(BIZSceneType::DEVICE_DISCOVERY)},
-            {"BIZ_STATE", static_cast<int32_t>(BIZStateType::BIZ_STATE_BEGIN)},
-            {"BIZ_STAGE", static_cast<int32_t>(BIZSceneStage::START_DISCOVERY)},
-            {"STAGE_RES", static_cast<int32_t>(StageResType::STAGE_RES_IDLE)},
-            {"ERROR_CODE", CAST_RADAR_SUCCESS}}, {
-            {"TO_CALL_PKG", ""},
-            {"LOCAL_SESS_NAME", ""},
-            {"PEER_SESS_NAME", ""},
-            {"PEER_UDID", ""}});
-
-    CLOGI("StartDiscovery in");
-    scanCount_ = 0;
-    remoteDeviceMap_.clear();
-    std::lock_guard<std::mutex> lock(mutex_);
-    uid_ = IPCSkeleton::GetCallingUid();
-    eventHandler_->SendEvent(EVENT_START_DISCOVERY);
-    CLOGI("StartDiscovery out");
-}
-
-void DiscoveryManager::StopDiscovery()
-{
-    CLOGI("StopDiscovery in");
-    SetDeviceNotFresh();
-    eventHandler_->RemoveAllEvents();
-    if (eventRunner_ != nullptr) {
-        eventRunner_->Stop();
-    }
-
-    StopDmDiscovery();
 }
 
 void DiscoveryManager::SetListener(std::shared_ptr<IDiscoveryManagerListener> listener)
@@ -346,7 +371,7 @@ void DiscoveryManager::NotifyDeviceIsFound(const CastInnerRemoteDevice &newDevic
     }
     devices.push_back(newDevice);
 
-    std::lock_guard<std::mutex> lock(mutex_);
+    isNotifyDevice_ = system::GetBoolParameter(NOTIFY_DEVICE_FOUND, false);
     auto listener = GetListener();
     if (listener == nullptr) {
         CLOGE("listener is null");

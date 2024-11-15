@@ -76,7 +76,7 @@ private:
     bool SendAction(ActionType type);
     void ProcessSinkDeviceType(const std::string &content);
     bool StopEngine();
-    std::string ParseCipherItem(const std::string &item) const;
+    std::set<std::string> ParseCipherItem(const std::string &item) const;
     bool ProcessOptionRequest(RtspParse &request);
     bool ProcessSetupRequest(RtspParse &request);
     bool ProcessGetParameterRequestM3(RtspParse &request);
