@@ -21,6 +21,7 @@
 
 #include <cstdint>
 #include <string>
+#include <set>
 
 #include "openssl/hmac.h"
 #include "openssl/err.h"
@@ -44,14 +45,17 @@ class EncryptDecrypt final {
 public:
     static EncryptDecrypt &GetInstance();
 
-    bool EncryptData(int algCode, const uint8_t *key, int keyLen, ConstPacketData inputData, PacketData &outputData);
-    bool DecryptData(int algCode, const uint8_t *key, int keyLen, ConstPacketData inputData, PacketData &outputData);
+    std::unique_ptr<uint8_t[]> EncryptData(int algCode, ConstPacketData sessionKey,
+        ConstPacketData inputData, int &outLen);
+    std::unique_ptr<uint8_t[]> DecryptData(int algCode, ConstPacketData sessionKey,
+        ConstPacketData inputData, int &outLen);
     std::string GetEncryptInfo();
-    int GetEncryptMatch(const std::string &encyptInfo);
+    int GetMediaEncryptCipher(const std::set<std::string> &cipherList);
+    int GetControlEncryptCipher(const std::set<std::string> &cipherList);
     int GetVersion();
 
     static const int AES_KEY_LEN_128 = 16;
-    static const unsigned int AES_IV_LEN = 16;
+    static const int AES_IV_LEN = 16;
     static const int AES_KEY_LEN = 16;
     static const int AES_KEY_SIZE = 16;
     static const int PC_ENCRYPT_LEN = 64;
@@ -61,7 +65,8 @@ public:
     static const int CTR_CODE = 1;
     static const int GCM_CODE = 2;
 
-    static const std::string PC_ENCRYPT_ALG;
+    static const std::string CIPHER_AES_CTR_128;
+    static const std::string CIPHER_AES_GCM_128;
 
 private:
     enum ErrorCode : int {
@@ -97,7 +102,7 @@ private:
         SEC_ERR_SETAAD_FAIL,
     };
 
-    static const int AES_GCM_MAX_IVLEN = 12;
+    static const int AES_GCM_MIN_IVLEN = 12;
     static const int AES_GCM_SIV_TAG_LEN = 16;
     static const int UNSIGNED_CHAR_MIN = 0;
     static const int UNSIGNED_CHAR_MAX = 255;
@@ -111,8 +116,8 @@ private:
         ConstPacketData sessionIV);
     int AES128GCMCheckEncryPara(ConstPacketData inputData, PacketData &outputData, EncryptInfo &encryInfo);
     int AES128GCMCheckDecryptPara(ConstPacketData inputData, PacketData &outputData, EncryptInfo &encryInfo);
-    int EnctyptProcess(ConstPacketData inputData, PacketData &outputData, EncryptInfo &encryInfo, EVP_CIPHER_CTX *ctx);
-    int DecryptProcess(ConstPacketData inputData, PacketData &outputData, EncryptInfo &encryInfo, EVP_CIPHER_CTX *ctx);
+    int EnctyptProcess(ConstPacketData inputData, PacketData &outputData, EncryptInfo &encryInfo);
+    int DecryptProcess(ConstPacketData inputData, PacketData &outputData, EncryptInfo &encryInfo);
     int AES128GCMEncry(ConstPacketData inputData, PacketData &outputData, EncryptInfo &encryInfo);
     int AES128GCMDecrypt(ConstPacketData inputData, PacketData &outputData, EncryptInfo &encryInfo);
 };

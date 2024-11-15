@@ -27,7 +27,8 @@ namespace CastEngine {
 namespace CastEngineService {
 DEFINE_CAST_ENGINE_LABEL("Cast-EncryptDecrypt");
 
-const std::string EncryptDecrypt::PC_ENCRYPT_ALG = "aes128ctr";
+const std::string EncryptDecrypt::CIPHER_AES_CTR_128 = "aes128ctr";
+const std::string EncryptDecrypt::CIPHER_AES_GCM_128 = "aes128gcm";
 
 EncryptDecrypt::EncryptDecrypt() {}
 
@@ -159,42 +160,43 @@ int EncryptDecrypt::AES128Decrypt(ConstPacketData inputData, PacketData &outputD
 
 int EncryptDecrypt::AES128GCMCheckEncryPara(ConstPacketData inputData, PacketData &outputData, EncryptInfo &encryInfo)
 {
-    if ((inputData.length < 0) || (encryInfo.aad.length < 0) || (encryInfo.key.length != AES_KEY_LEN_128) ||
-        (encryInfo.iv.length < AES_GCM_MAX_IVLEN) || (encryInfo.tag.length < AES_GCM_SIV_TAG_LEN)) {
+    if (encryInfo.key.length != AES_KEY_LEN_128) {
         return SEC_ERR_INVALID_KEY_LEN;
     }
-    if ((inputData.data == nullptr) && (inputData.length > 0)) {
+    if (encryInfo.key.data == nullptr) {
+        return SEC_ERR_INVALID_KEY;
+    }
+    if (inputData.data == nullptr || inputData.length <= 0) {
         return SEC_ERR_INVALID_PLAIN;
     }
-    if ((encryInfo.aad.data == nullptr) && (encryInfo.aad.length > 0)) {
-        return SEC_ERR_INVALID_AAD;
+    if (encryInfo.iv.length < AES_GCM_MIN_IVLEN) {
+        return SEC_ERR_INVALID_IV_LEN;
     }
-    if ((encryInfo.key.data == nullptr) || (encryInfo.iv.data == nullptr) || (encryInfo.tag.data == nullptr)) {
+    if (encryInfo.iv.data == nullptr) {
         return SEC_ERR_INVALID_IV;
     }
-    if (outputData.length < inputData.length) {
+    if (outputData.length < inputData.length || outputData.length <= AES_GCM_SIV_TAG_LEN) {
         return SEC_ERR_INVALID_DATA_LEN;
     }
-    if ((outputData.data == nullptr) && (outputData.length > 0)) {
+    if (outputData.data == nullptr || outputData.length <= 0) {
         return SEC_ERR_INVALID_CIPHERTEXT;
     }
     return 0;
 }
 
-int EncryptDecrypt::EnctyptProcess(ConstPacketData inputData, PacketData &outputData, EncryptInfo &encryInfo,
-    EVP_CIPHER_CTX *ctx)
+int EncryptDecrypt::EnctyptProcess(ConstPacketData inputData, PacketData &outputData, EncryptInfo &encryInfo)
 {
     int ret = 0;
     int len = 0;
     int cipherTextLen = 0;
+    EVP_CIPHER_CTX *ctx = nullptr;
 
     // Enctypt
     do {
         /* Create and initialise the context */
         ctx = EVP_CIPHER_CTX_new();
         if (ctx == nullptr) {
-            ret = SEC_ERR_CREATECIPHER_FAIL;
-            break;
+            return SEC_ERR_CREATECIPHER_FAIL;
         }
 
         /* Initialise the encryption operation. */
@@ -209,17 +211,14 @@ int EncryptDecrypt::EnctyptProcess(ConstPacketData inputData, PacketData &output
             break;
         }
 
-        /* Initialise key and IV */
-        if (EVP_EncryptInit_ex(ctx, nullptr, nullptr, encryInfo.key.data, encryInfo.iv.data) != 1) {
-            ret = SEC_ERR_INVALID_KEY;
+        if (!EVP_CIPHER_CTX_set_key_length(ctx, encryInfo.key.length)) {
+            ret = SEC_ERR_INVALID_KEY_LEN;
             break;
         }
 
-        /*
-         * Provide any AAD data. This can be called zero or more times as required
-         */
-        if (EVP_EncryptUpdate(ctx, nullptr, &len, encryInfo.aad.data, encryInfo.aad.length) != 1) {
-            ret = SEC_ERR_SETAAD_FAIL;
+        /* Initialise key and IV */
+        if (EVP_EncryptInit_ex(ctx, nullptr, nullptr, encryInfo.key.data, encryInfo.iv.data) != 1) {
+            ret = SEC_ERR_INVALID_KEY;
             break;
         }
 
@@ -246,73 +245,80 @@ int EncryptDecrypt::EnctyptProcess(ConstPacketData inputData, PacketData &output
         }
         cipherTextLen += len;
 
+        if (cipherTextLen + AES_GCM_SIV_TAG_LEN < outputData.length) {
+            ret = SEC_ERR_INVALID_DATA_LEN;
+            break;
+        }
+
         /* Get the tag */
-        if (EVP_CIPHER_CTX_ctrl(ctx, EVP_CTRL_GCM_GET_TAG, encryInfo.tag.length, encryInfo.tag.data) != 1) {
+        if (EVP_CIPHER_CTX_ctrl(ctx, EVP_CTRL_GCM_GET_TAG, AES_GCM_SIV_TAG_LEN, outputData.data + cipherTextLen) != 1) {
             ret = SEC_ERR_GCMGETTAG_FAIL;
             break;
         }
-        outputData.length = cipherTextLen;
-        ret = 0;
-    } while (0);
 
+        outputData.length = cipherTextLen + AES_GCM_SIV_TAG_LEN;
+    } while (0);
+    EVP_CIPHER_CTX_free(ctx);
+    ctx = nullptr;
     return ret;
 }
 
 int EncryptDecrypt::AES128GCMEncry(ConstPacketData inputData, PacketData &outputData, EncryptInfo &encryInfo)
 {
-    EVP_CIPHER_CTX *ctx = nullptr;
-
     int ret = AES128GCMCheckEncryPara(inputData, outputData, encryInfo);
     if (ret != 0) {
         return ret;
     }
 
-    ret = EnctyptProcess(inputData, outputData, encryInfo, ctx);
+    ret = EnctyptProcess(inputData, outputData, encryInfo);
 
-    if (ctx != nullptr) {
-        EVP_CIPHER_CTX_free(ctx);
-        ctx = nullptr;
-    }
     return ret;
 }
 
 int EncryptDecrypt::AES128GCMCheckDecryptPara(ConstPacketData inputData, PacketData &outputData, EncryptInfo &encryInfo)
 {
-    if ((inputData.length < 0) || (encryInfo.aad.length < 0) || (encryInfo.key.length != AES_KEY_LEN_128) ||
-        (encryInfo.iv.length < AES_GCM_MAX_IVLEN) || (encryInfo.tag.length < AES_GCM_SIV_TAG_LEN)) {
+    if (encryInfo.key.length != AES_KEY_LEN_128) {
         return SEC_ERR_INVALID_KEY_LEN;
     }
-    if ((inputData.data == nullptr) && (inputData.length > 0)) {
-        return SEC_ERR_INVALID_CIPHERTEXT;
+    if (encryInfo.key.data == nullptr) {
+        return SEC_ERR_INVALID_KEY;
     }
-    if ((encryInfo.aad.data == nullptr) && (encryInfo.aad.length > 0)) {
-        return SEC_ERR_INVALID_AAD;
+    if (encryInfo.iv.length < AES_GCM_MIN_IVLEN) {
+        return SEC_ERR_INVALID_IV_LEN;
     }
-    if ((encryInfo.key.data == nullptr) || (encryInfo.iv.data == nullptr) || (encryInfo.tag.data == nullptr)) {
+    if (encryInfo.iv.data == nullptr) {
         return SEC_ERR_INVALID_IV;
+    }
+    if (encryInfo.tag.data == nullptr) {
+        return SEC_ERR_NULL_PTR;
+    }
+    if (encryInfo.tag.length < AES_GCM_SIV_TAG_LEN) {
+        return SEC_ERR_INVALID_DATA_LEN;
+    }
+    if (inputData.data == nullptr || inputData.length <= 0) {
+        return SEC_ERR_INVALID_CIPHERTEXT;
     }
     if (outputData.length < inputData.length) {
         return SEC_ERR_INVALID_DATA_LEN;
     }
-    if ((outputData.data == nullptr) && (outputData.length > 0)) {
+    if (outputData.data == nullptr || outputData.length <= 0) {
         return SEC_ERR_INVALID_PLAIN;
     }
     return 0;
 }
 
-int EncryptDecrypt::DecryptProcess(ConstPacketData inputData, PacketData &outputData, EncryptInfo &encryInfo,
-    EVP_CIPHER_CTX *ctx)
+int EncryptDecrypt::DecryptProcess(ConstPacketData inputData, PacketData &outputData, EncryptInfo &encryInfo)
 {
     int ret = 0;
     int len = 0;
     int plainTextLen = 0;
+    EVP_CIPHER_CTX *ctx = nullptr;
 
     do {
         /* Create and initialise the context */
         ctx = EVP_CIPHER_CTX_new();
         if (ctx == nullptr) {
-            ret = SEC_ERR_CREATECIPHER_FAIL;
-            break;
+            return SEC_ERR_CREATECIPHER_FAIL;
         }
 
         /* Initialise the decryption operation. */
@@ -327,18 +333,15 @@ int EncryptDecrypt::DecryptProcess(ConstPacketData inputData, PacketData &output
             break;
         }
 
-        /* Initialise key and IV */
-        if (!EVP_DecryptInit_ex(ctx, nullptr, nullptr, encryInfo.key.data, encryInfo.iv.data)) {
-            ret = SEC_ERR_INVALID_KEY;
+        if (!EVP_CIPHER_CTX_set_key_length(ctx, encryInfo.key.length)) {
+            CLOGE("key length does not match key algorithm");
+            ret = SEC_ERR_INVALID_KEY_LEN;
             break;
         }
 
-        /*
-         * Provide any AAD data. This can be called zero or more times as
-         * required
-         */
-        if (!EVP_DecryptUpdate(ctx, nullptr, &len, encryInfo.aad.data, encryInfo.aad.length)) {
-            ret = SEC_ERR_SETAAD_FAIL;
+        /* Initialise key and IV */
+        if (!EVP_DecryptInit_ex(ctx, nullptr, nullptr, encryInfo.key.data, encryInfo.iv.data)) {
+            ret = SEC_ERR_INVALID_KEY;
             break;
         }
 
@@ -368,142 +371,152 @@ int EncryptDecrypt::DecryptProcess(ConstPacketData inputData, PacketData &output
         }
         plainTextLen += len;
         outputData.length = plainTextLen;
-        ret = 0;
     } while (0);
+
+    EVP_CIPHER_CTX_free(ctx);
+    ctx = nullptr;
 
     return ret;
 }
 
 int EncryptDecrypt::AES128GCMDecrypt(ConstPacketData inputData, PacketData &outputData, EncryptInfo &encryInfo)
 {
-    EVP_CIPHER_CTX *ctx = nullptr;
-
     int ret = AES128GCMCheckDecryptPara(inputData, outputData, encryInfo);
     if (ret != 0) {
         return ret;
     }
 
-    ret = DecryptProcess(inputData, outputData, encryInfo, ctx);
-
-    if (ctx != nullptr) {
-        EVP_CIPHER_CTX_free(ctx);
-        ctx = nullptr;
-    }
+    ret = DecryptProcess(inputData, outputData, encryInfo);
 
     return ret;
 }
 
-bool EncryptDecrypt::EncryptData(int algCode, const uint8_t *key, int keyLen, ConstPacketData inputData,
-    PacketData &outputData)
+std::unique_ptr<uint8_t[]> EncryptDecrypt::EncryptData(int algCode, ConstPacketData sessionKey,
+    ConstPacketData inputData, int &outLen)
 {
-    uint8_t sessionIV[AES_KEY_SIZE] = {0};
-
-    if (outputData.data == nullptr) {
-        CLOGE("outputData is null");
-        return false;
-    }
-    if (algCode != CTR_CODE) {
+    if (algCode != CTR_CODE && algCode != GCM_CODE) {
         CLOGE("encrypt not CTR for extension");
-        return false;
+        return nullptr;
     }
-    GetAESIv(sessionIV, AES_KEY_SIZE);
+    uint8_t sessionIV[AES_IV_LEN] = {0};
+    GetAESIv(sessionIV, AES_IV_LEN);
 
-    int encryptDataLen = inputData.length + AES_KEY_SIZE;
+    int encryptDataLen = inputData.length + AES_IV_LEN;
+    if (algCode == GCM_CODE) {
+        encryptDataLen += AES_GCM_SIV_TAG_LEN;
+    }
     std::unique_ptr<uint8_t[]> encryptData = std::make_unique<uint8_t[]>(encryptDataLen);
     if (encryptData == nullptr) {
-        return false;
+        return nullptr;
     }
     errno_t ret = memset_s(encryptData.get(), encryptDataLen, 0, encryptDataLen);
     if (ret != 0) {
-        return false;
+        return nullptr;
     }
-    PacketData output = { encryptData.get(), encryptDataLen };
-    ConstPacketData sessionKey = { key, keyLen };
+    PacketData output = { encryptData.get() + AES_IV_LEN, encryptDataLen - AES_IV_LEN };
     ConstPacketData iv = { sessionIV, AES_IV_LEN };
-    ret = AES128Encry(inputData, output, sessionKey, iv);
-    if (ret != 0 || output.length > inputData.length) {
+    EncryptInfo encryInfo;
+    if (algCode == GCM_CODE) {
+        encryInfo.key = sessionKey;
+        encryInfo.iv = iv;
+        ret = AES128GCMEncry(inputData, output, encryInfo);
+    } else {
+        ret = AES128Encry(inputData, output, sessionKey, iv);
+    }
+    if (ret != 0) {
         CLOGE("encrypt error enLen [%u][%u]", ret, output.length);
-        return false;
+        return nullptr;
     }
-    ret = memcpy_s(outputData.data, AES_KEY_SIZE, sessionIV, AES_KEY_SIZE);
+    ret = memcpy_s(encryptData.get(), AES_IV_LEN, sessionIV, AES_IV_LEN);
     if (ret != 0) {
-        return false;
-    }
-    ret = memcpy_s(outputData.data + AES_KEY_SIZE, output.length, output.data, output.length);
-    if (ret != 0) {
-        return false;
+        return nullptr;
     }
 
-    outputData.length = output.length + AES_KEY_SIZE;
-    return true;
+    outLen = output.length + AES_IV_LEN;
+    return encryptData;
 }
 
-bool EncryptDecrypt::DecryptData(int algCode, const uint8_t *key, int keyLen, ConstPacketData inputData,
-    PacketData &outputData)
+std::unique_ptr<uint8_t[]> EncryptDecrypt::DecryptData(int algCode, ConstPacketData sessionKey,
+    ConstPacketData inputData, int &outLen)
 {
-    uint8_t sessionIV[AES_KEY_SIZE] = {0};
+    uint8_t sessionIV[AES_IV_LEN] = {0};
 
-    if (algCode != CTR_CODE) {
+    if (algCode != CTR_CODE && algCode != GCM_CODE) {
         CLOGE("decrypt not CTR for extension");
-        return false;
+        return nullptr;
     }
-
-    if (inputData.length <= AES_KEY_SIZE || inputData.data == nullptr || outputData.data == nullptr) {
-        CLOGE("decrypt para error");
-        return false;
+    int minLength = (algCode == GCM_CODE) ? (AES_IV_LEN + AES_GCM_SIV_TAG_LEN) : AES_IV_LEN;
+    if (inputData.length <= minLength || inputData.data == nullptr) {
+        CLOGE("decrypt para error, length:%{public}d", inputData.length);
+        return nullptr;
     }
-    int32_t ret = memcpy_s(sessionIV, AES_KEY_SIZE, inputData.data, AES_KEY_SIZE);
+    int32_t ret = memcpy_s(sessionIV, AES_IV_LEN, inputData.data, AES_KEY_SIZE);
     if (ret != 0) {
         CLOGE("memcpy_s failed");
-        delete[] inputData.data;
-        return false;
+        return nullptr;
     }
-    int deLen = inputData.length - AES_KEY_SIZE;
+    int deLen = inputData.length - AES_IV_LEN;
+    deLen = (algCode == GCM_CODE) ? (deLen - AES_GCM_SIV_TAG_LEN) : deLen;
     std::unique_ptr<uint8_t[]> decryptData = std::make_unique<uint8_t[]>(deLen);
     if (decryptData == nullptr) {
         CLOGE("create decrypt data memory failed");
-        return false;
+        return nullptr;
     }
     ret = memset_s(decryptData.get(), deLen, 0, deLen);
     if (ret != 0) {
         CLOGE("memset_s failed");
-        return false;
+        return nullptr;
     }
     PacketData output = { decryptData.get(), deLen };
-    ConstPacketData sessionKey = { key, keyLen };
     ConstPacketData iv = { sessionIV, AES_IV_LEN };
     ConstPacketData input = { inputData.data + AES_KEY_SIZE, deLen };
-    ret = AES128Decrypt(input, output, sessionKey, iv);
+    if (algCode == GCM_CODE) {
+        EncryptInfo encryInfo;
+        encryInfo.key = sessionKey;
+        encryInfo.iv = iv;
+        encryInfo.tag = { const_cast<uint8_t *>(input.data + input.length), AES_GCM_SIV_TAG_LEN };
+        ret = AES128GCMDecrypt(input, output, encryInfo);
+    } else {
+        ret = AES128Decrypt(input, output, sessionKey, iv);
+    }
     if (ret != 0 || output.length != deLen) {
         CLOGE("decrypt error and ret[%{public}d] Len[%u] delen[%{public}d]", ret, output.length, deLen);
-        return false;
+        return nullptr;
     }
-    ret = memcpy_s(outputData.data, output.length, output.data, output.length);
-    if (ret != 0) {
-        return false;
-    }
-    outputData.length = output.length;
+    outLen = output.length;
 
-    return true;
+    return decryptData;
 }
 
 std::string EncryptDecrypt::GetEncryptInfo()
 {
-    return PC_ENCRYPT_ALG;
+    return CIPHER_AES_CTR_128;
 }
 
-int EncryptDecrypt::GetEncryptMatch(const std::string &encyptInfo)
+int EncryptDecrypt::GetMediaEncryptCipher(const std::set<std::string> &cipherList)
 {
-    if (encyptInfo.size() >= PC_ENCRYPT_LEN) {
-        return INVALID_CODE;
-    }
-
-    if (encyptInfo == PC_ENCRYPT_ALG) {
+    if (cipherList.count(CIPHER_AES_CTR_128) != 0) {
         return CTR_CODE;
     }
+    CLOGE("not support the cipherlist");
 
     return INVALID_CODE;
 }
+
+int EncryptDecrypt::GetControlEncryptCipher(const std::set<std::string> &cipherList)
+{
+    // GCM is preferred, followed by CTR
+    if (cipherList.count(CIPHER_AES_GCM_128) != 0) {
+        return GCM_CODE;
+    }
+    if (cipherList.count(CIPHER_AES_CTR_128) != 0) {
+        return CTR_CODE;
+    }
+    CLOGE("not support the cipherlist");
+
+    return INVALID_CODE;
+}
+
 
 int EncryptDecrypt::GetVersion()
 {

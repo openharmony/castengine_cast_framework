@@ -34,31 +34,33 @@ void RtspChannelManager::ChannelListener::OnDataReceived(const uint8_t *buffer, 
 {
     CLOGD("==============Received data length %{public}u timeCost %{public}ld================", length, timeCost);
 
-    if (!((channelManager_->algorithmId_ > 0) &&
-        !Utils::IsArrayAllZero(channelManager_->sessionKeys_, SESSION_KEY_LENGTH))) {
+    auto channelManager = channelManager_.lock();
+    if (channelManager == nullptr) {
+        CLOGE("channelManager == nullptr");
+        return;
+    }
+    if (!((channelManager->algorithmId_ > 0) &&
+        !Utils::IsArrayAllZero(channelManager->sessionKeys_, SESSION_KEY_LENGTH))) {
         CLOGD("==============Not Authed Recv Msg ================");
-        CLOGD("Algorithm id %{public}d, length %{public}u.", channelManager_->algorithmId_, length);
-        channelManager_->OnData(buffer, length);
+        CLOGD("Algorithm id %{public}d, length %{public}u.", channelManager->algorithmId_, length);
+        channelManager->OnData(buffer, length);
     } else {
-        unsigned int realPktlen = length - EncryptDecrypt::AES_IV_LEN;
-        std::unique_ptr<uint8_t[]> decryContent = std::make_unique<uint8_t[]>(realPktlen);
-        PacketData outputData = { decryContent.get(), 0 };
-        bool isSucc =
-            EncryptDecrypt::GetInstance().DecryptData(channelManager_->algorithmId_, channelManager_->sessionKeys_,
-            channelManager_->sessionKeyLength_, { buffer, static_cast<int>(length) }, outputData);
-        if (!isSucc) {
-            CLOGE("ERROR: decode fail or len [%{public}d],expect[%{public}u]", outputData.length, length);
+        int decryptDataLen = 0;
+        auto decryContent =
+            EncryptDecrypt::GetInstance().DecryptData(channelManager->algorithmId_, { channelManager->sessionKeys_,
+            channelManager->sessionKeyLength_ }, { buffer, static_cast<int>(length) }, decryptDataLen);
+        if (!decryContent) {
+            CLOGE("ERROR: decode fail, length[%{public}u]", length);
             return;
         }
         CLOGD("==============Authed Recv Msg ================, decryContent length %{public}u", length);
-        channelManager_->OnData(decryContent.get(), realPktlen);
+        channelManager->OnData(decryContent.get(), decryptDataLen);
     }
 }
 
-RtspChannelManager::RtspChannelManager(RtspListenerInner *listener, ProtocolType protocolType)
+RtspChannelManager::RtspChannelManager(std::shared_ptr<RtspListenerInner> listener, ProtocolType protocolType)
     : listener_(listener), protocolType_(protocolType)
 {
-    channelListener_ = std::make_shared<ChannelListener>(this);
     CLOGI("Out, ProtocolType:%{public}d", protocolType_);
 }
 
@@ -67,12 +69,14 @@ RtspChannelManager::~RtspChannelManager()
     CLOGI("In.");
     memset_s(sessionKeys_, SESSION_KEY_LENGTH, 0, SESSION_KEY_LENGTH);
     channelListener_ = nullptr;
-    StopSafty(false);
-    ThreadJoin();
 }
 
 std::shared_ptr<IChannelListener> RtspChannelManager::GetChannelListener()
 {
+    std::lock_guard<std::mutex> lock(mutex_);
+    if (channelListener_ == nullptr) {
+        channelListener_ = std::make_shared<ChannelListener>(shared_from_this());
+    }
     return channelListener_;
 }
 
@@ -84,8 +88,13 @@ void RtspChannelManager::AddChannel(std::shared_ptr<Channel> channel, const Cast
     channel_ = channel;
 
     bool isSoftbus = channel->GetRequest().linkType == ChannelLinkType::SOFT_BUS;
-    CLOGD("LinkType %{public}d listener_ is %{public}d", isSoftbus, listener_ == nullptr);
-    listener_->OnPeerReady(isSoftbus);
+    auto listener = listener_.lock();
+    if (!listener) {
+        CLOGE("listener is nullptr");
+        return;
+    }
+    CLOGD("LinkType %{public}d listener_ is %{public}d", isSoftbus, listener == nullptr);
+    listener->OnPeerReady(isSoftbus);
 }
 
 void RtspChannelManager::RemoveChannel(std::shared_ptr<Channel> channel)
@@ -108,49 +117,63 @@ void RtspChannelManager::StopSession()
     if (isSessionActive_) {
         memset_s(sessionKeys_, SESSION_KEY_LENGTH, 0, SESSION_KEY_LENGTH);
         isSessionActive_ = false;
-        listener_->OnPeerGone();
+        auto listener = listener_.lock();
+        if (listener) {
+            listener->OnPeerGone();
+        }
     }
-    RemoveMessage(Message(static_cast<int>(RtspState::MSG_NEG_TIMEOUT)));
 }
 
 void RtspChannelManager::OnConnected(ChannelLinkType channelLinkType)
 {
-    if (listener_ == nullptr) {
-        CLOGE("listener is null.");
+    auto listener = listener_.lock();
+    if (!listener) {
+        CLOGE("listener is nullptr");
         return;
     }
     bool isSoftbus = channelLinkType == ChannelLinkType::SOFT_BUS;
     CLOGI("IsSoftbus %{public}d.", isSoftbus);
-    listener_->OnPeerReady(isSoftbus);
+    listener->OnPeerReady(isSoftbus);
 }
 
 void RtspChannelManager::OnData(const uint8_t *data, unsigned int length)
 {
     std::string str(reinterpret_cast<const char *>(data), length);
     CLOGD("In, %{public}s %{public}s", (str.find("RTSP/") == 0) ? "Response...\r\n" : "Request...\r\n", str.c_str());
-    if (listener_ == nullptr) {
-        CLOGE("listener is null.");
+    auto listener = listener_.lock();
+    if (!listener) {
+        CLOGE("listener is nullptr");
         return;
     }
     RtspParse msg;
     RtspParse::ParseMsg(str, msg);
     if (Utils::StartWith(str, "RTSP/")) {
-        listener_->OnResponse(msg);
+        listener->OnResponse(msg);
     } else {
-        listener_->OnRequest(msg);
+        listener->OnRequest(msg);
     }
 }
 
 void RtspChannelManager::OnError(const std::string &errorCode)
 {
     CLOGI("In, %{public}s.", errorCode.c_str());
-    listener_->OnPeerGone();
+    auto listener = listener_.lock();
+    if (!listener) {
+        CLOGE("listener is nullptr");
+        return;
+    }
+    listener->OnPeerGone();
 }
 
 void RtspChannelManager::OnClosed(const std::string &errorCode)
 {
     CLOGI("OnClosed %{public}s.", errorCode.c_str());
-    listener_->OnPeerGone();
+    auto listener = listener_.lock();
+    if (!listener) {
+        CLOGE("listener is nullptr");
+        return;
+    }
+    listener->OnPeerGone();
 }
 
 bool RtspChannelManager::SendData(const std::string &dataFrame)
@@ -161,31 +184,23 @@ bool RtspChannelManager::SendData(const std::string &dataFrame)
         return false;
     }
     size_t pktlen = dataFrame.size();
-    std::unique_ptr<uint8_t[]> encryptContent = std::make_unique<uint8_t[]>(pktlen + EncryptDecrypt::AES_IV_LEN);
-    PacketData outputData = { encryptContent.get(), 0 };
     if (channel->GetRequest().linkType == ChannelLinkType::SOFT_BUS ||
         Utils::IsArrayAllZero(sessionKeys_, SESSION_KEY_LENGTH) || algorithmId_ <= 0) {
-        errno_t ret = memcpy_s(encryptContent.get(), pktlen + EncryptDecrypt::AES_IV_LEN, dataFrame.c_str(), pktlen);
-        if (ret != EOK) {
-            CLOGE("ERROR: memory copy error:%{public}d", ret);
-            return false;
-        }
-
-        outputData.length = static_cast<int>(pktlen);
         CLOGD("SendData, get data finish.");
-    } else {
-        bool ret = EncryptDecrypt::GetInstance().EncryptData(algorithmId_, sessionKeys_, sessionKeyLength_,
-            { reinterpret_cast<const uint8_t *>(dataFrame.c_str()), pktlen }, outputData);
-        if (!ret || (outputData.length != static_cast<int>(pktlen) + static_cast<int>(EncryptDecrypt::AES_IV_LEN))) {
-            CLOGE("Encrypt data failed, dataLength: %{public}d, pktlen: %{public}zu", outputData.length, pktlen);
-            return false;
-        }
-        CLOGD("SendData, encrypt data finish.");
+        return channel->Send(reinterpret_cast<const uint8_t *>(dataFrame.c_str()), pktlen);
     }
+    int encryptedDataLen = 0;
+    auto encryptedData = EncryptDecrypt::GetInstance().EncryptData(algorithmId_, { sessionKeys_, sessionKeyLength_ },
+        { reinterpret_cast<const uint8_t *>(dataFrame.c_str()), pktlen }, encryptedDataLen);
+    if (!encryptedData) {
+        CLOGE("Encrypt data failed, pktlen: %{public}zu", pktlen);
+        return false;
+    }
+    CLOGD("SendData, encrypt data finish.");
 
-    CLOGD("SendData, outputData.length %{public}d pktlen %{public}zu send buffer %{public}s.", outputData.length,
-        pktlen, encryptContent.get());
-    return channel->Send(encryptContent.get(), outputData.length);
+    CLOGD("SendData, encryptedDataLen %{public}d pktlen %{public}zu send buffer %{public}s.", encryptedDataLen,
+        pktlen, encryptedData.get());
+    return channel->Send(encryptedData.get(), encryptedDataLen);
 }
 
 bool RtspChannelManager::SendRtspData(const std::string &request)
@@ -204,40 +219,10 @@ bool RtspChannelManager::SendRtspData(const std::string &request)
     return SendData(request);
 }
 
-void RtspChannelManager::CfgNegTimeout(bool isClear)
-{
-    CLOGI("In, %{public}d.", isClear);
-    if (isClear) {
-        RemoveMessage(Message(static_cast<int>(RtspState::MSG_NEG_TIMEOUT)));
-        return;
-    }
-
-    SendCastMessageDelayed(static_cast<int>(RtspState::MSG_NEG_TIMEOUT), KEEP_NEG_TIMEOUT_INTERVAL); // 10s
-}
-
 void RtspChannelManager::SetNegAlgorithmId(int algorithmId)
 {
     algorithmId_ = algorithmId;
     CLOGI("SetNegAlgorithmId algorithmId %{public}d.", algorithmId);
-}
-
-void RtspChannelManager::HandleMessage(const Message &msg)
-{
-    switch (static_cast<RtspState>(msg.what_)) {
-        case RtspState::MSG_RTSP_START:
-        case RtspState::MSG_RTSP_DATA:
-        case RtspState::MSG_RTSP_CLOSE:
-        case RtspState::MSG_SEND_KA:
-        case RtspState::MSG_KA_TIMEOUT:
-        case RtspState::MSG_NEG_TIMEOUT:
-            CLOGE("NEG timeout.");
-            if (listener_ != nullptr) {
-                listener_->OnPeerGone();
-            }
-            break;
-        default:
-            break;
-    }
 }
 } // namespace CastSessionRtsp
 } // namespace CastEngineService
