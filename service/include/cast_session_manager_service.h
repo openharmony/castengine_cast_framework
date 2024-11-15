@@ -96,7 +96,6 @@ private:
     ServiceStatus serviceStatus_{ ServiceStatus::DISCONNECTED };
     int sessionCapacity_{ 0 };
     std::map<int32_t, sptr<ICastSessionImpl>> sessionMap_;
-    std::atomic<int> sessionIndex_{ 0 };
     std::unordered_map<pid_t, sptr<IRemoteObject::DeathRecipient>> deathRecipientMap_;
     std::atomic<bool> hasServer_{ false };
     std::atomic<bool> isUnloading_{ false };

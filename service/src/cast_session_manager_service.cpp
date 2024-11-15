@@ -560,13 +560,9 @@ int32_t CastSessionManagerService::SetSinkSessionCapacity(int sessionCapacity)
 
 int32_t CastSessionManagerService::StartDiscovery(int protocols, std::vector<std::string> drmSchemes)
 {
-    static_cast<void>(protocols);
     CLOGI("StartDiscovery in, protocolType = %{public}d, drm shcheme size = %{public}zu", protocols, drmSchemes.size());
-    SharedRLock lock(mutex_);
-    if (!Permission::CheckPidPermission()) {
-        return ERR_NO_PERMISSION;
-    }
-    DiscoveryManager::GetInstance().StartDiscovery();
+
+    DiscoveryManager::GetInstance().StartDiscovery(protocols, drmSchemes);
     return CAST_ENGINE_SUCCESS;
 }
 
