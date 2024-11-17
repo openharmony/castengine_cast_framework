@@ -33,7 +33,9 @@ void StateMachine::HandleMessage(const Message &msg)
     std::shared_ptr<State> cur = state_;
     while (cur != nullptr && !cur->HandleMessage(msg)) {
         cur = cur->GetParentState();
+        CLOGD("Delegate to ParentState.");
     }
+
     if (cur == nullptr) {
         CLOGW("message: %d unhandled in parent state", msg.what_);
     }
@@ -89,6 +91,7 @@ void StateMachine::ProcessDeferredMessages()
         state_->HandleMessage(msg);
     }
 }
+
 } // namespace CastEngineService
 } // namespace CastEngine
 } // namespace OHOS
