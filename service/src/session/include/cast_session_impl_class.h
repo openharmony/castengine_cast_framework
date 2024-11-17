@@ -159,7 +159,6 @@ private:
     void ChangeDeviceStateLocked(
         DeviceState state, const std::string &deviceId, int32_t reasonCode = REASON_DEFAULT);
     void ReportDeviceStateInfo(DeviceState state, const std::string &deviceId, const ReasonCode eventCode);
-    void OnSessionEvent(const std::string& deviceId, const ReasonCode eventCode) override;
     void ChangeDeviceStateInner(DeviceState state, const std::string &deviceId,
         int32_t reasonCode = REASON_DEFAULT);
     void OnEvent(EventId eventId, const std::string &data);

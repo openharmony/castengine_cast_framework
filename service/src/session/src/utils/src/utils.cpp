@@ -17,45 +17,117 @@
  */
 
 #include "utils.h"
+
 #include <cctype>
-#include <glib.h>
+#include <openssl/bio.h>
+#include <openssl/evp.h>
+#include <openssl/buffer.h>
 #include <sys/prctl.h>
+#include <sys/time.h>
+
 #include "wifi_device.h"
 #include "ohos_account_kits.h"
 #include "os_account_manager.h"
 #include "os_account_constants.h"
+#include "cast_engine_log.h"
 #include "ipc_skeleton.h"
 #include "token_setproc.h"
+#include "power_mgr_client.h"
+
+using namespace OHOS::PowerMgr;
 
 namespace OHOS {
 namespace CastEngine {
 namespace CastEngineService {
+DEFINE_CAST_ENGINE_LABEL("Cast-Utils");
 
+const uint32_t BASE64_UNIT_ONE_PADDING = 1;
+const uint32_t BASE64_UNIT_TWO_PADDING = 2;
+const uint32_t BASE64_SRC_UNIT_SIZE = 3;
+const uint32_t BASE64_DEST_UNIT_SIZE = 4;
 constexpr static int32_t DEFAULT_OS_ACCOUNT_ID = 100;
+std::atomic<bool> Utils::isEnablePowerForceTimingOut = false;
+
 bool Utils::Base64Encode(const std::string &source, std::string &encoded)
 {
-    gchar *out = g_base64_encode(reinterpret_cast<const guchar *>(source.c_str()), source.size());
-    if (!out) {
+    BIO *bio = BIO_new(BIO_s_mem());
+    if (bio == nullptr) {
+        CLOGE("Base64Encode error: BIO_new failed");
         return false;
     }
-    gsize out_len = strlen(out);
-    encoded = std::string(out, out_len);
-    g_free(out);
-    return true;
+    BIO *b64 = BIO_new(BIO_f_base64());
+    if (b64 == nullptr) {
+        CLOGE("Base64Encode error: BIO_f_base64 failed");
+        BIO_free(bio);
+        return false;
+    }
+
+    BIO_set_flags(b64, BIO_FLAGS_BASE64_NO_NL);
+    bio = BIO_push(b64, bio);
+    int result = BIO_write(b64, source.c_str(), source.length());
+    if (result <= 0) {
+        CLOGE("Base64Encode error: bio write fail.");
+        BIO_free_all(b64);
+        return false;
+    }
+    BIO_flush(b64);
+
+    BUF_MEM *bptr = nullptr;
+    bool ret = false;
+    BIO_get_mem_ptr(b64, &bptr);
+    if (bptr != nullptr) {
+        encoded = std::string(bptr->data, bptr->length);
+        ret = true;
+    }
+    BIO_free_all(b64);
+    return ret;
 }
 
 bool Utils::Base64Decode(const std::string &encoded, std::string &decoded)
 {
-    gsize out_len = 0;
-    guchar *decodeData = g_base64_decode(encoded.c_str(), &out_len);
-    if (!decodeData) {
+    if (encoded.length() % BASE64_DEST_UNIT_SIZE != 0 || encoded.length() == 0) {
         return false;
     }
-    decoded = std::string(reinterpret_cast<const char *>(decodeData), out_len);
-    g_free(decodeData);
-    return true;
-}
 
+    uint32_t decodedLen = encoded.length() * BASE64_SRC_UNIT_SIZE / BASE64_DEST_UNIT_SIZE;
+    if (encoded.at(encoded.length() - BASE64_UNIT_ONE_PADDING) == '=') {
+        decodedLen--;
+        if (encoded.at(encoded.length() - BASE64_UNIT_TWO_PADDING) == '=') {
+            decodedLen--;
+        }
+    }
+
+    bool ret = false;
+    char* buffer = static_cast<char *>(malloc(decodedLen));
+    if (buffer == nullptr) {
+        return ret;
+    }
+
+    BIO *bio = BIO_new_mem_buf(encoded.c_str(), encoded.length());
+    if (bio == nullptr) {
+        free(buffer);
+        return ret;
+    }
+
+    BIO *b64 = BIO_new(BIO_f_base64());
+    if (b64 == nullptr) {
+        CLOGE("Base64Encode error: BIO_f_base64 failed");
+        free(buffer);
+        BIO_free(bio);
+        return false;
+    }
+
+    BIO_set_flags(b64, BIO_FLAGS_BASE64_NO_NL);
+    bio = BIO_push(b64, bio);
+    if (BIO_read(b64, buffer, encoded.length()) == static_cast<int32_t>(decodedLen)) {
+        decoded = std::string(buffer, decodedLen);
+        ret = true;
+    }
+
+    free(buffer);
+    BIO_free_all(b64);
+    return ret;
+}
 
 void Utils::SplitString(const std::string &src, std::vector<std::string> &dest, const std::string &seperator)
 {
@@ -170,6 +242,13 @@ bool Utils::IsArrayAllZero(const uint8_t *input, int length)
     return isAllZero;
 }
 
+uint64_t Utils::TimeMilliSecond()
+{
+    struct timeval curTime = {0, 0};
+    gettimeofday(&curTime, nullptr);
+    return static_cast<int64_t>(curTime.tv_sec) * USEC_1000 + curTime.tv_usec / USEC_1000;
+}
+
 std::string Utils::Mask(const std::string &str)
 {
     if (str.empty() || str.length() <= MASK_MIN_LEN) {
@@ -181,14 +260,31 @@ std::string Utils::Mask(const std::string &str)
     }
 }
 
+DrmType Utils::DrmUuidToType(std::string drmUUID)
+{
+    if (drmUUID == UUID_CHINADRM) {
+        return DrmType::CHINADRM;
+    } else if (drmUUID == UUID_WIDEVINE) {
+        return DrmType::WIDEVINE;
+    } else if (drmUUID == UUID_PLAYREADY) {
+        return DrmType::PLAYREADY;
+    }
+    return DrmType::DRM_BASE;
+}
+
 int32_t Utils::GetCurrentActiveAccountUserId()
 {
     std::vector<int> activatedOsAccountIds;
     OHOS::ErrCode res = OHOS::AccountSA::OsAccountManager::QueryActiveOsAccountIds(activatedOsAccountIds);
     if (res != OHOS::ERR_OK || activatedOsAccountIds.size() <= 0) {
+        CLOGE("QueryActiveOsAccountIds failed res:%{public}d", res);
         return DEFAULT_OS_ACCOUNT_ID;
     }
+
     int osAccountId = activatedOsAccountIds[0];
+    if (osAccountId != DEFAULT_OS_ACCOUNT_ID) {
+        CLOGI("currentOsAccount:%{public}d", osAccountId);
+    }
 
     return osAccountId;
 }
@@ -198,8 +294,10 @@ std::string Utils::GetOhosAccountId()
     AccountSA::OhosAccountInfo accountInfo;
     OHOS::ErrCode res = AccountSA::OhosAccountKits::GetInstance().GetOhosAccountInfo(accountInfo);
     if (res != OHOS::ERR_OK || accountInfo.uid_ == "") {
+        CLOGE("GetOhosAccountInfo failed res:%{public}d", res);
         return "";
     }
+
     return accountInfo.uid_;
 }
 
@@ -207,9 +305,55 @@ int Utils::SetFirstTokenID()
 {
     uint32_t tokenId = IPCSkeleton::GetCallingTokenID();
     auto ret = SetFirstCallerTokenID(tokenId);
+    CLOGI("SetFirstCallerTokenID ret %{public}d tokenId %{public}d", ret, tokenId);
     return ret;
 }
 
+void Utils::EnablePowerForceTimingOut()
+{
+    CLOGI("in");
+    if (isEnablePowerForceTimingOut.load()) {
+        CLOGI("already enable");
+        return;
+    }
+
+    isEnablePowerForceTimingOut = true;
+    auto& powerMgrClient = PowerMgrClient::GetInstance();
+    // 强制使能超时灭屏
+    powerMgrClient.SetForceTimingOut(true);
+    // 超时锁屏，但有常亮锁时不锁屏（如华为视频播放视频时不锁屏），且不发送熄屏广播
+    powerMgrClient.LockScreenAfterTimingOut(true, true, false);
+}
+
+void Utils::ResetPowerForceTimingOut()
+{
+    CLOGI("in");
+
+    if (!isEnablePowerForceTimingOut.load()) {
+        CLOGI("already reset");
+        return;
+    }
+    isEnablePowerForceTimingOut = false;
+    auto& powerMgrClient = PowerMgrClient::GetInstance();
+    // 不强制使能超时灭屏
+    powerMgrClient.SetForceTimingOut(false);
+    // 超时锁屏，不受常亮锁影响（如华为视频播放视频时也锁屏），恢复发送熄屏广播
+    powerMgrClient.LockScreenAfterTimingOut(true, false, true);
+}
+
+void Utils::LightAndLockScreen()
+{
+    auto& powerMgrClient = PowerMgrClient::GetInstance();
+    // 结束投屏时，如果手机是熄屏状态，要亮屏并锁屏
+    bool isScreenOn = powerMgrClient.IsScreenOn();
+    CLOGI("isScreenOn: %{public}d", isScreenOn);
+    if (!isScreenOn) {
+        PowerErrors wakeupRet = powerMgrClient.WakeupDevice(WakeupDeviceType::WAKEUP_DEVICE_APPLICATION,
+                                                            std::string("cast+ exit playing"));
+        PowerErrors suspendRet = powerMgrClient.SuspendDevice();
+        CLOGI("wakeupRet: %{public}d, suspendRet: %{public}d", wakeupRet, suspendRet);
+    }
+}
 
 void Utils::SetThreadName(const std::string &name)
 {
@@ -220,9 +364,10 @@ void Utils::SetThreadName(const std::string &name)
     static std::atomic<unsigned int> suffix = 0;
     std::string threadName = name + "-" + std::to_string(suffix++);
     if (prctl(PR_SET_NAME, threadName.c_str()) < 0) {
-        return;
+        CLOGE("prctl errno %d", errno);
     }
 }
+
 } // namespace CastEngineService
 } // namespace CastEngine
 } // namespace OHOS

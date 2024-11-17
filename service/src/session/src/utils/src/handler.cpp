@@ -17,6 +17,7 @@
  */
 
 #include "handler.h"
+#include "utils.h"
 
 namespace OHOS {
 namespace CastEngine {
@@ -24,6 +25,7 @@ namespace CastEngineService {
 Handler::Handler() : stop_(false), stopWhenEmpty_(false)
 {
     looper_ = std::thread([this]() {
+        Utils::SetThreadName("Handler");
         for (;;) {
             Message msg;
             {
