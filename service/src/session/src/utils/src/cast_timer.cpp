@@ -14,6 +14,7 @@
  */
 #include "cast_timer.h"
 #include "cast_engine_log.h"
+#include "utils.h"
 
 namespace OHOS {
 namespace CastEngine {
@@ -32,9 +33,15 @@ CastTimer::~CastTimer()
 void CastTimer::Start(std::function<void()> task, int interval)
 {
     CLOGD("%s In, exit_ = %d.", __FUNCTION__, exit_.load());
+
     std::unique_lock<std::mutex> locker(threadMutex_);
+    if (!IsStopped()) {
+        return;
+    }
+
     exit_ = false;
     workThread_ = std::thread([this, interval, task]() {
+        Utils::SetThreadName("CastTimerStart");
         while (!exit_.load()) {
             {
                 // sleep every interval and do the task again and again until times up
@@ -56,12 +63,17 @@ void CastTimer::Start(std::function<void()> task, int interval)
 void CastTimer::Stop()
 {
     CLOGD("%s In, exit_ = %d.", __FUNCTION__, exit_.load());
+
     std::unique_lock<std::mutex> locker(threadMutex_);
+    if (IsStopped()) {
+        return;
+    }
     exit_ = true;
     {
         std::unique_lock<std::mutex> locker(mutex_);
         cond_.notify_all();
     }
+
     if (workThread_.joinable()) {
         workThread_.join();
     }

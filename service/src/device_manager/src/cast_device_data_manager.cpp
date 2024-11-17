@@ -65,17 +65,12 @@ bool CastDeviceDataManager::AddDevice(const CastInnerRemoteDevice &device, const
         data.wifiDeviceInfo = data.wifiDeviceInfo.extraData.size() > 0 ? data.wifiDeviceInfo : dmDeviceInfo;
     } else if (extraJson.contains(PARAM_KEY_BLE_MAC) && extraJson[PARAM_KEY_BLE_MAC].is_string()) {
         data.bleDeviceInfo = dmDeviceInfo;
-    } else if (extraJson.contains(PARAM_KEY_WIFI_IP) && extraJson[PARAM_KEY_WIFI_IP].is_string()) {
-        data.wifiDeviceInfo = dmDeviceInfo;
     } else {
         data.wifiDeviceInfo = dmDeviceInfo;
     }
 
-    int sessionId = device.sessionId != INVALID_ID ? device.sessionId : data.device.sessionId;
     data.device = device;
-    data.device.sessionId = sessionId;
     data.networkId = strlen(dmDeviceInfo.networkId) > 0 ? dmDeviceInfo.networkId : data.networkId;
-    CLOGI("sessionId is %d", sessionId);
     RemoveDeviceLocked(device.deviceId);
 
     devices_.push_back(data);
@@ -185,6 +180,8 @@ int CastDeviceDataManager::GetDeviceTransId(const std::string &deviceId)
 
 int CastDeviceDataManager::ResetDeviceTransId(const std::string &deviceId)
 {
+    CLOGD("ResetDeviceTransId in.");
+
     std::lock_guard<std::mutex> lock(mutex_);
     auto it = GetDeviceLocked(deviceId);
     if (it == devices_.end()) {

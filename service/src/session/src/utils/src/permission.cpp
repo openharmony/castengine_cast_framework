@@ -20,6 +20,8 @@
 #include <string>
 #include <unistd.h>
 
+#include "utils.h"
+
 #include "cast_engine_log.h"
 #include "ipc_skeleton.h"
 #include "accesstoken_kit.h"
@@ -34,20 +36,32 @@ namespace CastEngineService {
 DEFINE_CAST_ENGINE_LABEL("Cast-Permission");
 
 namespace {
+const std::string MIRROR_PERMISSION = "ohos.permission.ACCESS_CAST_ENGINE_MIRROR";
+const std::string STREAM_PERMISSION = "ohos.permission.ACCESS_CAST_ENGINE_STREAM";
+
 std::string GetPermissionDescription(const std::string &permission)
 {
-    if (permission == "ohos.permission.ACCESS_CAST_ENGINE_MIRROR") {
+    if (permission == MIRROR_PERMISSION) {
         return "Mirror permission";
     }
-    if (permission == "ohos.permission.ACCESS_CAST_ENGINE_STREAM") {
+
+    if (permission == STREAM_PERMISSION) {
         return "Stream permission";
     }
-    return "Unkown permission";
+
+    return "Unknown permission";
 }
 
 bool CheckPermission(const std::string &permission)
 {
-    CLOGE("%{public}s succ", GetPermissionDescription(permission).c_str());
+    AccessTokenID callerToken = IPCSkeleton::GetCallingTokenID();
+
+    int result = AccessTokenKit::VerifyAccessToken(callerToken, permission);
+    if (result != PERMISSION_GRANTED) {
+        CLOGE("%{public}s denied!", GetPermissionDescription(permission).c_str());
+        return false;
+    }
+
     return true;
 }
 } // namespace
@@ -60,12 +74,12 @@ int32_t Permission::appPid_;
 
 bool Permission::CheckMirrorPermission()
 {
-    return CheckPermission("ohos.permission.ACCESS_CAST_ENGINE_MIRROR");
+    return CheckPermission(MIRROR_PERMISSION);
 }
 
 bool Permission::CheckStreamPermission()
 {
-    return CheckPermission("ohos.permission.ACCESS_CAST_ENGINE_STREAM");
+    return CheckPermission(STREAM_PERMISSION);
 }
 
 void Permission::SavePid(pid_t pid)
@@ -99,7 +113,7 @@ bool Permission::CheckPidPermission()
     pid_t pid = IPCSkeleton::GetCallingPid();
     pid_t myPid = getpid();
     CLOGD("Calling pid is %{public}d, my pid is %{public}d", pid, myPid);
-    if (pid == myPid || pid == 0) { // 0 means role is proxy
+    if (pid == myPid) {
         return true;
     }
 
@@ -114,7 +128,8 @@ bool Permission::CheckPidPermission()
 void Permission::SaveMirrorAppInfo(std::tuple<int32_t, uint32_t, int32_t> appInfo)
 {
     std::tie(appUid_, appTokenId_, appPid_) = appInfo;
-    CLOGD("appUid %{public}d, appTokenId %{public}u, appPid %{public}d", appUid_, appTokenId_, appPid_);
+    CLOGD("appUid %{public}d, appTokenId %{public}s, appPid %{public}d",
+        appUid_, Utils::Mask(std::to_string(appTokenId_)).c_str(), appPid_);
 }
 
 std::tuple<int32_t, uint32_t, int32_t> Permission::GetMirrorAppInfo()
