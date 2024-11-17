@@ -33,7 +33,6 @@ public:
     int what_;
     int arg1_{ 0 };
     int arg2_{ 0 };
-    ReasonCode eventCode_{ ReasonCode::REASON_DEFAULT };
 
     using Function = std::function<void()>;
     Function task_ = nullptr;
@@ -51,8 +50,6 @@ public:
     Message &operator=(const Message &msg);
     explicit Message(int what);
     Message(int what, std::string strArg);
-    Message(int what, std::string deviceId, ReasonCode eventCode) : what_(what),
-        eventCode_(eventCode), strArg_(deviceId) {}
     Message(int what, int arg1);
     Message(int what, int arg1, int arg2);
     Message(int what, int arg1, int arg2, std::string strArg);

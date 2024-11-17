@@ -1079,18 +1079,6 @@ void CastSessionImpl::ReportDeviceStateInfo(DeviceState state, const std::string
     }
 }
 
-void CastSessionImpl::OnSessionEvent(const std::string &deviceId, const ReasonCode eventCode)
-{
-    std::lock_guard<std::mutex> lock(mutex_);
-    CLOGD("Session event: %{public}d", static_cast<int32_t>(eventCode));
-    if (static_cast<int32_t>(eventCode) < 0 or eventCode == ReasonCode::REASON_CANCEL_BY_SOURCE) {
-        ConnectionManager::GetInstance().UpdateDeviceState(deviceId, RemoteDeviceState::FOUND);
-        SendCastMessage(Message(MessageId::MSG_DISCONNECT, deviceId, eventCode));
-    } else {
-        SendCastMessage(Message(MessageId::MSG_START_AUTH, deviceId, eventCode));
-    }
-}
-
 void CastSessionImpl::OnEvent(EventId eventId, const std::string &data)
 {
     std::unique_lock<std::mutex> lock(mutex_);

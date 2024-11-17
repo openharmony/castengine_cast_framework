@@ -22,6 +22,7 @@
 #include <locale>
 #include <string>
 #include <vector>
+#include <atomic>
 
 namespace OHOS {
 namespace CastEngine {
@@ -42,6 +43,8 @@ namespace CastEngineService {
     DISALLOW_COPY_AND_ASSIGN(TypeName)
 #endif
 
+#define USEC_1000 1000
+
 struct PacketData {
     uint8_t *data;
     int length;
@@ -50,6 +53,14 @@ struct PacketData {
 struct ConstPacketData {
     const uint8_t *data;
     int length;
+};
+
+enum class DrmType {
+    DRM_BASE = 1,
+    CLEARKEY = DRM_BASE << 1,
+    WIDEVINE = DRM_BASE << 2,
+    PLAYREADY = DRM_BASE << 3,
+    CHINADRM = DRM_BASE << 4,
 };
 
 class Utils {
@@ -65,13 +76,19 @@ public:
     static int32_t StringToInt(const std::string &str, int base = DECIMALISM);
     static std::string GetWifiIp();
     static bool IsArrayAllZero(const uint8_t *input, int length);
+    static uint64_t TimeMilliSecond();
     static std::string Mask(const std::string &str);
 
     static bool Base64Encode(const std::string &source, std::string &encoded);
     static bool Base64Decode(const std::string &encoded, std::string &decoded);
+    static DrmType DrmUuidToType(std::string drmUUID);
     static int32_t GetCurrentActiveAccountUserId();
     static std::string GetOhosAccountId();
     static int SetFirstTokenID();
+    static void EnablePowerForceTimingOut();
+    static void ResetPowerForceTimingOut();
+    static void LightAndLockScreen();
+
     static void SetThreadName(const std::string &name);
 
 private:
@@ -85,14 +102,23 @@ private:
     constexpr static int MASK_MIN_LEN = 2;
     constexpr static int MASK_PRINT_PREFIX_LEN = 4;
     constexpr static int MASK_PRINT_POSTFIX_LEN = 2;
+    static std::atomic<bool> isEnablePowerForceTimingOut;
 };
 
 inline const std::string UUID_CHINADRM = "3d5e6d35-9b9a-41e8-b843-dd3c6e72c42c";
+inline const std::string UUID_WIDEVINE = "edef8ba9-79d6-4ace-a3c8-27dcd51d21ed";
+inline const std::string UUID_PLAYREADY = "9a04f079-9840-4286-ab92-e65be0885f95";
 inline constexpr char SANDBOX_PATH[] = "/data/service/el1/public/cast_engine_service";
 inline constexpr char PARAM_MEDIA_DUMP[] = "debug.cast.media.dump";
+inline constexpr char PARAM_MEDIA_DUMP_FOR_BETA[] = "debug.cast.media.dump.beta";
 inline constexpr char PARAM_VIDEO_CACHE[] = "debug.cast.video.cache";
+inline constexpr char PARAM_PERFORMANCE[] = "debug.cast.performance";
 inline constexpr char UNIQUE_SCREEN[] = "debug.cast.unique.screen";
 inline constexpr char NOTIFY_DEVICE_FOUND[] = "debug.cast.device.found";
+inline constexpr char USED_AGGR_SEND[] = "debug.cast.aggr.send";
+inline constexpr char PARAM_VTP_SUPPORT[] = "debug.cast.vtp.support";
+inline constexpr char PARAM_YUV_SUPPORT[] = "debug.cast.yuv.support";
+inline constexpr char FLASH_LIGHT[] = "debug.cast.flash.light";
 } // namespace CastEngineService
 } // namespace CastEngine
 } // namespace OHOS
