@@ -41,13 +41,16 @@ enum class SessionState : uint8_t {
     DISCONNECTING,
     STREAM,
     AUTHING,
+    MIRROR_TO_STREAM,
+    STREAM_TO_MIRROR,
     SESSION_STATE_MAX,
 };
 
 const std::array<std::string, static_cast<size_t>(SessionState::SESSION_STATE_MAX)> SESSION_STATE_STRING = {
     "DEFAULT", "DISCONNECTED", "CONNECTING", "CONNECTED", "PLAYING", "PAUSED", "DISCONNECTING", "STREAM",
-    "AUTHING"
+    "AUTHING", "MIRROR_TO_STREAM", "STREAM_TO_MIRROR"
 };
+const std::string SUPPORT_MIRROR_TO_STREAM = "SUPPORT_MIRROR_TO_STREAM";
 } // namespace CastEngineService
 } // namespace CastEngine
 } // namespace OHOS

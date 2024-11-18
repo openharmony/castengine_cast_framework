@@ -1379,15 +1379,15 @@ bool CastStreamPlayer::SetVideoSurface(sptr<Surface> surface)
 
 CastStreamVolumeCallback::~CastStreamVolumeCallback()
 {
-    CLOGD("~CastStreamVolumeCallback in");
+    CLOGI("~CastStreamVolumeCallback in");
 }
 
 void CastStreamVolumeCallback::SetMaxVolume(int maxVolume)
 {
-    CLOGD("SetMaxVolume in");
+    CLOGI("SetMaxVolume in");
     std::lock_guard<std::mutex> lock(mutex_);
     maxVolume_ = maxVolume;
-    CLOGD("SetMaxVolume out");
+    CLOGI("SetMaxVolume out");
 }
 
 void CastStreamVolumeCallback::OnVolumeKeyEvent(AudioStandard::VolumeEvent volumeEvent)

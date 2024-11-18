@@ -48,6 +48,7 @@ public:
     void RemoveChannel(std::shared_ptr<Channel> channel);
     std::string GetStreamPlayerCapability();
     std::string HandleCustomNegotiationParams(const std::string &playerParams);
+    virtual bool PlayAfterSwitchToStream() = 0;
 
     static constexpr int MODULE_EVENT_ID_CONTROL_EVENT = 100;
     static constexpr int MODULE_EVENT_ID_CALLBACK_EVENT = 101;
@@ -166,7 +167,7 @@ protected:
     std::mutex dataMutex_;
     std::mutex listenerMutex_;
     int currentVolume_{ CAST_STREAM_INT_INVALID };
-    int maxVolume_{ CAST_STREAM_INT_INVALID };
+    int maxVolume_{ DEFAULT_MAX_VOLUME };
     bool isMute_ = false;
 };
 } // namespace CastEngineService

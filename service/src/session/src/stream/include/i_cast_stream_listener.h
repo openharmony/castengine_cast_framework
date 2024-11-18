@@ -28,6 +28,8 @@ class ICastStreamListener {
 public:
     virtual ~ICastStreamListener() = default;
     virtual bool SendActionToPeers(int action, const std::string &param) = 0;
+    virtual bool TransferToStreamMode() = 0;
+    virtual bool DisconnectSession(std::string deviceId) = 0;
     virtual void OnRenderReady(bool isReady) = 0;
     virtual void OnEvent(EventId eventId, const std::string &data) = 0;
 };
