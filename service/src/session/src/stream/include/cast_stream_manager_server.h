@@ -54,6 +54,7 @@ public:
     bool NotifyPeerCreateChannel() override;
     void OnEvent(EventId eventId, const std::string &data) override;
     void OnRenderReady(bool isReady) override;
+    bool PlayAfterSwitchToStream() override;
 
 private:
     bool ProcessActionLoad(const json &data);

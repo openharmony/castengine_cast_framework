@@ -37,7 +37,7 @@ public:
     void OnChannelRemoved(std::shared_ptr<Channel> channel) override;
     void OnChannelError(std::shared_ptr<Channel> channel, int errorCode) override;
     bool IsMediaChannelReady();
-    void SetMediaChannel(ModuleType moduleType);
+    bool SetAndCheckMediaChannel(ModuleType moduleType, const CastInnerRemoteDevice &remote);
 
 private:
     const static unsigned int UNCONNECTED_STATE = 0;
@@ -87,6 +87,8 @@ public:
     explicit CastStreamListenerImpl(sptr<CastSessionImpl> session) : session_(session) {}
     ~CastStreamListenerImpl() override;
     bool SendActionToPeers(int action, const std::string &param) override;
+    bool TransferToStreamMode() override;
+    bool DisconnectSession(std::string deviceId) override;
     void OnRenderReady(bool isReady) override;
     void OnEvent(EventId eventId, const std::string &data) override;
 
@@ -231,6 +233,34 @@ protected:
     bool HandleMessage(const Message &msg) override;
     DISALLOW_EVIL_CONSTRUCTORS(DisconnectingState);
 };
+
+class CastSessionImpl::MirrorToStreamState : public BaseState {
+public:
+    explicit MirrorToStreamState(SessionState stateId, sptr<CastSessionImpl> session,
+        std::shared_ptr<State> parentState = nullptr)
+        : BaseState(stateId, session, parentState) {};
+
+protected:
+    void Enter() override;
+    void Exit() override;
+    bool HandleMessage(const Message &msg) override;
+    void HandleRenderReadyMessage(const Message &msg, sptr<CastSessionImpl> session);
+    DISALLOW_EVIL_CONSTRUCTORS(MirrorToStreamState);
+};
+
+class CastSessionImpl::StreamToMirrorState : public BaseState {
+public:
+    explicit StreamToMirrorState(SessionState stateId, sptr<CastSessionImpl> session,
+        std::shared_ptr<State> parentState = nullptr)
+        : BaseState(stateId, session, parentState) {};
+ 
+protected:
+    void Enter() override;
+    void Exit() override;
+    bool HandleMessage(const Message &msg) override;
+    DISALLOW_EVIL_CONSTRUCTORS(StreamToMirrorState);
+};
+
 } // namespace CastEngineService
 } // namespace CastEngine
 } // namespace OHOS

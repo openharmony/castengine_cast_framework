@@ -27,6 +27,21 @@ namespace CastEngineService {
 DEFINE_CAST_ENGINE_LABEL("Cast-Session-Listeners");
 
 namespace {
+void AudioAndVideoWriteWrap(const std::string& funcName,
+    ProtocolType protocolType, ModuleType moduleType,
+    int sessionID)
+{
+    auto localSessName = SoftBusWrapper::GetSoftBusMySessionName(sessionID);
+    auto peerSessName = SoftBusWrapper::GetSoftBusPeerSessionName(sessionID);
+}
+
+void RemoteControlWriteWrap(const std::string& funcName,
+    ProtocolType protocolType,
+    int sessionID)
+{
+    auto localSessName = SoftBusWrapper::GetSoftBusMySessionName(sessionID);
+    auto peerSessName = SoftBusWrapper::GetSoftBusPeerSessionName(sessionID);
+}
 
 void RTSPWriteWrap(const std::string& funcName,
     ProtocolType protocolType,
@@ -190,6 +205,35 @@ bool CastSessionImpl::CastStreamListenerImpl::SendActionToPeers(int action, cons
     return session->SendCastMessage(Message(MessageId::MSG_STREAM_SEND_ACTION_EVENT_TO_PEERS, action, param));
 }
 
+bool CastSessionImpl::CastStreamListenerImpl::TransferToStreamMode()
+{
+    auto session = session_.promote();
+    if (!session) {
+        CLOGE("session is nullptr");
+        return false;
+    }
+
+    auto curSessionState = session->GetSessionState();
+    if (curSessionState != static_cast<uint8_t>(SessionState::STREAM)) {
+        return session->SendCastMessage(Message(MessageId::MSG_SWITCH_TO_STREAM));
+    }
+
+    return false;
+}
+
+bool CastSessionImpl::CastStreamListenerImpl::DisconnectSession(std::string deviceId)
+{
+    auto session = session_.promote();
+
+    if (!session) {
+        CLOGE("session is nullptr");
+        return false;
+    }
+
+    session->ChangeDeviceState(DeviceState::DISCONNECTED, deviceId);
+    return true;
+}
+
 CastSessionImpl::CastStreamListenerImpl::~CastStreamListenerImpl()
 {
     CLOGD("~CastStreamListenerImpl");
@@ -292,6 +336,20 @@ void CastSessionImpl::ChannelManagerListenerImpl::OnChannelCreated(std::shared_p
     auto streamManager = session->StreamManagerGetter();
     ModuleType moduleType = channel->GetRequest().moduleType;
     switch (moduleType) {
+        case ModuleType::AUDIO:
+        case ModuleType::VIDEO:
+            AudioAndVideoWriteWrap(__func__, session->property_.protocolType, moduleType, sessionID);
+
+            if (SetAndCheckMediaChannel(moduleType, deviceInfo->remoteDevice)) {
+                session->SendCastMessage(Message(MessageId::MSG_SETUP_SUCCESS, MODULE_ID_MEDIA, remoteDeviceId));
+            }
+            break;
+        case ModuleType::REMOTE_CONTROL:
+            CLOGI("REMOTE_CONTROL channel created.");
+            RemoteControlWriteWrap(__func__, session->property_.protocolType, sessionID);
+
+            session->SendCastMessage(Message(MessageId::MSG_SETUP_SUCCESS, MODULE_ID_RC, remoteDeviceId));
+            break;
         case ModuleType::RTSP:
             session->rtspControl_->AddChannel(channel, deviceInfo->remoteDevice);
 
@@ -369,17 +427,33 @@ void CastSessionImpl::ChannelManagerListenerImpl::OnChannelRemoved(std::shared_p
     return;
 }
 
-void CastSessionImpl::ChannelManagerListenerImpl::SetMediaChannel(ModuleType moduleType)
+bool CastSessionImpl::ChannelManagerListenerImpl::SetAndCheckMediaChannel(ModuleType moduleType,
+    const CastInnerRemoteDevice &remote)
 {
+    auto session = session_.promote();
+    if (session == nullptr) {
+        CLOGE("Session is null");
+        return false;
+    }
+    std::unique_lock<std::mutex> lock(session->mutex_);
     if (moduleType == ModuleType::AUDIO) {
         mediaChannelState_ |= AUDIO_CHANNEL_CONNECTED;
-        return;
     }
 
     if (moduleType == ModuleType::VIDEO) {
         mediaChannelState_ |= VIDEO_CHANNEL_CONNECTED;
     }
-    CLOGI("SetMediaChannel mediaChannelState_ is %d, moduleType is %d", mediaChannelState_, moduleType);
+    CLOGI("SetAndCheckMediaChannel mediaChannelState_ is %{public}d, moduleType is %{public}d, protocolType %{public}d",
+        mediaChannelState_, moduleType, session->property_.protocolType);
+
+    if (session->property_.protocolType == ProtocolType::CAST_PLUS_MIRROR ||
+        session->property_.protocolType == ProtocolType::CAST_PLUS_STREAM ||
+        (session->property_.protocolType == ProtocolType::COOPERATION && !remote.isLeagacy)) {
+        return mediaChannelState_ == (VIDEO_CHANNEL_CONNECTED | AUDIO_CHANNEL_CONNECTED);
+    }
+    CLOGI("Only Cast Video.");
+
+    return mediaChannelState_ == VIDEO_CHANNEL_CONNECTED;
 }
 
 bool CastSessionImpl::ChannelManagerListenerImpl::IsMediaChannelReady()

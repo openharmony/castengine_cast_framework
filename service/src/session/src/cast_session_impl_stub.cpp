@@ -49,6 +49,7 @@ CastSessionImplStub::CastSessionImplStub()
     FILL_SINGLE_STUB_TASK(NOTIFY_EVENT, &CastSessionImplStub::DoNotifyEvent);
     FILL_SINGLE_STUB_TASK(SET_CAST_MODE, &CastSessionImplStub::DoSetCastMode);
     FILL_SINGLE_STUB_TASK(RELEASE, &CastSessionImplStub::DoRelease);
+    FILL_SINGLE_STUB_TASK(GET_REMOTE_DEVICE_INFO, &CastSessionImplStub::DoGetRemoteDeviceInfo);
 }
 
 int32_t CastSessionImplStub::DoRegisterListenerTask(MessageParcel &data, MessageParcel &reply)
@@ -343,6 +344,32 @@ int32_t CastSessionImplStub::DoNotifyEvent(MessageParcel &data, MessageParcel &r
     NotifyEvent(eventId, param);
     return ERR_NONE;
 }
+
+int32_t CastSessionImplStub::DoGetRemoteDeviceInfo(MessageParcel &data, MessageParcel &reply)
+{
+    if (!Permission::CheckMirrorPermission()) {
+        return ERR_NO_PERMISSION;
+    }
+
+    if (!Permission::CheckPidPermission()) {
+        return CAST_ENGINE_ERROR;
+    }
+
+    CastRemoteDevice remoteDevice;
+    int32_t ret = GetRemoteDeviceInfo(data.ReadString(), remoteDevice);
+    if (!reply.WriteInt32(ret)) {
+        CLOGE("Failed to write ret:%d", ret);
+        return IPC_STUB_WRITE_PARCEL_ERR;
+    }
+
+    if (!WriteCastRemoteDevice(reply, remoteDevice)) {
+        CLOGE("Failed to write remote device");
+        return IPC_STUB_WRITE_PARCEL_ERR;
+    }
+
+    return ERR_NONE;
+}
+
 } // namespace CastEngineService
 } // namespace CastEngine
 } // namespace OHOS

@@ -361,6 +361,44 @@ void CastStreamManagerClient::OnEvent(EventId eventId, const std::string &data)
     streamListener_->OnEvent(eventId, data);
 }
 
+bool CastStreamManagerClient::TransferToStreamMode(const MediaInfo &mediaInfo)
+{
+    {
+        std::lock_guard<std::mutex> lock(dataMutex_);
+        mediaInfo_ = mediaInfo;
+    }
+    CLOGI("TransferToStreamMode in");
+    if (!streamListener_) {
+        CLOGE("streamListener_ is nullptr");
+        return false;
+    }
+
+    return streamListener_->TransferToStreamMode();
+}
+
+bool CastStreamManagerClient::DisconnectSession(std::string deviceId)
+{
+    CLOGI("DisconnectSession in");
+    if (!streamListener_) {
+        CLOGE("streamListener_ is nullptr");
+        return false;
+    }
+
+    return streamListener_->DisconnectSession(deviceId);
+}
+
+bool CastStreamManagerClient::PlayAfterSwitchToStream()
+{
+    std::lock_guard<std::mutex> lock(dataMutex_);
+    if (!player_) {
+        CLOGE("player_ is nullptr");
+        return false;
+    }
+
+    player_->Play(mediaInfo_);
+    return true;
+}
+
 sptr<IStreamPlayerListenerImpl> CastStreamManagerClient::PlayerListenerGetter()
 {
     std::lock_guard<std::mutex> lock(listenerMutex_);
