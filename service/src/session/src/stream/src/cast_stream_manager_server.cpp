@@ -219,6 +219,12 @@ void CastStreamManagerServer::OnRenderReady(bool isReady)
     streamListener_->OnRenderReady(isReady);
 }
 
+bool CastStreamManagerServer::PlayAfterSwitchToStream()
+{
+    CLOGE("Don't support PlayAfterSwitchToStream in CastStreamManagerServer");
+    return false;
+}
+
 std::shared_ptr<CastStreamPlayerManager> CastStreamManagerServer::PlayerGetter()
 {
     std::lock_guard<std::mutex> lock(dataMutex_);

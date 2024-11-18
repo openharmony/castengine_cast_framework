@@ -47,6 +47,7 @@ private:
     int32_t DoNotifyEvent(MessageParcel &data, MessageParcel &reply);
     int32_t DoSetCastMode(MessageParcel &data, MessageParcel &reply);
     int32_t DoRelease(MessageParcel &data, MessageParcel &reply);
+    int32_t DoGetRemoteDeviceInfo(MessageParcel &data, MessageParcel &reply);
 };
 } // namespace CastEngineService
 } // namespace CastEngine

@@ -32,6 +32,7 @@
 #include "mirror_player_impl.h"
 #include "permission.h"
 #include "cast_engine_dfx.h"
+#include "wifi_hid2d.h"
 #include "bundle_mgr_client.h"
 
 namespace OHOS {
@@ -45,6 +46,7 @@ using CastSessionRtsp::VtpType;
 
 namespace {
 constexpr int SESSION_KEY_LENGTH = 16;
+constexpr int AV_SESSION_UID = 6700;
 
 void ProcessConnectWriteWrap(const std::string& funcName,
     ProtocolType protocolType, int sceneType, const std::string& puid)
@@ -133,9 +135,6 @@ void CastSessionImpl::SetServiceCallbackForRelease(const std::function<void(int)
 int32_t CastSessionImpl::RegisterListener(sptr<ICastSessionListenerImpl> listener)
 {
     CLOGD("Start to register session listener");
-    if (!Permission::CheckPidPermission()) {
-        return ERR_NO_PERMISSION;
-    }
     std::unique_lock<std::mutex> lock(mutex_);
     listeners_[IPCSkeleton::GetCallingPid()] = listener;
     cond_.notify_all();
@@ -179,24 +178,62 @@ int32_t CastSessionImpl::AddDevice(const CastRemoteDevice &remoteDevice)
 
     auto remote = CastDeviceDataManager::GetInstance().GetDeviceByDeviceId(remoteDevice.deviceId);
     if (remote == std::nullopt) {
+        CLOGE("device is not found");
         return CAST_ENGINE_ERROR;
     }
+
+    if (IsDlnaDevice(*remote)) {
+        return ConnectDlnaDevice(*remote);
+    }
+
+    if (CastDeviceDataManager::GetInstance().IsDeviceConnected(remoteDevice.deviceId)) {
+        CLOGE("device(%{public}s) has been connected, do not grab", Utils::Mask(remoteDevice.deviceId).c_str());
+        return CAST_ENGINE_ERROR;
+    }
+
     remote->sessionId = sessionId_;
     remote->subDeviceType = remoteDevice.subDeviceType;
     if (!AddDevice(*remote) || !ConnectionManager::GetInstance().ConnectDevice(*remote, property_.protocolType)) {
-        CLOGE("AddDevice or ConnectDevice fail");
         return CAST_ENGINE_ERROR;
     }
+
     CLOGI("AddDevice out.");
+    return CAST_ENGINE_SUCCESS;
+}
+
+bool CastSessionImpl::IsDlnaDevice(CastInnerRemoteDevice remoteDeviceInfo)
+{
+    CLOGI("IsDlnaDevice in, protocolType:%{public}d, capabilityInfo:%{public}u",
+        property_.protocolType, remoteDeviceInfo.capabilityInfo);
+    if ((remoteDeviceInfo.capabilityInfo & static_cast<uint32_t>(ProtocolType::CAST_PLUS_STREAM)) != 0) {
+        CLOGI("Priority Stream");
+        return false;
+    }
+    if (((remoteDeviceInfo.capabilityInfo & static_cast<uint32_t>(ProtocolType::DLNA)) != 0) &&
+        (property_.protocolType == ProtocolType::CAST_PLUS_STREAM || property_.protocolType == ProtocolType::DLNA)) {
+        return true;
+    }
+    return false;
+}
+
+int32_t CastSessionImpl::ConnectDlnaDevice(CastInnerRemoteDevice remoteDeviceInfo)
+{
+    CLOGI("ConnectDlnaDevice in");
+    if (!AddRemoteDevice(CastRemoteDeviceInfo { remoteDeviceInfo, DeviceState::STREAM })) {
+        CLOGE("AddRemoteDevice fail");
+        return CAST_ENGINE_ERROR;
+    }
+    std::lock_guard<std::mutex> lock(mutex_);
+    dlnaDeviceId_ = remoteDeviceInfo.dlnaDeviceId;
+    CLOGI("dlnaDeviceId is %u, deviceId is %s", dlnaDeviceId_, Utils::Mask(remoteDeviceInfo.deviceId).c_str());
+    for (const auto &[pid, listener] : listeners_) {
+        listener->OnDeviceState(DeviceStateInfo { DeviceState::STREAM, remoteDeviceInfo.deviceId});
+    }
     return CAST_ENGINE_SUCCESS;
 }
 
 bool CastSessionImpl::AddDevice(const CastInnerRemoteDevice &remoteDevice)
 {
-    if (!Permission::CheckPidPermission()) {
-        return false;
-    }
-
     CLOGI("In: session state: %{public}s", SESSION_STATE_STRING[static_cast<int>(sessionState_)].c_str());
     {
         std::unique_lock<std::mutex> lock(mutex_);
@@ -267,23 +304,30 @@ void CastSessionImpl::WaitSinkSetProperty()
 
 int32_t CastSessionImpl::RemoveDevice(const std::string &deviceId)
 {
-    CLOGI("In: session state: %{public}s", SESSION_STATE_STRING[static_cast<int>(sessionState_)].c_str());
-    if (!Permission::CheckPidPermission()) {
-        return ERR_NO_PERMISSION;
+    CLOGI("In: session state: %{public}s, deviceId:%{public}s",
+        SESSION_STATE_STRING[static_cast<int>(sessionState_)].c_str(), Utils::Mask(deviceId).c_str());
+
+    std::lock_guard<std::mutex> lock(mutex_);
+    return RemoveDeviceInner(deviceId);
+}
+
+int32_t CastSessionImpl::RemoveDeviceInner(const std::string &deviceId)
+{
+    CLOGI("RemoveDeviceInner in");
+
+    if (IPCSkeleton::GetCallingUid() == AV_SESSION_UID && mirrorToStream_) {
+        CLOGI("send message to mirror");
+        SendCastMessage(Message(MessageId::MSG_SWITCH_TO_MIRROR, deviceId));
+        return CAST_ENGINE_SUCCESS;
     }
 
-    auto anonymousID = GetAnonymousDeviceID(deviceId);
-    auto sceneType = GetBIZSceneType(static_cast<int>(property_.protocolType));
-    HiSysEventWriteWrap(__func__, {
-            {"BIZ_SCENE", sceneType},
-            {"BIZ_STATE", static_cast<int32_t>(BIZStateType::BIZ_STATE_BEGIN)},
-            {"BIZ_STAGE", static_cast<int32_t>(BIZSceneStage::START_DISCONNECT)},
-            {"STAGE_RES", static_cast<int32_t>(StageResType::STAGE_RES_SUCCESS)},
-            {"ERROR_CODE", CAST_RADAR_SUCCESS}}, {
-            {"TO_CALL_PKG", DEVICE_MANAGER_NAME},
-            {"LOCAL_SESS_NAME", ""},
-            {"PEER_SESS_NAME", ""},
-            {"PEER_UDID", anonymousID}});
+    if ((property_.protocolType == ProtocolType::DLNA ||
+        dlnaDeviceId_ != static_cast<uint32_t>(INVALID_ID)) && streamPlayer_) {
+        streamPlayer_->Stop();
+        for (const auto &[pid, listener] : listeners_) {
+            listener->OnDeviceState(DeviceStateInfo { DeviceState::DISCONNECTED, deviceId});
+        }
+    }
 
     SendCastMessage(Message(MessageId::MSG_DISCONNECT, deviceId));
     return CAST_ENGINE_SUCCESS;
@@ -306,10 +350,9 @@ bool CastSessionImpl::ReleaseSessionResources(pid_t pid, uid_t uid)
     }
 
     for (auto &deviceInfo : remoteDeviceList_) {
-        RemoveDevice(deviceInfo.remoteDevice.deviceId);
+        RemoveDeviceInner(deviceInfo.remoteDevice.deviceId);
     }
 
-    Stop();
     return true;
 }
 
@@ -375,18 +418,21 @@ bool CastSessionImpl::DestroyStreamPlayer()
 
 int32_t CastSessionImpl::Release()
 {
-    {
-        std::lock_guard<std::mutex> lock(mutex_);
-        for (auto &deviceInfo : remoteDeviceList_) {
-            RemoveDevice(deviceInfo.remoteDevice.deviceId);
+    std::thread([this] {
+        Utils::SetThreadName("SessionsRelease");
+        {
+            std::lock_guard<std::mutex> lock(mutex_);
+            for (auto &deviceInfo : remoteDeviceList_) {
+                RemoveDeviceInner(deviceInfo.remoteDevice.deviceId);
+            }
         }
-    }
-    std::lock_guard<std::mutex> lock(serviceCallbackMutex_);
-    if (!serviceCallback_) {
-        CLOGE("serviceCallback is null");
-        return CAST_ENGINE_ERROR;
-    }
-    serviceCallback_(sessionId_);
+        std::lock_guard<std::mutex> lock(serviceCallbackMutex_);
+        if (!serviceCallback_) {
+            CLOGE("serviceCallback is null");
+            return;
+        }
+        serviceCallback_(sessionId_);
+    }).detach();
     return CAST_ENGINE_SUCCESS;
 }
 
@@ -436,6 +482,14 @@ int32_t CastSessionImpl::GetDeviceState(const std::string &deviceId, DeviceState
     CLOGI("device state: %{public}s", DEVICE_STATE_STRING[static_cast<int>(state)].c_str());
     deviceState = state;
     return CAST_ENGINE_SUCCESS;
+}
+
+uint8_t CastSessionImpl::GetSessionState()
+{
+    std::unique_lock<std::mutex> lock(mutex_);
+    CLOGE("GetSessionState in, session state: %{public}s",
+        SESSION_STATE_STRING[static_cast<int>(sessionState_)].c_str());
+    return static_cast<uint8_t>(sessionState_);
 }
 
 int32_t CastSessionImpl::SetSessionProperty(const CastSessionProperty &property)
@@ -555,6 +609,8 @@ bool CastSessionImpl::Init()
     pausedState_ = std::make_shared<PausedState>(SessionState::PAUSED, this, connectedState_);
     playingState_ = std::make_shared<PlayingState>(SessionState::PLAYING, this, connectedState_);
     streamState_ = std::make_shared<StreamState>(SessionState::STREAM, this, connectedState_);
+    mirrorToStreamState_ = std::make_shared<MirrorToStreamState>(SessionState::MIRROR_TO_STREAM, this, connectedState_);
+    streamToMirrorState_ = std::make_shared<StreamToMirrorState>(SessionState::STREAM_TO_MIRROR, this, connectedState_);
     TransferTo(disconnectedState_);
 
     return true;
@@ -739,10 +795,16 @@ std::optional<int> CastSessionImpl::SetupMedia(const CastInnerRemoteDevice &remo
     return std::nullopt;
 }
 
+void CastSessionImpl::SetWifiScene(unsigned int scene)
+{
+    CLOGI("SetWifiScene %{public}u end", scene);
+}
+
 bool CastSessionImpl::ProcessSetUp(const Message &msg)
 {
     CLOGD("Media ports: %d, rc ports: %d id %s", msg.arg1_, msg.arg2_, msg.strArg_.c_str());
-
+    
+    SetWifiScene(1);
     auto deviceInfo = FindRemoteDevice(msg.strArg_);
     if (deviceInfo == nullptr) {
         CLOGE("Remote device is null");
@@ -806,6 +868,44 @@ bool CastSessionImpl::ProcessPauseReq(const Message &msg)
     return true;
 }
 
+bool CastSessionImpl::ProcessMirrorToStream()
+{
+    CLOGD("In");
+    SendEventChange(MODULE_ID_CAST_SESSION, static_cast<int>(CastSessionRemoteEventId::MIRROR_TO_STREAM), "");
+    PauseMirrorForStream();
+    return true;
+}
+
+bool CastSessionImpl::ProcessStreamToMirror()
+{
+    CLOGI("In");
+    PlayMirrorForChange();
+    SendEventChange(MODULE_ID_CAST_SESSION, static_cast<int>(CastSessionRemoteEventId::STREAM_TO_MIRROR), "");
+    return true;
+}
+
+bool CastSessionImpl::PauseMirrorForStream()
+{
+    CLOGD("In");
+    return true;
+}
+
+bool CastSessionImpl::PlayMirrorForChange()
+{
+    CLOGD("In");
+    return true;
+}
+
+bool CastSessionImpl::PlayAfterSwitchToStream()
+{
+    auto streamManager = StreamManagerGetter();
+    if (!streamManager) {
+        CLOGI("streamManager is null");
+        return false;
+    }
+    return streamManager->PlayAfterSwitchToStream();
+}
+
 void CastSessionImpl::MirrorRcvVideoFrame()
 {
 }
@@ -838,6 +938,7 @@ bool CastSessionImpl::ProcessDisconnect(const Message &msg)
         {"PEER_UDID", ""}});
 
     CLOGD("In");
+    SetWifiScene(0);
     rtspControl_->Action(ActionType::TEARDOWN);
     channelManager_->DestroyAllChannels();
     return true;
@@ -850,9 +951,12 @@ bool CastSessionImpl::ProcessError(const Message &msg)
     std::lock_guard<std::mutex> lock(mutex_);
     auto &devices = remoteDeviceList_;
     for (auto it = devices.begin(); it != devices.end();) {
-        ChangeDeviceStateLocked(DeviceState::DISCONNECTED, it->remoteDevice.deviceId, msg.arg1_);
-        ConnectionManager::GetInstance().DisconnectDevice(it->remoteDevice.deviceId);
-        devices.erase(it++);
+        ChangeDeviceStateInner(DeviceState::DISCONNECTED, it->remoteDevice.deviceId, msg.arg1_);
+        if (property_.protocolType == ProtocolType::CAST_PLUS_MIRROR ||
+            property_.protocolType == ProtocolType::CAST_PLUS_STREAM) {
+            ConnectionManager::GetInstance().DisconnectDevice(it->remoteDevice.deviceId);
+        }
+        it = devices.erase(it);
     }
 
     return result;
@@ -1036,13 +1140,13 @@ bool CastSessionImpl::IsAllowTransferState(SessionState desiredState) const
     return true;
 }
 
-void CastSessionImpl::ChangeDeviceState(DeviceState state, const std::string &deviceId, int32_t eventCode)
+void CastSessionImpl::ChangeDeviceState(DeviceState state, const std::string &deviceId, int32_t reasonCode)
 {
     std::lock_guard<std::mutex> lock(mutex_);
-    ChangeDeviceStateLocked(state, deviceId, eventCode);
+    ChangeDeviceStateInner(state, deviceId, reasonCode);
 }
 
-void CastSessionImpl::ChangeDeviceStateLocked(DeviceState state, const std::string &deviceId, int32_t eventCode)
+void CastSessionImpl::ChangeDeviceStateInner(DeviceState state, const std::string &deviceId, int32_t reasonCode)
 {
     auto deviceInfo = FindRemoteDeviceLocked(deviceId);
     if (!deviceInfo) {
@@ -1050,32 +1154,20 @@ void CastSessionImpl::ChangeDeviceStateLocked(DeviceState state, const std::stri
         return;
     }
 
-    CLOGD("New state:%{public}s, old state:%{public}s, device id:%s, eventCode:%{public}d",
+    CLOGI("New state:%{public}s, old state:%{public}s, device id:%s, reasonCode:%{public}d",
         DEVICE_STATE_STRING[static_cast<int>(state)].c_str(),
         DEVICE_STATE_STRING[static_cast<int>(deviceInfo->deviceState)].c_str(),
         deviceId.c_str(),
-        static_cast<ReasonCode>(eventCode));
-    if (state == deviceInfo->deviceState) {
+        reasonCode);
+
+    // Allow multiple reporting in authing state
+    if (state != DeviceState::AUTHING && state == deviceInfo->deviceState) {
         return;
     }
 
     UpdateRemoteDeviceStateLocked(deviceId, state);
-
     for (const auto &[pid, listener] : listeners_) {
-        listener->OnDeviceState(DeviceStateInfo { state, deviceId, static_cast<ReasonCode>(eventCode) });
-    }
-}
-
-void CastSessionImpl::ReportDeviceStateInfo(DeviceState state, const std::string &deviceId, const ReasonCode eventCode)
-{
-    CLOGI("ReportDeviceStateInfo in.");
-    auto deviceInfo = FindRemoteDeviceLocked(deviceId);
-    if (!deviceInfo) {
-        CLOGE("does not exist this device, deviceId = %s.", deviceId.c_str());
-        return;
-    }
-    for (const auto &[pid, listener] : listeners_) {
-        listener->OnDeviceState(DeviceStateInfo { state, deviceId, eventCode });
+        listener->OnDeviceState(DeviceStateInfo{ state, deviceId, static_cast<ReasonCode>(reasonCode) });
     }
 }
 
@@ -1087,6 +1179,7 @@ void CastSessionImpl::OnEvent(EventId eventId, const std::string &data)
         CLOGE("OnEvent failed because listeners_ is empty!");
         return;
     }
+
     for (const auto &[pid, listener] : listeners_) {
         listener->OnEvent(eventId, data);
     }
@@ -1106,6 +1199,29 @@ void CastSessionImpl::ProcessRtspEvent(int moduleId, int event, const std::strin
         case MODULE_ID_CAST_SESSION:
             if (event == static_cast<int>(CastSessionRemoteEventId::READY_TO_PLAYING)) {
                 SendCastMessage(Message(MessageId::MSG_READY_TO_PLAYING));
+            }
+            break;
+        default:
+            break;
+    }
+
+    ProcessRtspEventInner(moduleId, event, param);
+}
+
+void CastSessionImpl::ProcessRtspEventInner(int moduleId, int event, const std::string &param)
+{
+    switch (moduleId) {
+        case MODULE_ID_CAST_SESSION:
+            if (event == static_cast<int>(CastSessionRemoteEventId::MIRROR_TO_STREAM)) {
+                SendCastMessage(Message(MessageId::MSG_SWITCH_TO_STREAM, param));
+            } else if (event == static_cast<int>(CastSessionRemoteEventId::STREAM_TO_MIRROR)) {
+                SendCastMessage(Message(MessageId::MSG_SWITCH_TO_MIRROR, param));
+            } else if (event == static_cast<int>(CastSessionRemoteEventId::RESPONSE_MODE_SWITCH) &&
+                !param.compare("success")) {
+                SendCastMessage(Message(MessageId::MSG_PEER_RENDER_READY, param));
+            } else if (event == static_cast<int>(CastSessionRemoteEventId::RESPONSE_MODE_SWITCH) &&
+                !param.compare("fail")) {
+                SendCastMessage(Message(MessageId::MSG_PEER_RENDER_FAIL, param));
             }
             break;
         default:
@@ -1249,6 +1365,37 @@ void CastSessionImpl::OnRemoteCtrlEvent(int eventType, const uint8_t *data, uint
         listener->OnRemoteCtrlEvent(eventType, data, len);
     }
 }
+
+void CastSessionImpl::SetMirrorToStreamState(bool state)
+{
+    std::unique_lock<std::mutex> lock(mutex_);
+    CLOGI("set success %d", state);
+    mirrorToStream_ = state;
+}
+
+int32_t CastSessionImpl::GetRemoteDeviceInfo(std::string deviceId, CastRemoteDevice &remoteDevice)
+{
+    CLOGI("GetRemoteDeviceInfo in");
+
+    auto device = CastDeviceDataManager::GetInstance().GetDeviceByDeviceId(deviceId);
+    if (device == std::nullopt) {
+        CLOGI("The device is not found. deviceId: %{public}s", Utils::Mask(deviceId).c_str());
+        return CAST_ENGINE_ERROR;
+    }
+
+    auto networkId = CastDeviceDataManager::GetInstance().GetDeviceNetworkId(deviceId);
+    remoteDevice = CastRemoteDevice {
+        device->deviceId, device->deviceName,
+        device->deviceType, device->subDeviceType,
+        device->ipAddress, device->channelType,
+        device->capability, device->capabilityInfo,
+        *networkId, "", 0, nullptr, device->isLeagacy,
+        device->sessionId, device->drmCapabilities,
+    };
+
+    return CAST_ENGINE_SUCCESS;
+}
+
 } // namespace CastEngineService
 } // namespace CastEngine
 } // namespace OHOS

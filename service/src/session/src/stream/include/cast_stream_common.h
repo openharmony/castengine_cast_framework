@@ -33,6 +33,7 @@ constexpr int32_t AUTO_POSITION_UPDATE_INTERVAL = 100;
 constexpr int32_t AUTO_POSITION_SYNC_INTERVAL = 10000;
 constexpr int32_t POSITION_LAG_MINIMUM = 50;
 constexpr int32_t POSITION_LAG_MAXIMUM = 150;
+constexpr int32_t DEFAULT_MAX_VOLUME = 14;
 const std::string PLAYER_ERROR = "PLAYER_ERROR";
 
 #define RETURN_IF_PARSE_WRONG(value, data, key, ret, jsonType)            \

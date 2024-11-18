@@ -71,6 +71,9 @@ public:
     StreamCapability GetAvailableCapability() override;
     PlaybackSpeed GetPlaySpeed() override;
     bool IsDoubleFrame() override;
+    bool TransferToStreamMode(const MediaInfo &mediaInfo) override;
+    bool DisconnectSession(std::string deviceId) override;
+    bool PlayAfterSwitchToStream() override;
 
 private:
     bool ProcessActionPlayerStatusChanged(const json &data);
@@ -113,6 +116,7 @@ private:
     std::atomic<bool> isSeeking_{ false };
     std::atomic<bool> isNewResourceLoaded_{ false };
     std::atomic<bool> isDoubleFrame_{ false };
+    MediaInfo mediaInfo_{};
     StreamCapability availableCapability_{};
 };
 } // namespace CastEngineService
