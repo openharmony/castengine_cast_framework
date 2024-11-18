@@ -18,11 +18,12 @@
 
 #include "softbus_wrapper.h"
 #include "cast_engine_log.h"
+#include "utils.h"
 
 namespace OHOS {
 namespace CastEngine {
 namespace CastEngineService {
-DEFINE_CAST_ENGINE_LABEL("CastEngine-SoftBusWrapper");
+DEFINE_CAST_ENGINE_LABEL("Cast-SoftBusWrapper");
 
 std::mutex SoftBusWrapper::mutex_;
 std::map<int, std::string> SoftBusWrapper::sessionIdToNameMap_ {};
@@ -30,13 +31,52 @@ std::map<int, std::string> SoftBusWrapper::sessionIdToNameMap_ {};
 SoftBusWrapper::SoftBusWrapper()
 {
     attribute_.linkTypeNum = MAX_LINK_TYPE_NUM;
-    attribute_.linkType[0] = LINK_TYPE_WIFI_P2P;     // Select WIFI P2P first
-    attribute_.linkType[1] = LINK_TYPE_WIFI_WLAN_5G; // Then WIFI 5G
-    attribute_.linkType[2] = LINK_TYPE_WIFI_WLAN_2G; // Then WIFI 2G
+    attribute_.linkType[FIRST_PRIO_INDEX] = LINK_TYPE_WIFI_P2P_REUSE; // Select WIFI P2P REUSE first
+    attribute_.linkType[SECOND_PRIO_INDEX] = LINK_TYPE_WIFI_P2P; // Then WIFI P2P
     attribute_.dataType = TYPE_BYTES;
 }
 
 SoftBusWrapper::~SoftBusWrapper() {}
+
+std::string SoftBusWrapper::GetSoftBusMySessionName(int sessionId)
+{
+    char cSessionName[MAX_SESSIONNAME_LEN] = {0};
+    {
+        std::lock_guard<std::mutex> lock(mutex_);
+        auto it = sessionIdToNameMap_.find(sessionId);
+        if (it != sessionIdToNameMap_.end()) {
+            return it->second;
+        }
+    }
+    int ret = GetMySessionName(sessionId, cSessionName, sizeof(cSessionName));
+    if (ret == RET_OK) {
+        return std::string(cSessionName);
+    }
+    CLOGE("OUT, ret = %{public}d, cSessionName = %{public}s, sessionId = %{public}d.", ret, cSessionName, sessionId);
+    return std::string("");
+}
+
+std::string SoftBusWrapper::GetSoftBusPeerSessionName(int sessionId)
+{
+    char cSessionName[MAX_SESSIONNAME_LEN] = {0};
+    int ret = GetPeerSessionName(sessionId, cSessionName, sizeof(cSessionName));
+    if (ret == RET_OK) {
+        return std::string(cSessionName);
+    }
+    CLOGE("OUT, ret = %{public}d, cSessionName = %{public}s, sessionId = %{public}d.", ret, cSessionName, sessionId);
+    return std::string("");
+}
+
+std::string SoftBusWrapper::GetSoftBusPeerDeviceId(int sessionId)
+{
+    char cDeviceId[MAX_PEERDEVICEID_LEN] = {0};
+    int ret = GetPeerDeviceId(sessionId, cDeviceId, sizeof(cDeviceId));
+    if (ret == RET_OK) {
+        return std::string(cDeviceId);
+    }
+    CLOGE("Out, ret = %{public}d, cDeviceId = %{public}s, sessionId = %{public}d.", ret, cDeviceId, sessionId);
+    return std::string("");
+}
 
 int SoftBusWrapper::StartSoftBusService(const std::string pkgName, const std::string &sessionName,
     ISessionListener *listener)
@@ -83,46 +123,6 @@ void SoftBusWrapper::CloseSoftBusSession() const
     if (it != sessionIdToNameMap_.end()) {
         sessionIdToNameMap_.erase(it);
     }
-}
-
-std::string SoftBusWrapper::GetSoftBusMySessionName(int sessionId)
-{
-    char cSessionName[MAX_SESSIONNAME_LEN] = {0};
-    {
-        std::lock_guard<std::mutex> lock(mutex_);
-        auto it = sessionIdToNameMap_.find(sessionId);
-        if (it != sessionIdToNameMap_.end()) {
-            return it->second;
-        }
-    }
-    int ret = GetMySessionName(sessionId, cSessionName, sizeof(cSessionName));
-    if (ret == RET_OK) {
-        return std::string(cSessionName);
-    }
-    CLOGE("OUT, ret = %{public}d, cSessionName = %{public}s, sessionId = %{public}d.", ret, cSessionName, sessionId);
-    return std::string("");
-}
-
-std::string SoftBusWrapper::GetSoftBusPeerSessionName(int sessionId)
-{
-    char cSessionName[MAX_SESSIONNAME_LEN] = {0};
-    int ret = GetPeerSessionName(sessionId, cSessionName, sizeof(cSessionName));
-    if (ret == RET_OK) {
-        return std::string(cSessionName);
-    }
-    CLOGE("OUT, ret = %{public}d, cSessionName = %{public}s, sessionId = %{public}d.", ret, cSessionName, sessionId);
-    return std::string("");
-}
-
-std::string SoftBusWrapper::GetSoftBusPeerDeviceId(int sessionId)
-{
-    char cDeviceId[MAX_PEERDEVICEID_LEN] = {0};
-    int ret = GetPeerDeviceId(sessionId, cDeviceId, sizeof(cDeviceId));
-    if (ret == RET_OK) {
-        return std::string(cDeviceId);
-    }
-    CLOGE("Out, ret = %{public}d, cDeviceId = %{public}s, sessionId = %{public}d.", ret, cDeviceId, sessionId);
-    return std::string("");
 }
 
 int SoftBusWrapper::SendSoftBusBytes(const uint8_t *data, unsigned int len) const

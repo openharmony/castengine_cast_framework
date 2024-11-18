@@ -24,7 +24,7 @@
 namespace OHOS {
 namespace CastEngine {
 namespace CastEngineService {
-DEFINE_CAST_ENGINE_LABEL("CastEngine-TcpSocket");
+DEFINE_CAST_ENGINE_LABEL("Cast-TcpSocket");
 
 TcpSocket::TcpSocket()
 {
@@ -32,7 +32,7 @@ TcpSocket::TcpSocket()
     if (socket_ < RET_OK) {
         CLOGE("Create socket error: errno = %{public}d, errmsg = %{public}s.", errno, strerror(errno));
     } else {
-        CLOGD("Create socket success.");
+        CLOGI("Create socket success.");
     }
 }
 
@@ -50,19 +50,23 @@ int TcpSocket::Bind(const std::string &ip, int port)
     } else {
         sockaddr.sin_addr.s_addr = inet_addr(ip.c_str());
     }
+
     if (port == INVALID_PORT) {
         sockaddr.sin_port = htons(RANDOM_PORT);
     } else {
         sockaddr.sin_port = htons(port);
     }
+
     if (::bind(socket_, reinterpret_cast<struct sockaddr *>(&sockaddr), sizeof(sockaddr)) < RET_OK) {
         CLOGE("Socket bind error: errno = %{public}d, errmsg = %{public}s.", errno, strerror(errno));
         return INVALID_PORT;
     }
-    CLOGD("Socket bind success.");
+
+    CLOGI("Socket bind success.");
     if (port == INVALID_PORT) {
         return GetBindPort();
     }
+
     return port;
 }
 
@@ -107,7 +111,8 @@ bool TcpSocket::Listen(int backlog)
         CLOGE("Socket listen error: errno = %{public}d, errmsg = %{public}s.", errno, strerror(errno));
         return false;
     }
-    CLOGD("Socket listening...");
+
+    CLOGI("Socket listening...");
     return true;
 }
 
@@ -121,7 +126,8 @@ bool TcpSocket::Connect(const std::string & ip, int port)
         CLOGE("Socket connect error: errno = %{public}d, errmsg = %{public}s.", errno, strerror(errno));
         return false;
     }
-    CLOGD("Socket connect success.");
+
+    CLOGI("Socket connect success.");
     return true;
 }
 
@@ -132,7 +138,8 @@ int TcpSocket::Accept()
         CLOGE("Socket accept error: errno = %{public}d, errmsg = %{public}s.", errno, strerror(errno));
         return INVALID_SOCKET;
     }
-    CLOGD("Socket accept success.");
+
+    CLOGI("Socket accept success.");
     return connfd;
 }
 
@@ -167,7 +174,7 @@ ssize_t TcpSocket::Recv(int fd, uint8_t *buff, size_t length)
         recvLen += static_cast<size_t>(len);
     }
 
-    CLOGD("Socket recv DONE!, size:%zu", recvLen);
+    CLOGI("Socket recv DONE!, size:%zu", recvLen);
     return recvLen;
 }
 
@@ -267,6 +274,23 @@ bool TcpSocket::SetReuseAddr()
     return true;
 }
 
+bool TcpSocket::SetIPTOS(int fd)
+{
+    /*
+    数据包级别设置成VO级别
+    Wi-Fi组织提出了一种无线QoS协议Wi-Fi多媒体标准WMM（Wi-Fi Multimedia）,
+    将数据报文按照优先级从高到低分为4个接入类AC（Access Category） :
+    AC_VO(语音)、AC_VI(视频)、AC_BE(尽力而为)、AC_BK(背景),
+    高优先级的AC占用信道的机会大于低优先级的AC
+    */
+    int tos = IPTOS_LOWDELAY;
+    if (setsockopt(fd, IPPROTO_IP, IP_TOS, &tos, sizeof(tos)) < RET_OK) {
+        CLOGE("Socket IP_TOS error: errno = %{public}d, errmsg = %{public}s.", errno, strerror(errno));
+        return false;
+    }
+    CLOGD("Socket IP_TOS success.");
+    return true;
+}
 } // namespace CastEngineService
 } // namespace CastEngine
 } // namespace OHOS

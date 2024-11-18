@@ -27,6 +27,7 @@
 
 #include "../../include/connection.h"
 #include "softbus_wrapper.h"
+#include "socket.h"
 
 namespace OHOS {
 namespace CastEngine {
@@ -40,25 +41,33 @@ public:
 
     static std::pair<bool, std::shared_ptr<SoftBusConnection>> GetConnection(int sessionId);
     int StartConnection(const ChannelRequest &request, std::shared_ptr<IChannelListener> channelListener) override;
-    int StartListen(const ChannelRequest &request, std::shared_ptr<IChannelListener> channelListener) override;
     void CloseConnection() override;
+
+    int StartListen(const ChannelRequest &request, std::shared_ptr<IChannelListener> channelListener) override;
+
     bool Send(const uint8_t *buf, int bufLen) override;
     SoftBusWrapper &GetSoftBus();
     bool GetActivelyOpenFlag() const;
     void SetActivelyOpenFlag(bool isActivelyOpen);
     bool GetPassiveCloseFlag() const;
     void SetPassiveCloseFlag(bool isPassiveClose);
+    std::string GetType() override
+    {
+        return "SOFTBUS";
+    }
     static std::unordered_map<std::string, std::shared_ptr<SoftBusConnection>> connectionMap_;
     static std::mutex connectionMapMtx_;
     static IFileSendListener fileSendListener_;
     static IFileReceiveListener fileReceiveListener_;
 private:
+    static std::pair<bool, std::shared_ptr<SoftBusConnection>> GetConnection(std::string sessionName);
     static int OnConnectionSessionOpened(int sessionId, int result);
     static void OnConnectionSessionClosed(int sessionId);
     static void OnConnectionMessageReceived(int sessionId, const void *data, unsigned int dataLen);
     static void OnConnectionBytesReceived(int sessionId, const void *data, unsigned int dataLen);
     static void OnConnectionStreamReceived(int sessionId, const StreamData *data, const StreamData *ext,
         const StreamFrameInfo *param);
+    static void OnConnectionFileReceived(int32_t socket, FileEvent *event);
     static void OnConnectionSessionEvent(int sessionId, int eventId, int tvCount, const QosTv *tvList);
 
     // Softbus file send callback function
@@ -95,6 +104,7 @@ private:
     ISessionListener sessionListener_ = { OnConnectionSessionOpened, OnConnectionSessionClosed,
         OnConnectionBytesReceived, OnConnectionMessageReceived, OnConnectionStreamReceived, OnConnectionSessionEvent };
     SoftBusWrapper softbus_;
+    time_t startConnectTime_{ 0 };
 };
 } // namespace CastEngineService
 } // namespace CastEngine
