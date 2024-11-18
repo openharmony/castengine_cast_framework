@@ -44,7 +44,11 @@ public:
     int StartListen(const ChannelRequest &request, std::shared_ptr<IChannelListener> channelListener) override;
     void CloseConnection() override;
     bool Send(const uint8_t *buf, int bufLen) override;
-    
+    std::string GetType() override
+    {
+        return "TCP";
+    }
+
 private:
     void ConfigSocket();
     void Connect();
@@ -54,7 +58,7 @@ private:
     void Accept();
     void SetAudioConnection(int socket);
     void HandleReceivedData(int socket);
-    uint32_t GetReceivedDataLength(uint8_t *header);
+    uint32_t GetReceivedDataLength(uint8_t *header, int length);
     void HandleRemoteControlReceivedData(uint32_t dataLength, uint8_t *header, uint8_t *buf);
 
     static constexpr int RET_ERR = -1;

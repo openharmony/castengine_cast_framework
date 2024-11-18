@@ -68,6 +68,7 @@ public:
     int StartMediaVtp(const ParamInfo &param) override;
     void ProcessStreamMode(const ParamInfo &param, const std::string &deviceId) override;
 
+    void NotifyScreenParam(const std::string &screenParam) override;
 private:
     wptr<CastSessionImpl> session_;
 };

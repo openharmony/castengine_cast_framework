@@ -24,7 +24,7 @@
 namespace OHOS {
 namespace CastEngine {
 namespace CastEngineService {
-DEFINE_CAST_ENGINE_LABEL("CastEngine-ChannelManager");
+DEFINE_CAST_ENGINE_LABEL("Cast-ChannelManager");
 
 ChannelManager::ChannelManager(const int sessionIndex, std::shared_ptr<IChannelManagerListener> channelManagerListener)
     : sessionIndex_(sessionIndex), channelManagerListener_(channelManagerListener)
@@ -79,6 +79,10 @@ int ChannelManager::CreateChannel(ChannelRequest &request, std::shared_ptr<IChan
 
     request.connectionId = ++connectionNum_;
     std::shared_ptr<Connection> connection = GetConnection(request.linkType);
+    if (!connection) {
+        CLOGE("Failed to get connection.");
+        return RET_ERR;
+    }
     connection->SetConnectionListener(connectionListener_);
 
     {
@@ -110,6 +114,10 @@ int ChannelManager::CreateChannel(ChannelRequest &request, std::shared_ptr<IChan
 
     request.connectionId = ++connectionNum_;
     std::shared_ptr<Connection> connection = GetConnection(request.linkType);
+    if (!connection) {
+        CLOGE("Failed to get connection.");
+        return RET_ERR;
+    }
     connection->SetConnectionListener(connectionListener_);
 
     {
@@ -137,7 +145,7 @@ bool ChannelManager::IsRequestValid(const ChannelRequest &request) const
         CLOGE("linkType is not SoftBus and remoteIp is empty, linkType = %{public}d.", request.linkType);
         return false;
     }
-    CLOGD("IsRequestValid In, remoteIp = %{public}s.", request.remoteDeviceInfo.ipAddress.c_str());
+
     if (request.linkType == ChannelLinkType::SOFT_BUS && request.remoteDeviceInfo.deviceId.empty()) {
         CLOGE("linkType is SoftBus and remoteDeviceId is empty.");
         return false;
@@ -189,7 +197,7 @@ void ChannelManager::DestroyAllChannels()
 
     for (auto it = connectionMap_.begin(); it != connectionMap_.end();) {
         it->second->CloseConnection();
-        connectionMap_.erase(it++);
+        it = connectionMap_.erase(it);
     }
 }
 

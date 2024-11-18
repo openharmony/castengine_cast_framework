@@ -58,11 +58,13 @@ public:
     bool SetKeepAlive(unsigned idleTime, unsigned numProbes, unsigned probeInterval);
     // 设置SO_REUSEADDR，对应TCP套接字处于TIME_WAIT状态下的socket可以重复绑定使用
     bool SetReuseAddr();
+    bool SetIPTOS(int fd);
 
 private:
     static constexpr int RANDOM_PORT = 0;
     static constexpr int INVALID_PORT = -1;
     static constexpr int INVALID_SOCKET = -1;
+    static constexpr int IPTOS_LOWDELAY = 0xBC;
     static constexpr int DEFAULT_VALUE = 0;
     static constexpr int SOCKET_FLAG = 0;
     static constexpr int SOCKET_OFF = 0;

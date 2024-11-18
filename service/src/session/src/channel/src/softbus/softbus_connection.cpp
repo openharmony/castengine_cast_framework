@@ -23,6 +23,7 @@
 #include <numeric>
 #include <random>
 #include <thread>
+#include <inttypes.h>
 
 #include "cast_device_data_manager.h"
 #include "cast_engine_log.h"
@@ -32,7 +33,7 @@
 namespace OHOS {
 namespace CastEngine {
 namespace CastEngineService {
-DEFINE_CAST_ENGINE_LABEL("Cast-M-Engine-SoftBusConnection");
+DEFINE_CAST_ENGINE_LABEL("Cast-SoftBusConnection");
 
 const std::string SoftBusConnection::PACKAGE_NAME = "CastEngineService";
 const std::string SoftBusConnection::AUTH_SESSION_NAME_FACTOR = "AUTH";
@@ -75,6 +76,68 @@ SoftBusConnection::~SoftBusConnection()
     CloseConnection();
 }
 
+std::pair<bool, std::shared_ptr<SoftBusConnection>> SoftBusConnection::GetConnection(int sessionId)
+{
+    std::shared_ptr<SoftBusConnection> conn;
+    auto ret = std::make_pair(false, conn);
+
+    std::string mySessionName = SoftBusWrapper::GetSoftBusMySessionName(sessionId);
+    if (mySessionName.empty()) {
+        CLOGE("Find mySessionName Failed in GetConnection, sessionId = %{public}d.", sessionId);
+        return ret;
+    }
+    return GetConnection(mySessionName);
+}
+
+std::pair<bool, std::shared_ptr<SoftBusConnection>> SoftBusConnection::GetConnection(std::string sessionName)
+{
+    std::lock_guard<std::mutex> lg(connectionMapMtx_);
+    auto iter = connectionMap_.find(sessionName);
+    if (iter == connectionMap_.end()) {
+        CLOGE("Find Conn Failed in GetConnection, mySessionName = %{public}s.", sessionName.c_str());
+        return std::make_pair(false, nullptr);
+    }
+    return std::make_pair(true, connectionMap_[sessionName]);
+}
+
+int SoftBusConnection::StartConnection(const ChannelRequest &request, std::shared_ptr<IChannelListener> channelListener)
+{
+    CLOGD("SoftBus Start Connection Enter.");
+    StashRequest(request);
+    StashConnectionInfo(request);
+    SetRequest(request);
+    SetListener(channelListener);
+    SetActivelyOpenFlag(true);
+
+    std::thread(&SoftBusConnection::SetupSession, this, channelListener, shared_from_this()).detach();
+    return request.remoteDeviceInfo.sessionId;
+}
+
+int SoftBusConnection::StartListen(const ChannelRequest &request, std::shared_ptr<IChannelListener> channelListener)
+{
+    CLOGD("SoftBus Start Listen Enter.");
+    StashRequest(request);
+    StashConnectionInfo(request);
+    SetRequest(request);
+    SetListener(channelListener);
+    SetActivelyOpenFlag(false);
+
+    startConnectTime_ = std::chrono::time_point_cast<std::chrono::milliseconds>(std::chrono::system_clock::now())
+                            .time_since_epoch()
+                            .count();
+    std::string mySessionName = softbus_.GetSpecMySessionName();
+    int ret = SoftBusWrapper::StartSoftBusService(PACKAGE_NAME, mySessionName, &sessionListener_);
+    if (ret < RET_OK) {
+        CLOGE("StartSoftBusService Failed When Listening. mySessionName = %{public}s, ret = %{public}d.",
+            mySessionName.c_str(), ret);
+    }
+
+    std::lock_guard<std::mutex> lg(connectionMapMtx_);
+    connectionMap_[mySessionName] = shared_from_this();
+
+    return request.remoteDeviceInfo.sessionId;
+}
+
 int SoftBusConnection::OnConnectionSessionOpened(int sessionId, int result)
 {
     CLOGI("In, sessionId = %{public}d, result = %{public}d.", sessionId, result);
@@ -90,20 +153,17 @@ int SoftBusConnection::OnConnectionSessionOpened(int sessionId, int result)
     bool isActivelyOpen = softBusConn->GetActivelyOpenFlag();
     std::string sessionName = softBusConn->GetSoftBus().GetSpecMySessionName();
     CLOGD("SessionName = %{public}s, isActivelyOpen = %{public}d.", sessionName.c_str(), isActivelyOpen);
+
     if (!isActivelyOpen) {
         softBusConn->GetSoftBus().SetSessionId(sessionId);
     }
 
-    if (result != RET_OK) {
-        CLOGE("Open Session Failed, sessionName = %{public}s, sessionId = %{public}d, result = %{public}d.",
-            sessionName.c_str(), sessionId, result);
-        softBusConn->listener_->OnConnectionConnectFailed(softBusConn->channelRequest_, result);
-    } else {
-        CLOGD("Open Session Succ, sessionName = %{public}s, sessionId = %{public}d, result = %{public}d.",
-            sessionName.c_str(), sessionId, result);
-        softBusConn->listener_->OnConnectionOpened(softBusConn);
-    }
-
+    time_t currentTimestamp = std::chrono::time_point_cast<std::chrono::milliseconds>(std::chrono::system_clock::now())
+                                  .time_since_epoch()
+                                  .count();
+    CLOGI("Open Session Succ, sessionName = %{public}s, sessionId = %{public}d", sessionName.c_str(), sessionId);
+    CLOGI("costTime = %{public}" PRIu64 "ms", (currentTimestamp - softBusConn->startConnectTime_));
+    softBusConn->listener_->OnConnectionOpened(softBusConn);
     return RET_OK;
 }
 
@@ -181,34 +241,56 @@ void SoftBusConnection::OnConnectionStreamReceived(int sessionId, const StreamDa
     CLOGD("Out, channelListener refCnt = %{public}ld, length = %{public}d.", channelListener.use_count(), data->bufLen);
 }
 
+void SoftBusConnection::OnConnectionFileReceived(int32_t socket, FileEvent *event)
+{
+    if (event == nullptr) {
+        CLOGE("event is null, sessionId = %{public}d", socket);
+        return;
+    }
+    FileEventType type = event->type;
+    switch (type) {
+        case FILE_EVENT_RECV_UPDATE_PATH: {
+            // fix me event->UpdateRecvPath UpdateRecvFilePath
+            break;
+        }
+        case FILE_EVENT_SEND_PROCESS: {
+            OnSendFileProcess(socket, event->bytesProcessed, event->bytesTotal);
+            break;
+        }
+        case FILE_EVENT_SEND_FINISH: {
+            OnSendFileFinished(socket, (event->files)[0]);
+            break;
+        }
+        case FILE_EVENT_SEND_ERROR: {
+            OnFileTransError(socket);
+            break;
+        }
+        case FILE_EVENT_RECV_START: {
+            OnReceiveFileStarted(socket, (event->files)[0], event->fileCnt);
+            break;
+        }
+        case FILE_EVENT_RECV_PROCESS: {
+            OnReceiveFileProcess(socket, (event->files)[0], event->bytesProcessed, event->bytesTotal);
+            break;
+        }
+        case FILE_EVENT_RECV_FINISH: {
+            OnReceiveFileFinished(socket, (event->files)[0], event->fileCnt);
+            break;
+        }
+        case FILE_EVENT_RECV_ERROR: {
+            OnFileTransError(socket);
+            break;
+        }
+        default: {
+            break;
+        }
+    }
+}
+
 void SoftBusConnection::OnConnectionSessionEvent(int sessionId, int eventId, int tvCount, const QosTv *tvList)
 {
     CLOGD("SoftBusConnection OnConnectionSessionEvent Enter, sessionId = %{public}d eventId = %{public}d.", sessionId,
         eventId);
-}
-
-std::pair<bool, std::shared_ptr<SoftBusConnection>> SoftBusConnection::GetConnection(int sessionId)
-{
-    std::shared_ptr<SoftBusConnection> conn;
-    auto ret = std::make_pair(false, conn);
-
-    std::string mySessionName = SoftBusWrapper::GetSoftBusMySessionName(sessionId);
-    if (mySessionName.empty()) {
-        CLOGE("Find mySessionName Failed in GetConnection, sessionId = %{public}d.", sessionId);
-        return ret;
-    }
-
-    std::lock_guard<std::mutex> lg(connectionMapMtx_);
-    auto iter = connectionMap_.find(mySessionName);
-    if (iter == connectionMap_.end()) {
-        CLOGE("Find Conn Failed in GetConnection, sessionId = %{public}d, mySessionName = %{public}s.", sessionId,
-            mySessionName.c_str());
-        return ret;
-    }
-
-    ret = std::make_pair(true, connectionMap_[mySessionName]);
-
-    return ret;
 }
 
 /*
@@ -306,41 +388,6 @@ void SoftBusConnection::OnReceiveFileFinished(int sessionId, const char *files, 
     return;
 }
 
-int SoftBusConnection::StartConnection(const ChannelRequest &request, std::shared_ptr<IChannelListener> channelListener)
-{
-    CLOGD("SoftBus Start Connection Enter.");
-    StashRequest(request);
-    StashConnectionInfo(request);
-    SetRequest(request);
-    SetListener(channelListener);
-    SetActivelyOpenFlag(true);
-
-    std::thread(&SoftBusConnection::SetupSession, this, channelListener, shared_from_this()).detach();
-    return request.remoteDeviceInfo.sessionId;
-}
-
-int SoftBusConnection::StartListen(const ChannelRequest &request, std::shared_ptr<IChannelListener> channelListener)
-{
-    CLOGD("SoftBus Start Listen Enter.");
-    StashRequest(request);
-    StashConnectionInfo(request);
-    SetRequest(request);
-    SetListener(channelListener);
-    SetActivelyOpenFlag(false);
-
-    std::string mySessionName = softbus_.GetSpecMySessionName();
-    int ret = SoftBusWrapper::StartSoftBusService(PACKAGE_NAME, mySessionName, &sessionListener_);
-    if (ret != RET_OK) {
-        CLOGE("StartSoftBusService Failed When Listening. mySessionName = %{public}s, ret = %{public}d.",
-            mySessionName.c_str(), ret);
-    }
-
-    std::lock_guard<std::mutex> lg(connectionMapMtx_);
-    connectionMap_[mySessionName] = shared_from_this();
-
-    return request.remoteDeviceInfo.sessionId;
-}
-
 int SoftBusConnection::SetupSession(std::shared_ptr<IChannelListener> channelListener,
     std::shared_ptr<SoftBusConnection> hold)
 {
@@ -388,9 +435,6 @@ void SoftBusConnection::StashConnectionInfo(const ChannelRequest &request)
     std::string sessionName = CreateSessionName(request.moduleType, request.remoteDeviceInfo.sessionId);
     softbus_.SetMySessionName(sessionName);
     softbus_.SetPeerSessionName(sessionName);
-
-    softbus_.SetPeerDeviceId(request.remoteDeviceInfo.deviceId);
-
     int sessionType = GetSessionType(request.moduleType);
     // sessionType = TYPE_BYTES; // 规避软总线stream session通道bug，视频流使用bytes类型session进行传输
     softbus_.SetSessionType(sessionType);
