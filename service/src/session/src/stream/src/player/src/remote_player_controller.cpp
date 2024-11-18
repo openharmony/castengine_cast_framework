@@ -105,11 +105,17 @@ int32_t RemotePlayerController::Load(const MediaInfo &mediaInfo)
         fileChannelServer_->ClearAllLocalFileInfo();
         fileChannelServer_->AddLocalFileInfo(mediaInfoToPlay);
     }
+
     std::shared_ptr<ICastStreamManagerClient> targetCallback = callback_.lock();
     if (!targetCallback) {
         CLOGE("ICastStreamManagerClient is null");
         return CAST_ENGINE_ERROR;
     }
+
+    if (targetCallback->TransferToStreamMode(mediaInfoToPlay)) {
+        return CAST_ENGINE_SUCCESS;
+    }
+
     if (targetCallback->IsDoubleFrame()) {
         if (mediaInfo.mediaUrl == "http:") {
             CLOGD("No need for double frame to load");
@@ -125,6 +131,7 @@ int32_t RemotePlayerController::Load(const MediaInfo &mediaInfo)
             return CAST_ENGINE_ERROR;
         }
     }
+
     return CAST_ENGINE_SUCCESS;
 }
 
@@ -595,11 +602,12 @@ int32_t RemotePlayerController::GetPlaySpeed(PlaybackSpeed &playbackSpeed)
 {
     CLOGI("GetPlaySpeed in");
     std::shared_ptr<ICastStreamManagerClient> targetCallback = callback_.lock();
-    playbackSpeed = PlaybackSpeed::SPEED_FORWARD_1_00_X;
     if (!targetCallback) {
         CLOGE("ICastStreamManagerClient is null");
+        playbackSpeed = PlaybackSpeed::SPEED_FORWARD_1_00_X;
         return CAST_ENGINE_ERROR;
     }
+
     playbackSpeed = targetCallback->GetPlaySpeed();
     return CAST_ENGINE_SUCCESS;
 }

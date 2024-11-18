@@ -415,9 +415,10 @@ bool CastSessionImpl::ConnectedState::HandleMessage(const Message &msg)
             return true;
         case MessageId::MSG_DISCONNECT:
             session->ProcessDisconnect(msg);
+            session->TransferTo(session->disconnectingState_);
             session->ChangeDeviceState(DeviceState::DISCONNECTED, deviceId);
             session->RemoveRemoteDevice(deviceId);
-            session->TransferTo(session->disconnectingState_);
+            session->SetMirrorToStreamState(false);
             return true;
         case MessageId::MSG_ERROR:
             session->ProcessError(msg);
@@ -474,6 +475,14 @@ bool CastSessionImpl::StreamState::HandleMessage(const Message &msg)
             break;
         case MessageId::MSG_PEER_RENDER_READY:
             session->SendCastRenderReadyOption(msg.arg1_);
+            break;
+        case MessageId::MSG_SWITCH_TO_MIRROR:
+            if (!session->IsSink()) {
+                session->ProcessStreamToMirror();
+                session->ChangeDeviceState(DeviceState::STREAM_TO_MIRROR, session->GetCurrentRemoteDeviceId());
+                session->TransferTo(session->streamToMirrorState_);
+                session->SetMirrorToStreamState(false);
+            }
             break;
         default:
             CLOGW("unsupported msg: %s, in stream state", MESSAGE_ID_STRING[msgId].c_str());
@@ -564,8 +573,55 @@ bool CastSessionImpl::PlayingState::HandleMessage(const Message &msg)
         case MessageId::MSG_MIRROR_SEND_ACTION_EVENT_TO_PEERS:
             session->SendEventChange(MODULE_ID_MEDIA, msg.arg1_, param);
             break;
+        case MessageId::MSG_SWITCH_TO_STREAM:
+            if (!session->IsSink()) {
+                session->ProcessMirrorToStream();
+                session->ChangeDeviceState(DeviceState::MIRROR_TO_STREAM, session->GetCurrentRemoteDeviceId());
+                session->TransferTo(session->mirrorToStreamState_);
+            }
+            break;
         default:
             CLOGW("unsupported msg: %s, in playing state", MESSAGE_ID_STRING[msgId].c_str());
+            return false;
+    }
+    return true;
+}
+
+void CastSessionImpl::StreamToMirrorState::Enter()
+{
+    BaseState::Enter(SessionState::STREAM_TO_MIRROR);
+}
+ 
+void CastSessionImpl::StreamToMirrorState::Exit()
+{
+    BaseState::Exit();
+}
+ 
+bool CastSessionImpl::StreamToMirrorState::HandleMessage(const Message &msg)
+{
+    auto session = session_.promote();
+    if (!session) {
+        CLOGE("Session is invalid");
+        return false;
+    }
+    BaseState::HandleMessage(msg);
+    MessageId msgId = static_cast<MessageId>(msg.what_);
+    std::string deviceId = msg.strArg_;
+    switch (msgId) {
+        case MessageId::MSG_PEER_RENDER_READY:
+            CLOGI("MSG_PEER_RENDER_READY in");
+            session->ProcessStreamToMirror();
+            session->ChangeDeviceState(DeviceState::PLAYING, session->GetCurrentRemoteDeviceId());
+            session->TransferTo(session->playingState_);
+            session->SetMirrorToStreamState(false);
+            break;
+        case MessageId::MSG_PEER_RENDER_FAIL:
+            CLOGI("MSG_PEER_RENDER_FAIL in");
+            session->ChangeDeviceState(DeviceState::STREAM, session->GetCurrentRemoteDeviceId());
+            session->TransferTo(session->streamState_);
+            break;
+        default:
+            CLOGW("unsupported msg: %{public}s, in StreamToMirror state", MESSAGE_ID_STRING[msgId].c_str());
             return false;
     }
     return true;

@@ -84,6 +84,8 @@ public:
 
     int32_t GetSessionProtocolType(ProtocolType &protocolType) override;
     void SetSessionProtocolType(ProtocolType protocolType) override;
+    uint8_t GetSessionState() override;
+    int32_t GetRemoteDeviceInfo(std::string deviceId, CastRemoteDevice &remoteDevice) override;
 
     int32_t Play(const std::string &deviceId);
     int32_t Pause(const std::string &deviceId);
@@ -105,9 +107,12 @@ private:
     };
 
     enum class CastSessionRemoteEventId : uint8_t {
-        SWITCH_TO_UI = 1,
-        SWITCH_TO_MIRROR,
+        MIRROR_TO_UI = 1,
+        UI_TO_MIRROR,
         READY_TO_PLAYING,
+        MIRROR_TO_STREAM,
+        STREAM_TO_MIRROR,
+        RESPONSE_MODE_SWITCH,
     };
     class ChannelManagerListenerImpl;
     class RtspListenerImpl;
@@ -122,13 +127,20 @@ private:
     class PausedState;
     class PlayingState;
     class DisconnectingState;
+    class MirrorToStreamState;
+    class StreamToMirrorState;
     class StreamState;
 
+    static constexpr int MODULE_ID_RTSP = 1000;
     static constexpr int MODULE_ID_MEDIA = 1001;
     static constexpr int MODULE_ID_RC = 1002;
+    static constexpr int MODULE_ID_DLNA = 1004;
+    static constexpr int MODULE_ID_CHANNEL = 1005;
+    static constexpr int MODULE_ID_CAST_PROJECTION = 1006;
     static constexpr int MODULE_ID_CAST_STREAM = 1009;
     static constexpr int MODULE_ID_CAST_SESSION = 2000;
     static constexpr int MODULE_ID_UI = 2001;
+    static constexpr int MODULE_ID_MEDIA_NEW = 2002;
     // COOPERATION/HICAR use it to colse media channel, don't modify it.
     static constexpr double CAST_VERSION = 1.0;
     static constexpr int TIMEOUT_CONNECT = 30 * 1000;
@@ -156,9 +168,6 @@ private:
     void UpdateRemoteDeviceInfoFromCastDeviceDataManager(const std::string &deviceId);
     void ChangeDeviceState(DeviceState state, const std::string &deviceId,
         int32_t reasonCode = REASON_DEFAULT);
-    void ChangeDeviceStateLocked(
-        DeviceState state, const std::string &deviceId, int32_t reasonCode = REASON_DEFAULT);
-    void ReportDeviceStateInfo(DeviceState state, const std::string &deviceId, const ReasonCode eventCode);
     void ChangeDeviceStateInner(DeviceState state, const std::string &deviceId,
         int32_t reasonCode = REASON_DEFAULT);
     void OnEvent(EventId eventId, const std::string &data);
@@ -198,13 +207,23 @@ private:
     std::shared_ptr<ICastStreamManager> StreamManagerGetter();
     sptr<IMirrorPlayerImpl> MirrorPlayerGetter();
     void ProcessRtspEvent(int moduleId, int event, const std::string &param);
+    void ProcessRtspEventInner(int moduleId, int event, const std::string &param);
     void OtherAddDevice(const CastInnerRemoteDevice &remoteDevice);
     void SendConsultData(const std::string &deviceId, int port);
+    int32_t ConnectDlnaDevice(CastInnerRemoteDevice remoteDeviceInfo);
+    bool IsDlnaDevice(CastInnerRemoteDevice remoteDeviceInfo);
 
     void MirrorRcvVideoFrame();
     bool ProcessSetCastMode(const Message &msg);
     void UpdateScreenInfo(uint64_t screenId, uint16_t width, uint16_t height);
     void UpdateDefaultDisplayRotationInfo(int rotation, uint16_t width, uint16_t height);
+
+    bool ProcessMirrorToStream();
+    bool PauseMirrorForStream();
+    bool PlayAfterSwitchToStream();
+
+    bool ProcessStreamToMirror();
+    bool PlayMirrorForChange();
 
     bool IsStreamMode();
     std::string GetPlayerControllerCapability();
@@ -213,7 +232,9 @@ private:
     void SendCastRenderReadyOption(int isReady);
     void OnEventInner(sptr<CastSessionImpl> session, EventId eventId, const std::string &jsonParam);
     void WaitSinkSetProperty();
-
+    void SetWifiScene(unsigned int scene);
+    void SetMirrorToStreamState(bool state);
+    int32_t RemoveDeviceInner(const std::string &deviceId);
     std::shared_ptr<DefaultState> defaultState_;
     std::shared_ptr<DisconnectedState> disconnectedState_;
     std::shared_ptr<AuthingState> authingState_;
@@ -225,6 +246,8 @@ private:
 
     bool isMirrorPlaying_ { false };
     std::shared_ptr<StreamState> streamState_;
+    std::shared_ptr<MirrorToStreamState> mirrorToStreamState_;
+    std::shared_ptr<StreamToMirrorState> streamToMirrorState_;
 
     static std::atomic<int> idCount_;
 
@@ -236,8 +259,10 @@ private:
     int rtspPort_{ -1 };
     std::list<CastRemoteDeviceInfo> remoteDeviceList_;
     CastLocalDevice localDevice_;
+    uint32_t dlnaDeviceId_{ static_cast<uint32_t>(INVALID_ID) };
     CastSessionProperty property_;
     ParamInfo rtspParamInfo_;
+    bool mirrorToStream_ { false };
     SessionState sessionState_{ SessionState::DISCONNECTED };
 
     std::shared_ptr<ChannelManager> channelManager_;
@@ -245,6 +270,7 @@ private:
     std::shared_ptr<IRtspController> rtspControl_;
     std::shared_ptr<RtspListenerImpl> rtspListener_;
     std::shared_ptr<ConnectManagerListenerImpl> connectManagerListener_;
+    sptr<IStreamPlayerIpc> streamPlayer_;
 
     std::mutex mutex_;
     std::mutex mirrorMutex_;

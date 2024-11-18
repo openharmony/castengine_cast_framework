@@ -57,6 +57,8 @@ public:
     virtual StreamCapability GetAvailableCapability() = 0;
     virtual PlaybackSpeed GetPlaySpeed() = 0;
     virtual bool IsDoubleFrame() = 0;
+    virtual bool TransferToStreamMode(const MediaInfo &mediaInfo) = 0;
+    virtual bool DisconnectSession(std::string deviceId) = 0;
 };
 } // namespace CastEngineService
 } // namespace CastEngine
