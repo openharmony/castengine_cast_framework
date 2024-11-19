@@ -35,14 +35,18 @@ public:
     static std::string GetSoftBusMySessionName(int sessionId);
     static std::string GetSoftBusPeerSessionName(int sessionId);
     static std::string GetSoftBusPeerDeviceId(int sessionId);
+
     static int StartSoftBusService(const std::string pkgName, const std::string &sessionName,
         ISessionListener *listener);
     static void StopService(const std::string pkgName, const std::string &sessionName);
+
     int OpenSoftBusSession(const std::string &peerNetworkId, const std::string groupId) const;
     void CloseSoftBusSession() const;
+
     int SendSoftBusBytes(const uint8_t *data, unsigned int len) const;
     int SendSoftBusStream(const uint8_t *data, unsigned int len) const;
     int SendSoftBusFiles(const char *sFileList[], const char *dFileList[], uint32_t fileCnt) const;
+
     int GetSessionType();
     void SetSessionType(int sessionType);
     void SetAttrbute(int dataType);
@@ -58,7 +62,9 @@ public:
 private:
     static constexpr int RET_ERR = -1;
     static constexpr int RET_OK = 0;
-    static constexpr int MAX_LINK_TYPE_NUM = 3;
+    static constexpr int FIRST_PRIO_INDEX = 0;
+    static constexpr int SECOND_PRIO_INDEX = 1;
+    static constexpr int MAX_LINK_TYPE_NUM = 2;
     static constexpr unsigned int MAX_SESSIONNAME_LEN = 256;
     static constexpr unsigned int MAX_PEERDEVICEID_LEN = 64;
     static std::mutex mutex_;

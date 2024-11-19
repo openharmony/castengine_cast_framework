@@ -43,6 +43,7 @@ public:
     virtual int StartMediaVtp(const ParamInfo &param) = 0;
     virtual bool NotifyEvent(int event) = 0;
     virtual void ProcessStreamMode(const ParamInfo &param, const std::string &deviceId) = 0;
+    virtual void NotifyScreenParam(const std::string &screenParam) = 0;
 };
 } // namespace CastSessionRtsp
 } // namespace CastEngineService

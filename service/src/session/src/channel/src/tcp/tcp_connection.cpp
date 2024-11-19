@@ -26,7 +26,7 @@
 namespace OHOS {
 namespace CastEngine {
 namespace CastEngineService {
-DEFINE_CAST_ENGINE_LABEL("CastEngine-TcpConnection");
+DEFINE_CAST_ENGINE_LABEL("Cast-TcpConnection");
 
 TcpConnection::~TcpConnection()
 {
@@ -36,6 +36,7 @@ TcpConnection::~TcpConnection()
 int TcpConnection::StartConnection(const ChannelRequest &request, std::shared_ptr<IChannelListener> channelListener)
 {
     CLOGD("Tcp Start Connection Enter.");
+
     ConfigSocket();
     StashRequest(request);
     SetRequest(request);
@@ -51,20 +52,24 @@ void TcpConnection::Connect()
     if (channelRequest_.remoteDeviceInfo.ipAddress.empty() || channelRequest_.remotePort == INVALID_PORT) {
         return;
     }
+
     std::shared_ptr<ConnectionListener> listener = listener_;
     if (!listener) {
         CLOGE("listener_ is nullptr.");
         return;
     }
+
     int port = socket_.Bind(channelRequest_.localDeviceInfo.ipAddress, channelRequest_.localPort);
-    CLOGD("Start server socket, localIp:%s, bindPort:%{public}d", channelRequest_.localDeviceInfo.ipAddress.c_str(),
-        port);
+    CLOGI("Start client socket, bindPort:%{public}s", Utils::Mask(std::to_string(port)).c_str());
+    socket_.SetIPTOS(socket_.GetSocketFd());
+
     bool ret = socket_.Connect(channelRequest_.remoteDeviceInfo.ipAddress, channelRequest_.remotePort);
     if (!ret) {
         CLOGE("Tcp Connect Failed.");
         listener->OnConnectionConnectFailed(channelRequest_, ret);
         return;
     }
+
     listener->OnConnectionOpened(shared_from_this());
     if (channelRequest_.isReceiver) {
         Receive(remoteSocket_);
@@ -103,7 +108,7 @@ void TcpConnection::ConfigSocket()
  */
 void TcpConnection::AcceptVideoAndAudio()
 {
-    CLOGD("Tcp AcceptVideoAndAudio Enter.");
+    CLOGI("Tcp AcceptVideoAndAudio Enter.");
     Accept();
     Accept();
 }
@@ -123,6 +128,7 @@ void TcpConnection::Accept()
         listener->OnConnectionConnectFailed(channelRequest_, sockfd);
         return;
     }
+    socket_.SetIPTOS(sockfd);
     int remotePort = socket_.GetPeerPort(sockfd);
     if (remotePort == INVALID_PORT) {
         CLOGE("Open Session Failed, sessionId = %{public}d, moduleType = %{public}d",
@@ -135,14 +141,14 @@ void TcpConnection::Accept()
         // audio
         std::lock_guard<std::mutex> lg(connectionMtx_);
         SetAudioConnection(sockfd);
-        CLOGD("Open Session Succ, sessionId = %{public}d, moduleType = %{public}d, client = %{public}d",
+        CLOGI("Open Session Succ, sessionId = %{public}d, moduleType = %{public}d, client = %{public}d",
             tcpAudioConn_->channelRequest_.remoteDeviceInfo.sessionId, tcpAudioConn_->channelRequest_.moduleType,
             sockfd);
         listener->OnConnectionOpened(tcpAudioConn_);
     } else {
         remoteSocket_ = sockfd;
         // rtsp, remotectrl, video
-        CLOGD("Open Session Succ, sessionId = %{public}d, moduleType = %{public}d, client = %{public}d",
+        CLOGI("Open Session Succ, sessionId = %{public}d, moduleType = %{public}d, client = %{public}d",
             channelRequest_.remoteDeviceInfo.sessionId, channelRequest_.moduleType, sockfd);
         listener->OnConnectionOpened(shared_from_this());
     }
@@ -152,7 +158,7 @@ void TcpConnection::Accept()
         return;
     }
     Receive(sockfd);
-    CLOGI("Tcp Accept out.");
+    CLOGD("Tcp Accept out.");
 }
 
 void TcpConnection::SetAudioConnection(int socket)
@@ -173,7 +179,12 @@ void TcpConnection::SetAudioConnection(int socket)
 void TcpConnection::Receive(int socket)
 {
     CLOGD("Tcp Receive Client Enter.");
-    std::thread(&TcpConnection::ReadLooper, shared_from_this(), socket).detach();
+
+    auto tcpConnection = shared_from_this();
+    std::thread([tcpConnection, socket]() {
+        Utils::SetThreadName("TcpReadLooper");
+        tcpConnection->ReadLooper(socket);
+    }).detach();
 }
 
 void TcpConnection::ReadLooper(int socket)
@@ -190,8 +201,9 @@ void TcpConnection::HandleReceivedData(int socket)
         CLOGE("listener_ is nullptr.");
         return;
     }
+
     while (isReceiving_) {
-        CLOGD("TCP Recv Data start.");
+        CLOGI("TCP Recv Data start.");
         int sockfd = socket == INVALID_SOCKET ? socket_.GetSocketFd() : socket;
         uint8_t header[PACKET_HEADER_LEN] = {};
         ssize_t length = socket_.Recv(sockfd, header, sizeof(header));
@@ -203,7 +215,7 @@ void TcpConnection::HandleReceivedData(int socket)
             listener->OnConnectionError(shared_from_this(), length);
             return;
         }
-        uint32_t dataLength = GetReceivedDataLength(header);
+        uint32_t dataLength = GetReceivedDataLength(header, PACKET_HEADER_LEN);
         if (dataLength > ILLEGAL_LENGTH) {
             CLOGE("Receive payload data length is illegal.");
             listener->OnConnectionError(shared_from_this(), length);
@@ -232,16 +244,18 @@ void TcpConnection::HandleReceivedData(int socket)
             GetListener()->OnDataReceived(buf, dataLength, 0);
         }
     }
+
     CLOGI("HandleReceivedData Out.");
 }
- 
-uint32_t TcpConnection::GetReceivedDataLength(uint8_t *header)
+
+uint32_t TcpConnection::GetReceivedDataLength(uint8_t *header, int length)
 {
-    uint32_t dataLength = Utils::ByteArrayToInt(header, PACKET_HEADER_LEN);
+    uint32_t dataLength = Utils::ByteArrayToInt(header, length);
     if (channelRequest_.moduleType == ModuleType::REMOTE_CONTROL) {
         dataLength &= CONTROL_LENGTH_MASK;
         dataLength -= PACKET_HEADER_LEN;
     }
+
     return dataLength;
 }
 
@@ -252,11 +266,13 @@ void TcpConnection::HandleRemoteControlReceivedData(uint32_t dataLength, uint8_t
         CLOGE("Copy data failed");
         return;
     }
+
     if (memcpy_s(controlBuf + PACKET_HEADER_LEN, dataLength, buf, dataLength) != RET_OK) {
         CLOGE("Copy data failed");
         return;
     }
-    CLOGD("TCP recv remote control done, dataLength = %{public}d", PACKET_HEADER_LEN + dataLength);
+
+    CLOGI("TCP recv remote control done, dataLength = %{public}d", PACKET_HEADER_LEN + dataLength);
     if (GetListener()) {
         GetListener()->OnDataReceived(controlBuf, PACKET_HEADER_LEN + dataLength, 0);
     }

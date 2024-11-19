@@ -27,7 +27,7 @@ namespace CastEngine {
 namespace CastEngineService {
 class Connection {
 public:
-    virtual ~Connection() {};
+    virtual ~Connection() {}
 
     virtual void SetConnectionListener(std::shared_ptr<ConnectionListener> listener)
     {
@@ -62,7 +62,13 @@ public:
     }
 
     // Close connection and all channels
-    virtual void CloseConnection() {};
+    virtual void CloseConnection() {}
+
+    // Return a string representing the type of the object.
+    virtual std::string GetType()
+    {
+        return "";
+    }
 
 protected:
     ChannelRequest channelRequest_;
