@@ -18,7 +18,6 @@
 
 #include "cast_service_listener_impl_proxy.h"
 
-#include <inttypes.h>
 #include <cast_engine_common_helper.h>
 #include "cast_engine_log.h"
 
