@@ -1026,6 +1026,7 @@ std::shared_ptr<ChannelRequest> CastSessionImpl::BuildChannelRequest(const std::
         CLOGE("Remote device is null");
         return nullptr;
     }
+
     const auto &remote = deviceInfo->remoteDevice;
     bool isReceiver = !(property_.endType == EndType::CAST_SOURCE &&
         (moduleType == ModuleType::VIDEO || moduleType == ModuleType::AUDIO));
@@ -1164,7 +1165,6 @@ void CastSessionImpl::ChangeDeviceStateInner(DeviceState state, const std::strin
     if (state != DeviceState::AUTHING && state == deviceInfo->deviceState) {
         return;
     }
-
     UpdateRemoteDeviceStateLocked(deviceId, state);
     for (const auto &[pid, listener] : listeners_) {
         listener->OnDeviceState(DeviceStateInfo{ state, deviceId, static_cast<ReasonCode>(reasonCode) });

@@ -315,6 +315,21 @@ bool CastSessionImpl::RtspListenerImpl::OnPlayerReady(const ParamInfo &clientPar
     return true;
 }
 
+
+void CastSessionImpl::RtspListenerImpl::NotifyScreenParam(const std::string &screenParam)
+{
+    CLOGI("NotifyScreenParam");
+    auto session = session_.promote();
+    if (!session) {
+        CLOGE("Session_ is null.");
+        return;
+    }
+
+    if (session->property_.protocolType == ProtocolType::HICAR) {
+        session->OnEvent(EventId::MIRROR_HICAR_NOTIFY_SCREEN_PARAM, screenParam);
+    }
+}
+
 void CastSessionImpl::ChannelManagerListenerImpl::OnChannelCreated(std::shared_ptr<Channel> channel)
 {
     CLOGD("Channel created event in");

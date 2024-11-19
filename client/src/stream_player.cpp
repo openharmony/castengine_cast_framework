@@ -17,6 +17,7 @@
  */
 
 #include "stream_player.h"
+
 #include "cast_engine_errors.h"
 #include "cast_engine_log.h"
 #include "stream_player_listener_impl_stub.h"
