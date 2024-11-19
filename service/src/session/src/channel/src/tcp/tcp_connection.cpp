@@ -52,23 +52,25 @@ void TcpConnection::Connect()
     if (channelRequest_.remoteDeviceInfo.ipAddress.empty() || channelRequest_.remotePort == INVALID_PORT) {
         return;
     }
+
     std::shared_ptr<ConnectionListener> listener = listener_;
     if (!listener) {
         CLOGE("listener_ is nullptr.");
         return;
     }
+
     int port = socket_.Bind(channelRequest_.localDeviceInfo.ipAddress, channelRequest_.localPort);
     CLOGI("Start client socket, bindPort:%{public}s", Utils::Mask(std::to_string(port)).c_str());
     socket_.SetIPTOS(socket_.GetSocketFd());
-    bool ret = socket_.Connect(channelRequest_.remoteDeviceInfo.ipAddress, channelRequest_.remotePort);
 
+    bool ret = socket_.Connect(channelRequest_.remoteDeviceInfo.ipAddress, channelRequest_.remotePort);
     if (!ret) {
         CLOGE("Tcp Connect Failed.");
         listener->OnConnectionConnectFailed(channelRequest_, ret);
         return;
     }
-    listener->OnConnectionOpened(shared_from_this());
 
+    listener->OnConnectionOpened(shared_from_this());
     if (channelRequest_.isReceiver) {
         Receive(remoteSocket_);
     }
