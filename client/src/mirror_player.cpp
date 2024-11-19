@@ -18,7 +18,6 @@
 
 #include "mirror_player.h"
 
-#include <inttypes.h>
 #include "cast_engine_errors.h"
 #include "cast_engine_log.h"
 #include "surface_utils.h"
