@@ -23,7 +23,7 @@
 #include <numeric>
 #include <random>
 #include <thread>
-#include <inttypes.h>
+#include <cinttypes>
 
 #include "cast_device_data_manager.h"
 #include "cast_engine_log.h"
