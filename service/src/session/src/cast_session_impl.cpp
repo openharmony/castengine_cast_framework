@@ -1028,12 +1028,10 @@ std::shared_ptr<ChannelRequest> CastSessionImpl::BuildChannelRequest(const std::
     }
 
     const auto &remote = deviceInfo->remoteDevice;
-    ChannelLinkType linkType = ChannelLinkType::SOFT_BUS;
-    if (remote.channelType == ChannelType::LEGACY_CHANNEL) {
-        linkType = isSupportVtp ? ChannelLinkType::VTP : ChannelLinkType::TCP;
-    }
+    bool isReceiver = !(property_.endType == EndType::CAST_SOURCE &&
+        (moduleType == ModuleType::VIDEO || moduleType == ModuleType::AUDIO));
 
-    return std::make_shared<ChannelRequest>(moduleType, localDevice_, remote, property_, linkType);
+    return std::make_shared<ChannelRequest>(moduleType, isReceiver, localDevice_, remote, property_);
 }
 
 std::shared_ptr<CastRemoteDeviceInfo> CastSessionImpl::FindRemoteDevice(const std::string &deviceId)
