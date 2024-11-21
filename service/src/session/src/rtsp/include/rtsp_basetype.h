@@ -70,6 +70,14 @@ static const std::string MODULE_ID = "module_id";
 static const std::string EVENT = "event";
 static const std::string PARAM = "param";
 
+static const std::string KEY_DPI = "dpi";
+static const std::string KEY_SCREEN_HEIGHT = "screenHeight";
+static const std::string KEY_SCREEN_WIDTH = "screenWidth";
+static const std::string KEY_BEFORE_VIDEO_WIDTH = "beforeVideoWidth";
+static const std::string KEY_BEFORE_VIDEO_HEIGHT = "beforeVideoHeight";
+static const std::string KEY_AFTER_VIDEO_WIDTH = "afterVideoWidth";
+static const std::string KEY_AFTER_VIDEO_HEIGHT = "afterVideoHeight";
+
 static const int MIN_LINE_LENGTH = 3;
 static const int MIN_SPLIT_LENGTH = 1;
 static const int DEFAULT_LEN = 1;

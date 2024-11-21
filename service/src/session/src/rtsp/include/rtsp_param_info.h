@@ -101,6 +101,17 @@ public:
     void SetMediaCapability(const std::string &capability);
     ProjectionMode GetProjectionMode();
     void SetProjectionMode(ProjectionMode projectionMode);
+    bool IsSupportUWB();
+    void SetSupportUWB(bool isSupport);
+    const std::string GetStreamCapability();
+    void SetStreamCapability(const std::string &capability);
+
+    /**
+     * Feature: Base
+     * Feature number rule：
+     * 1xx: public module. eg: HisightSession capability
+     * 2xx: Controller capability
+     */
 
     // channel feature
     static const int FEATURE_BASE = 0;
@@ -108,17 +119,22 @@ public:
     static const int FEATURE_STOP_VTP = FEATURE_BASE + 101;
     static const int FEATURE_KEEP_ALIVE = FEATURE_BASE + 102;
     static const int FEATURE_SEND_EVENT_CHANGE = FEATURE_BASE + 103;
+    static const int FEATURE_STOP_CHANNEL = FEATURE_BASE + 104;
+    static const int FEATURE_AGGR_SEND = FEATURE_BASE + 105;
+    static const int FEATURE_MIRROR_STREAM_SWITCH = FEATURE_BASE + 106;
 
     // remote control feature
     static const int FEATURE_FINE_STYLUS = FEATURE_BASE + 201;
     static const int FEATURE_SOURCE_MOUSE = FEATURE_BASE + 202;
     static const int FEATURE_SOURCE_MOUSE_HISTORY = FEATURE_BASE + 203;
+    static const int FEATURE_PC_KEY_EVENT_MULTI_SESSION = FEATURE_BASE + 204;
 
 private:
     double version_ = 1.0;
     VtpType supportVtpOpt_{ VtpType::VTP_NOT_SUPPORT_VIDEO };
     std::string playerControllerCapability_;
     std::string mediaCapability_;
+    std::string streamCapability_;
     std::set<int> featureSet_;
     AudioProperty audioProperty_{};
     VideoProperty videoProperty_;
@@ -128,6 +144,7 @@ private:
     TransferParamInfo transferParamInfo_{};
     RemoteControlParamInfo remoteControlParamInfo_{};
     ProjectionMode projectionMode_{ ProjectionMode::MIRROR };
+    bool mIsSupportUWB = false;
 };
 } // namespace CastSessionRtsp
 } // namespace CastEngineService

@@ -104,7 +104,7 @@ int SoftBusWrapper::OpenSoftBusSession(const std::string &peerNetworkId, const s
 
     CLOGD("OpenSoftBusSession In, MySessionName = %{public}s, peerNetworkId = %{public}s, GroupId = %{public}s,"
         "attribute_.dataType = %{public}d, streamType = %{public}d.",
-        mySessionName_.c_str(), peerNetworkId.c_str(), groupId.c_str(), attribute_.dataType,
+        mySessionName_.c_str(), Utils::Mask(peerNetworkId).c_str(), groupId.c_str(), attribute_.dataType,
         attribute_.attr.streamAttr.streamType);
 
     int sessionId = OpenSession(mySessionName_.c_str(), peerSessionName.c_str(), peerNetworkId.c_str(),

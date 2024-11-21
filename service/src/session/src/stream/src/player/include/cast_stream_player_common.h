@@ -28,14 +28,18 @@ static std::map<Media::PlaybackRateMode, PlaybackSpeed> g_mediaSpeedToPlaybackSp
     { Media::SPEED_FORWARD_1_00_X, PlaybackSpeed::SPEED_FORWARD_1_00_X },
     { Media::SPEED_FORWARD_1_25_X, PlaybackSpeed::SPEED_FORWARD_1_25_X },
     { Media::SPEED_FORWARD_1_75_X, PlaybackSpeed::SPEED_FORWARD_1_75_X },
-    { Media::SPEED_FORWARD_2_00_X, PlaybackSpeed::SPEED_FORWARD_2_00_X }
+    { Media::SPEED_FORWARD_2_00_X, PlaybackSpeed::SPEED_FORWARD_2_00_X },
+    { Media::SPEED_FORWARD_0_50_X, PlaybackSpeed::SPEED_FORWARD_0_50_X },
+    { Media::SPEED_FORWARD_1_50_X, PlaybackSpeed::SPEED_FORWARD_1_50_X }
 };
 static std::map<PlaybackSpeed, Media::PlaybackRateMode> g_doubleToModeTypeMap = {
     { PlaybackSpeed::SPEED_FORWARD_0_75_X, Media::SPEED_FORWARD_0_75_X },
     { PlaybackSpeed::SPEED_FORWARD_1_00_X, Media::SPEED_FORWARD_1_00_X },
     { PlaybackSpeed::SPEED_FORWARD_1_25_X, Media::SPEED_FORWARD_1_25_X },
     { PlaybackSpeed::SPEED_FORWARD_1_75_X, Media::SPEED_FORWARD_1_75_X },
-    { PlaybackSpeed::SPEED_FORWARD_2_00_X, Media::SPEED_FORWARD_2_00_X }
+    { PlaybackSpeed::SPEED_FORWARD_2_00_X, Media::SPEED_FORWARD_2_00_X },
+    { PlaybackSpeed::SPEED_FORWARD_0_50_X, Media::SPEED_FORWARD_0_50_X },
+    { PlaybackSpeed::SPEED_FORWARD_1_50_X, Media::SPEED_FORWARD_1_50_X }
 };
 } // namespace CastEngine
 } // namespace OHOS
