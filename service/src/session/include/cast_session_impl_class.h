@@ -264,6 +264,7 @@ private:
     ParamInfo rtspParamInfo_;
     bool mirrorToStream_ { false };
     SessionState sessionState_{ SessionState::DISCONNECTED };
+    std::atomic<bool> isTearDownReceived_ { false };
 
     std::shared_ptr<ChannelManager> channelManager_;
     std::shared_ptr<ChannelManagerListenerImpl> channelManagerListener_;

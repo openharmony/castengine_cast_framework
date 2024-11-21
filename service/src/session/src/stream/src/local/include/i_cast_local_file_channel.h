@@ -20,6 +20,7 @@
 #define I_CAST_LOCAL_FILE_CHANNEL_H
 
 #include "channel.h"
+#include "rtsp_param_info.h"
 
 namespace OHOS {
 namespace CastEngine {
@@ -31,6 +32,7 @@ public:
     virtual std::shared_ptr<IChannelListener> GetChannelListener() = 0;
     virtual void AddChannel(std::shared_ptr<Channel> channel) = 0;
     virtual void RemoveChannel(std::shared_ptr<Channel> channel) = 0;
+    virtual void SetParamInfo(CastSessionRtsp::ParamInfo &paramInfo, const CastInnerRemoteDevice &remote) = 0;
 };
 } // namespace CastEngineService
 } // namespace CastEngine

@@ -132,6 +132,7 @@ std::string RtspEncap::EncapRequestGetParameter(ParamInfo &param, int curSeq)
     if (param.GetRemoteControlParamInfo().isSupportUibc) {
         body.append("his_uibc_capability").append(MSG_SEPARATOR);
     }
+    body.append("his_support_uwb").append(MSG_SEPARATOR);
     if (!param.GetFeatureSet().empty()) {
         body.append("his_feature").append(MSG_SEPARATOR);
     }
