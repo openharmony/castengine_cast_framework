@@ -56,6 +56,7 @@ public:
 
     virtual void SetNegotiatedMediaCapability(const std::string &negotiationMediaParams) = 0;
     virtual void SetNegotiatedPlayerControllerCapability(const std::string &negotiationParams) = 0;
+    virtual void SetNegotiatedStreamCapability(const std::string &controllerParams) = 0;
     virtual const std::set<int> &GetNegotiatedFeatureSet() = 0;
 };
 } // namespace CastSessionRtsp

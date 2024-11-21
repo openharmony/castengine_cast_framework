@@ -18,17 +18,21 @@
 #ifndef LIBCASTENGINE_RTSP_CONTROLLER_H
 #define LIBCASTENGINE_RTSP_CONTROLLER_H
 
+#include <list>
 #include "channel.h"
 #include "rtsp_listener.h"
 #include "rtsp_listener_inner.h"
 #include "rtsp_channel_manager.h"
 #include "i_rtsp_controller.h"
+#include "nlohmann/json.hpp"
 
 namespace OHOS {
 namespace CastEngine {
 namespace CastEngineService {
 namespace CastSessionRtsp {
-class RtspController : public IRtspController, public RtspListenerInner {
+class RtspController : public IRtspController,
+    public RtspListenerInner,
+    public std::enable_shared_from_this<RtspController> {
 public:
     RtspController(std::shared_ptr<IRtspListener> listener, ProtocolType protocolType, EndType endType);
     ~RtspController() override;
@@ -52,6 +56,8 @@ public:
     void ModuleCustomParamsNegotiationDone() override;
     void SetNegotiatedMediaCapability(const std::string &negotiationMediaParams) override;
     void SetNegotiatedPlayerControllerCapability(const std::string &negotiationParams) override;
+    void SetNegotiatedStreamCapability(const std::string &controllerParams) override;
+    void Init();
 
 private:
     enum class RtspEngineState {
@@ -92,7 +98,8 @@ private:
     void ProcessUibc(const std::string &content);
     bool PreProcessUibc(const std::string &content, std::string &categoryList);
     void ProcessUibcVendor(const std::string &content, RemoteControlParamInfo &remoteControlParamInfo);
-    void ProcessUibcDetermine(const std::string &givenStr, std::vector<std::string> &list);
+    void ProcessUibcDetermine(const std::string &givenStr, std::vector<std::string> &intersection,
+        const std::vector<std::string> &localList);
     void ProcessSinkBitrate(const std::string &content, VideoProperty &videoProperty);
     void ProcessVideoInfo(const std::string &content);
     void ProcessAudioInfo(RtspParse &parseInfo);
@@ -113,6 +120,7 @@ private:
     void ProcessTriggerMethod(RtspParse &request, const std::string &triggerMethod);
     void ResponseFuncMapInit();
     void RequestFuncMapInit();
+    void AddScreenParam();
 
     const ProtocolType protocolType_;
     std::shared_ptr<IRtspListener> listener_;
@@ -121,13 +129,14 @@ private:
     int currentSetUpSeq_{ 0 };
     int currentKeepAliveCseq_{ 0 };
     WaitResponse waitRsp_{ WaitResponse::WAITING_RSP_NONE };
-    std::unique_ptr<RtspChannelManager> rtspNetManager_;
+    std::shared_ptr<RtspChannelManager> rtspNetManager_;
     ParamInfo paramInfo_{};
     ParamInfo negotiatedParamInfo_{};
     RtspEngineState state_{ RtspEngineState::STATE_STOPPED };
     std::string deviceId_;
     std::map<WaitResponse, ResponseFunc> responseFuncMap_;
     std::map<std::string, RequestFunc> requestFuncMap_;
+    nlohmann::json screenParam_;
 };
 } // namespace CastSessionRtsp
 } // namespace CastEngineService

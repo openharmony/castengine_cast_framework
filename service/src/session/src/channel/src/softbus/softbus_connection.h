@@ -46,11 +46,12 @@ public:
     int StartListen(const ChannelRequest &request, std::shared_ptr<IChannelListener> channelListener) override;
 
     bool Send(const uint8_t *buf, int bufLen) override;
-    SoftBusWrapper &GetSoftBus();
+
     bool GetActivelyOpenFlag() const;
     void SetActivelyOpenFlag(bool isActivelyOpen);
     bool GetPassiveCloseFlag() const;
     void SetPassiveCloseFlag(bool isPassiveClose);
+    SoftBusWrapper &GetSoftBus();
     std::string GetType() override
     {
         return "SOFTBUS";

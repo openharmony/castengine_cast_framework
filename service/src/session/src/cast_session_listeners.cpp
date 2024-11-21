@@ -287,6 +287,7 @@ void CastSessionImpl::RtspListenerImpl::NotifyModuleCustomParamsNegotiation(cons
 
     if (session->property_.endType == EndType::CAST_SOURCE) {
         session->rtspControl_->ModuleCustomParamsNegotiationDone();
+        session->rtspControl_->SetNegotiatedStreamCapability(controllerParams);
         std::string negotiationParams = session->streamManager_->HandleCustomNegotiationParams(controllerParams);
         session->rtspControl_->SetNegotiatedPlayerControllerCapability(negotiationParams);
     }
