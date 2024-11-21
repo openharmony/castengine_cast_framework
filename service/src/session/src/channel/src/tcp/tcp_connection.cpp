@@ -41,8 +41,12 @@ int TcpConnection::StartConnection(const ChannelRequest &request, std::shared_pt
     StashRequest(request);
     SetRequest(request);
     SetListener(channelListener);
-    
-    std::thread(&TcpConnection::Connect, shared_from_this()).detach();
+    auto tcpConnection = shared_from_this();
+    std::thread([tcpConnection] {
+        Utils::SetThreadName("TcpConnect");
+        tcpConnection->Connect();
+    }).detach();
+
     return RET_OK;
 }
 
@@ -79,19 +83,30 @@ void TcpConnection::Connect()
 int TcpConnection::StartListen(const ChannelRequest &request, std::shared_ptr<IChannelListener> channelListener)
 {
     CLOGD("Tcp Start Listen Enter.");
+
     ConfigSocket();
     StashRequest(request);
     SetRequest(request);
     SetListener(channelListener);
-    
+
     int port = socket_.Bind(request.localDeviceInfo.ipAddress, request.localPort);
-    CLOGD("Start server socket, localIp:%s, bindPort:%{public}d", request.localDeviceInfo.ipAddress.c_str(), port);
+    CLOGI("Start server socket, localIp:%s, bindPort:%{public}s",
+        request.localDeviceInfo.ipAddress.c_str(), Utils::Mask(std::to_string(port)).c_str());
     socket_.Listen(SOMAXCONN);
+
+    auto tcpConnection = shared_from_this();
     if (request.moduleType == ModuleType::VIDEO && request.remoteDeviceInfo.deviceType != DeviceType::DEVICE_HICAR) {
-        std::thread(&TcpConnection::AcceptVideoAndAudio, shared_from_this()).detach();
+        std::thread([tcpConnection] {
+            Utils::SetThreadName("TcpAcceptVideoAndAudio");
+            tcpConnection->AcceptVideoAndAudio();
+        }).detach();
     } else {
-        std::thread(&TcpConnection::Accept, shared_from_this()).detach();
+        std::thread([tcpConnection] {
+            Utils::SetThreadName("TcpAccept");
+            tcpConnection->Accept();
+        }).detach();
     }
+
     return port;
 }
 
@@ -305,15 +320,22 @@ bool TcpConnection::Send(const uint8_t *buf, int bufLen)
         CLOGE("Data or length is illegal.");
         return false;
     }
-    uint8_t sendBuf[bufLen + PACKET_HEADER_LEN];
-    Utils::IntToByteArray(bufLen, PACKET_HEADER_LEN, sendBuf);
-    errno_t cpyRet = memcpy_s(sendBuf + PACKET_HEADER_LEN, bufLen, buf, bufLen);
+
+    std::unique_ptr<uint8_t[]> sendBuf = std::make_unique<uint8_t[]>(bufLen + PACKET_HEADER_LEN);
+    Utils::IntToByteArray(bufLen, PACKET_HEADER_LEN, sendBuf.get());
+    errno_t cpyRet = memcpy_s(sendBuf.get() + PACKET_HEADER_LEN, bufLen, buf, bufLen);
     if (cpyRet != RET_OK) {
         return false;
     }
+
     CLOGD("Tcp Send, socket = %{public}d, moduleType = %{public}d", remoteSocket_, channelRequest_.moduleType);
     int sockfd = remoteSocket_ == INVALID_SOCKET ? socket_.GetSocketFd() : remoteSocket_;
-    return socket_.Send(sockfd, sendBuf, bufLen + PACKET_HEADER_LEN) > RET_OK ? true : false;
+    int ret = socket_.Send(sockfd, sendBuf.get(), bufLen + PACKET_HEADER_LEN);
+    if (ret <= RET_OK && listener_) {
+        listener_->OnConnectionError(shared_from_this(), ret);
+    }
+
+    return ret > RET_OK;
 }
 } // namespace CastEngineService
 } // namespace CastEngine

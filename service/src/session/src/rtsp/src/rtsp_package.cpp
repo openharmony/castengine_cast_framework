@@ -393,6 +393,8 @@ std::string RtspEncap::EncapSetParameterM4Request(ParamInfo &negParam, double ve
     std::string body;
     body.append(SetVideoAndAudioCodecsParameter(negParam));
     body.append(SetAudioParameter(negParam));
+    body.append("his_support_uwb: ")
+        .append(std::to_string(negParam.IsSupportUWB())).append(MSG_SEPARATOR);
 
     SetAnotherParameter(negParam, version, ip, body);
 
