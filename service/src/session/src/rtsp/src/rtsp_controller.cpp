@@ -25,6 +25,7 @@
 #include "encrypt_decrypt.h"
 #include "rtsp_package.h"
 #include "utils.h"
+#include "parameters.h"
 
 namespace OHOS {
 namespace CastEngine {
@@ -1216,10 +1217,15 @@ void RtspController::ProcessSinkVtp(const std::string &content)
     }
     auto tmp = content;
     tmp = Utils::ToLower(tmp);
-    if (tmp == "supportav" || tmp == "supported" || tmp == "support_power_saving") {
-        // not support vtp currently
-        negotiatedParamInfo_.SetSupportVtpOpt(VtpType::VTP_NOT_SUPPORT_VIDEO);
+    if (tmp == "supportav") {
+        negotiatedParamInfo_.SetSupportVtpOpt(paramInfo_.GetSupportVtpOpt());
         CLOGI("Peer support vtp, Negotiated Vtp result is %{public}d", negotiatedParamInfo_.GetSupportVtpOpt());
+    } else if (tmp == "supported" || tmp == "support_power_saving") {
+        negotiatedParamInfo_.SetSupportVtpOpt(system::GetBoolParameter(PARAM_VTP_SUPPORT, true) ?
+            VtpType::VTP_SUPPORT_VIDEO :
+            VtpType::VTP_NOT_SUPPORT_VIDEO);
+        CLOGI("Peer support vtp for video, Negotiated Vtp result is %{public}d",
+            negotiatedParamInfo_.GetSupportVtpOpt());
     } else {
         CLOGI("Peer carries invalid vtp flag %{public}s", content.c_str());
         negotiatedParamInfo_.SetSupportVtpOpt(VtpType::VTP_NOT_SUPPORT_VIDEO);

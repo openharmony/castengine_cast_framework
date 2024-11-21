@@ -61,6 +61,7 @@ ohos_static_library("cast_session_stream") {
     "${cast_engine_service}/src/session/src/channel:cast_session_channel",
     "${cast_engine_service}/src/session/src/rtsp:cast_session_rtsp",
     "${cast_engine_service}/src/session/src/utils:cast_session_utils",
+    "//third_party/openssl:libcrypto_shared",
   ]
 
   external_deps = [

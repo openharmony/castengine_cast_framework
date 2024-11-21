@@ -45,6 +45,7 @@ public:
 
     void AddChannel(std::shared_ptr<Channel> channel) override;
     void RemoveChannel(std::shared_ptr<Channel> channel) override;
+    void SetParamInfo(CastSessionRtsp::ParamInfo &paramInfo, const CastInnerRemoteDevice &remote) override;
 
     void OnDataReceived(const uint8_t *buffer, unsigned int length, long timeCost) override;
 
@@ -56,8 +57,14 @@ private:
         int64_t fileLen = 0;
     };
 
+    constexpr static int SESSION_KEY_LENGTH = 16;
+
     std::map<std::string, struct LocalFileInfo> fileMap_;
     std::shared_ptr<Channel> channel_;
+    int32_t algCode_ = 0;
+    uint8_t sessionKey_[SESSION_KEY_LENGTH] = {0};
+    int32_t sessionKeyLength_ = 0;
+
     std::mutex chLock_;
     std::mutex mapLock_;
 
@@ -76,6 +83,7 @@ private:
     void ClearAllMapInfo();
     int ReadFileDataByFd(int fd, int64_t start, int sendLen, uint8_t *buffer);
 };
+
 } // namespace CastEngineService
 } // namespace CastEngine
 } // namespace OHOS

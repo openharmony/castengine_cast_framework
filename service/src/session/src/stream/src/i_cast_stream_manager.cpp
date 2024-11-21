@@ -24,17 +24,25 @@
 #include "cast_local_file_channel_server.h"
 #include "cast_stream_common.h"
 #include "cast_stream_player_utils.h"
+#include "utils.h"
 
 namespace OHOS {
 namespace CastEngine {
 namespace CastEngineService {
 DEFINE_CAST_ENGINE_LABEL("Cast-Stream-Manager");
 
+namespace {
+constexpr int STREM_ADVANCED_FEATURE_SUPPORTED = 1;
+} // namespace
+
 ICastStreamManager::ICastStreamManager()
 {
     CLOGD("ICastStreamManager in");
     isRunning_.store(true);
-    handleThread_ = std::thread(&ICastStreamManager::Handle, this);
+    handleThread_ = std::thread([this] {
+        Utils::SetThreadName("CastStreamManager");
+        this->Handle();
+    });
 }
 
 ICastStreamManager::~ICastStreamManager()
@@ -80,22 +88,24 @@ void ICastStreamManager::Handle()
 void ICastStreamManager::ProcessActionsEvent(int event, const std::string &param)
 {
     CLOGD("in");
-    json data;
-    std::string keyAction;
-    if (!data.accept(param)) {
+
+    if (!json::accept(param)) {
         CLOGE("something wrong for the json data!");
         return;
     }
-    data = json::parse(param, nullptr, false);
+    json data = json::parse(param, nullptr, false);
     if (!data.contains(KEY_DATA)) {
         CLOGE("json object have no data");
         return;
     }
+
+    std::string keyAction;
     if (event == MODULE_EVENT_ID_CONTROL_EVENT) {
         keyAction = KEY_ACTION;
     } else {
         keyAction = KEY_CALLBACK_ACTION;
     }
+
     std::string action;
     RETURN_VOID_IF_PARSE_STRING_WRONG(action, data, keyAction);
     auto iter = streamActionProcessor_.find(action);
@@ -103,6 +113,7 @@ void ICastStreamManager::ProcessActionsEvent(int event, const std::string &param
         CLOGE("unsupport action %{public}s", action.c_str());
         return;
     }
+
     std::lock_guard<std::mutex> lock(queueMutex_);
     CLOGI("enqueue action %{public}s", action.c_str());
     workQueue_.push(std::pair<json, StreamActionProcessor> { data[KEY_DATA], iter->second });
@@ -142,8 +153,19 @@ void ICastStreamManager::RemoveChannel(std::shared_ptr<Channel> channel)
     localFileChannel_->RemoveChannel(channel);
 }
 
+void ICastStreamManager::SetParamInfo(CastSessionRtsp::ParamInfo &paramInfo, const CastInnerRemoteDevice &remote)
+{
+    CLOGI("in");
+
+    std::lock_guard<std::mutex> lock(dataMutex_);
+    if (localFileChannel_ != nullptr) {
+        localFileChannel_->SetParamInfo(paramInfo, remote);
+    }
+}
+
 void ICastStreamManager::EncapMediaInfo(const MediaInfo &mediaInfo, json &data, bool isDoubleFrame)
 {
+    CLOGD("EncapMediaInfo in name is: %{public}s", Utils::Mask(mediaInfo.mediaName).c_str());
     data[KEY_MEDIA_ID] = mediaInfo.mediaId;
     data[KEY_MEDIA_NAME] = mediaInfo.mediaName;
     data[KEY_MEDIA_URL] = mediaInfo.mediaUrl;
@@ -160,6 +182,11 @@ void ICastStreamManager::EncapMediaInfo(const MediaInfo &mediaInfo, json &data, 
         data[KEY_LRC_URL] = mediaInfo.lrcUrl;
         data[KEY_LRC_CONTENT] = mediaInfo.lrcContent;
         data[KEY_APP_ICON_URL] = mediaInfo.appIconUrl;
+    } else {
+        data[KEY_UX_ADAPT_MODE] = 1;
+        if (isSupportAlbumCover_) {
+            data[KEY_ALBUM_COVER_URL] = mediaInfo.albumCoverUrl;
+        }
     }
 }
 
@@ -229,7 +256,7 @@ bool ICastStreamManager::SendControlAction(const std::string &action, const json
     json data;
     data[KEY_ACTION] = action;
     data[KEY_DATA] = dataBody;
-    std::string dataStr = data.dump();
+    std::string dataStr = data.dump(-1, ' ', false, json::error_handler_t::ignore);
     return streamListener_->SendActionToPeers(MODULE_EVENT_ID_CONTROL_EVENT, dataStr);
 }
 
@@ -242,7 +269,7 @@ bool ICastStreamManager::SendCallbackAction(const std::string &action, const jso
     json data;
     data[KEY_CALLBACK_ACTION] = action;
     data[KEY_DATA] = dataBody;
-    std::string dataStr = data.dump();
+    std::string dataStr = data.dump(-1, ' ', false, json::error_handler_t::ignore);
     return streamListener_->SendActionToPeers(MODULE_EVENT_ID_CALLBACK_EVENT, dataStr);
 }
 
@@ -262,20 +289,24 @@ std::string ICastStreamManager::GetStreamPlayerCapability()
 
 std::string ICastStreamManager::HandleCustomNegotiationParams(const std::string &playerParams)
 {
-    CLOGI("handleCustomNegotiationParams in, %{public}s", playerParams.c_str());
-    json data;
-    if (!data.accept(playerParams)) {
+    if (!json::accept(playerParams)) {
         CLOGE("something wrong for the json data!");
         return "";
     }
-    data = json::parse(playerParams, nullptr, false);
+
+    json data = json::parse(playerParams, nullptr, false);
     std::lock_guard<std::mutex> lock(dataMutex_);
     RETURN_IF_PARSE_WRONG(currentVolume_, data, KEY_PARAMS_STREAM_VOLUME, "", number);
-    RETURN_IF_PARSE_WRONG(maxVolume_, data, KEY_MAX_VOLUME, "", number);
-    CLOGI("handleCustomNegotiationParams out. currentVolume: %{public}d, maxVolume: %{public}d.", currentVolume_,
-        maxVolume_);
+    if (data.contains(KEY_CAPABILITY_SUPPOR_ALBUM_COVER) && data[KEY_CAPABILITY_SUPPOR_ALBUM_COVER].is_number()) {
+        auto albumCover = data[KEY_CAPABILITY_SUPPOR_ALBUM_COVER];
+        isSupportAlbumCover_ = (albumCover == STREM_ADVANCED_FEATURE_SUPPORTED) ? true : false;
+        CLOGI("supportAlbumCover is %{public}d", isSupportAlbumCover_);
+    }
+
+    CLOGI("hcurrentVolume: %{public}d, maxVolume: %{public}d.", currentVolume_, maxVolume_);
     return "";
 }
+
 } // namespace CastEngineService
 } // namespace CastEngine
 } // namespace OHOS

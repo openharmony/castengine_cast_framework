@@ -45,6 +45,11 @@ const std::string PLAYER_ERROR = "PLAYER_ERROR";
         (value) = (data)[key];                                            \
     } while (0)
 
+#define PARSE_VALUE_BY_KEY(value, data, key, jsonType)                  \
+    if ((data).contains(key) && (data)[key].is_##jsonType()) {          \
+        (value) = (data)[key];                                          \
+    }
+
 #define RET_VOID
 
 #define RETURN_FALSE_IF_PARSE_NUMBER_WRONG(value, data, key) RETURN_IF_PARSE_WRONG(value, data, key, false, number)
@@ -54,6 +59,10 @@ const std::string PLAYER_ERROR = "PLAYER_ERROR";
 #define RETURN_VOID_IF_PARSE_STRING_WRONG(value, data, key) RETURN_IF_PARSE_WRONG(value, data, key, RET_VOID, string)
 
 #define RETURN_FALSE_IF_PARSE_BOOL_WRONG(value, data, key) RETURN_IF_PARSE_WRONG(value, data, key, false, boolean)
+
+#define PARSE_STRING_FROM_JSON(value, data, key) PARSE_VALUE_BY_KEY(value, data, key, string)
+
+#define PARSE_NUMBER_FROM_JSON(value, data, key) PARSE_VALUE_BY_KEY(value, data, key, number)
 } // namespace CastEngine
 } // namespace OHOS
 #endif // CAST_STREAM_COMMON_H
