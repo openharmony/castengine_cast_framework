@@ -141,6 +141,16 @@ void ParamInfo::SetMediaCapability(const std::string &capability)
     this->mediaCapability_ = capability;
 }
 
+const std::string ParamInfo::GetStreamCapability()
+{
+    return streamCapability_;
+}
+
+void ParamInfo::SetStreamCapability(const std::string &capability)
+{
+    this->streamCapability_ = capability;
+}
+
 ProjectionMode ParamInfo::GetProjectionMode()
 {
     return projectionMode_;
@@ -150,6 +160,17 @@ void ParamInfo::SetProjectionMode(ProjectionMode projectionMode)
 {
     this->projectionMode_ = projectionMode;
 }
+
+bool ParamInfo::IsSupportUWB()
+{
+    return mIsSupportUWB;
+}
+
+void ParamInfo::SetSupportUWB(bool isSupport)
+{
+    mIsSupportUWB = isSupport;
+}
+
 } // namespace CastSessionRtsp
 } // namespace CastEngineService
 } // namespace CastEngine

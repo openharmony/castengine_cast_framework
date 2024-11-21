@@ -127,7 +127,7 @@ double RtspParse::ParseDoubleSafe(const std::string &str)
     }
 
     char *nextPtr = nullptr;
-    double result = strtod(str.c_str(), nullptr);
+    double result = strtod(str.c_str(), &nextPtr);
     if (errno == ERANGE) {
         CLOGE("Parse double out of range");
         return INVALID_VALUE;

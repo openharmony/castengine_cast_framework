@@ -20,6 +20,7 @@
 #include "cast_engine_log.h"
 #include "softbus/softbus_connection.h"
 #include "tcp/tcp_connection.h"
+#include "utils.h"
 
 namespace OHOS {
 namespace CastEngine {
@@ -150,7 +151,7 @@ bool ChannelManager::IsRequestValid(const ChannelRequest &request) const
         CLOGE("linkType is SoftBus and remoteDeviceId is empty.");
         return false;
     }
-    CLOGD("IsRequestValid In, remoteDeviceId = %{public}s.", request.remoteDeviceInfo.deviceId.c_str());
+    CLOGD("IsRequestValid In, remoteDeviceId = %{public}s.", Utils::Mask(request.remoteDeviceInfo.deviceId).c_str());
     return true;
 }
 

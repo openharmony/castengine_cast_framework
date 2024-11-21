@@ -35,7 +35,14 @@ DEFINE_CAST_ENGINE_LABEL("Cast-Rtsp-Controller");
 std::shared_ptr<IRtspController> IRtspController::GetInstance(std::shared_ptr<IRtspListener> listener,
     ProtocolType protocolType, EndType endType)
 {
-    return std::static_pointer_cast<IRtspController>(std::make_shared<RtspController>(listener, protocolType, endType));
+    auto rtspController = std::make_shared<RtspController>(listener, protocolType, endType);
+    if (!rtspController) {
+        CLOGE("rtspController is nullptr");
+        return nullptr;
+    }
+    rtspController->Init();
+
+    return std::static_pointer_cast<IRtspController>(rtspController);
 }
 
 RtspController::RtspController(std::shared_ptr<IRtspListener> listener, ProtocolType protocolType, EndType endType)
@@ -49,6 +56,13 @@ RtspController::~RtspController()
     CLOGI("~RtspController in.");
 }
 
+void RtspController::Init()
+{
+    rtspNetManager_ = std::make_shared<RtspChannelManager>(shared_from_this(), protocolType_);
+    ResponseFuncMapInit();
+    RequestFuncMapInit();
+}
+
 std::shared_ptr<IChannelListener> RtspController::GetChannelListener()
 {
     CLOGD("In, get channel listener.");
@@ -59,7 +73,8 @@ void RtspController::AddChannel(std::shared_ptr<Channel> channel, const CastInne
 {
     rtspNetManager_->AddChannel(channel, device);
     deviceId_ = device.deviceId;
-    CLOGD("Out, deviceId %{public}s", deviceId_.c_str());
+
+    CLOGD("Out, deviceId %{public}s", Utils::Mask(deviceId_).c_str());
 }
 
 void RtspController::RemoveChannel(std::shared_ptr<Channel> channel)
@@ -171,6 +186,7 @@ void RtspController::OnPeerReady(bool isSoftbus)
     }
 
     if (!isSendSuccess) {
+        CLOGE("Send rtsp data failed");
         listener_->OnError(ERROR_CODE_DEFAULT);
     }
 }
@@ -223,7 +239,7 @@ bool RtspController::OnResponse(RtspParse &response)
     }
 
     if (!isSuccess && (listener_ != nullptr)) {
-        CLOGD("OnResponse error in State %{public}d", waitRsp_);
+        CLOGE("OnResponse error in State %{public}d", waitRsp_);
         listener_->OnError(ERROR_CODE_DEFAULT);
     }
     return isSuccess;
@@ -236,8 +252,7 @@ void RtspController::DetectKeepAliveFeature() const
 
 void RtspController::SetupPort(int serverPort, int remotectlPort, int cpPort)
 {
-    CLOGD("SetupPort: server port %{public}d remotectlPort %{public}d cpPort %{public}d",
-        serverPort, remotectlPort, cpPort);
+    CLOGD("SetupPort");
     std::string rsp = RtspEncap::EncapSetupResponse(paramInfo_, currentSetUpSeq_, serverPort, remotectlPort, cpPort);
     bool isSuccess = rtspNetManager_->SendRtspData(rsp);
     state_ = RtspEngineState::STATE_ESTABLISHED;
@@ -245,6 +260,7 @@ void RtspController::SetupPort(int serverPort, int remotectlPort, int cpPort)
         CLOGE("Send setup response error.");
         listener_->OnError(ERROR_CODE_DEFAULT);
     }
+
     return;
 }
 
@@ -266,18 +282,12 @@ bool RtspController::DealAnnounceRequest(RtspParse &response)
     if (endType_ != EndType::CAST_SOURCE) {
         return true;
     }
-
-    auto remote = CastDeviceDataManager::GetInstance().GetDeviceByDeviceId(deviceId_);
-    if (remote == std::nullopt) {
-        CLOGE("Get remote device is empty");
-        return false;
-    }
     rtspNetManager_->SetNegAlgorithmId(negotiatedParamInfo_.GetEncryptionParamInfo().controlChannelAlgId);
 
     SendOptionM1M2();
     waitRsp_ = WaitResponse::WAITING_RSP_OPT_M1;
-    CLOGD("Out, SendOptionM1M2.");
 
+    CLOGI("Out, SendOptionM1M2.");
     return true;
 }
 
@@ -333,21 +343,21 @@ bool RtspController::ProcessAnnounceRequest(RtspParse &request)
     std::string content = request.GetHeader()["encrypt_description"];
     if (content.empty() && (listener_ != nullptr)) {
         CLOGE("ProcessAnnounceRequest No encrypt_description.");
-        listener_->OnError(ERROR_CODE_DEFAULT);
+
         return false;
     }
 
     std::string encryptStr = RtspParse::GetTargetStr(content, "encrypt_list=", COMMON_SEPARATOR);
     if (encryptStr.empty() && (listener_ != nullptr)) {
         CLOGE("Get encrypt str fail.");
-        listener_->OnError(ERROR_CODE_DEFAULT);
+
         return false;
     }
 
     // only support ctr
     EncryptDecrypt &instance = EncryptDecrypt::GetInstance();
     int version = instance.GetVersion();
-    CLOGD("AuthNeg: Get algStr is %{public}s version %{public}d", encryptStr.c_str(), version);
+    CLOGI("AuthNeg: Get algStr is %{public}s version %{public}d", encryptStr.c_str(), version);
 
     std::set<std::string> cipherList = ParseCipherItem(encryptStr);
     if (cipherList.empty() && (listener_ != nullptr)) {
@@ -516,7 +526,8 @@ bool RtspController::ProcessPauseRequest(RtspParse &request)
 
 bool RtspController::ProcessTearDownRequest(RtspParse &request)
 {
-    CLOGD("Receive sink teardown request.");
+    CLOGI("Receive sink teardown request.");
+
     if (!Utils::StartWith(request.GetFirstLine(), "Teardown")) {
         CLOGE("Process teardown request error");
         if (listener_ != nullptr) {
@@ -586,6 +597,7 @@ void RtspController::ProcessTriggerMethod(RtspParse &request, const std::string 
     } else if (triggerMethod == ACTION_TYPE_STR[static_cast<int>(ActionType::PAUSE)]) {
         listener_->OnPause();
     } else if (triggerMethod == ACTION_TYPE_STR[static_cast<int>(ActionType::TEARDOWN)]) {
+        CLOGI("Receive teardown trigger method");
         listener_->OnTearDown();
     } else if (triggerMethod == ACTION_TYPE_STR[static_cast<int>(ActionType::SEND_EVENT_CHANGE)]) {
         ProcessEventChangeRequest(request);
@@ -703,13 +715,15 @@ bool RtspController::ProcessGetParamM3Response(RtspParse &response)
     }
     negotiatedParamInfo_.SetVersion(RtspParse::ParseDoubleSafe(response.GetHeader()["his_version"]));
     CLOGD("Sink HiSight version is %.2f", negotiatedParamInfo_.GetVersion());
-
+    negotiatedParamInfo_.SetSupportUWB(RtspParse::ParseDoubleSafe(response.GetHeader()["his_support_uwb"]) == 1);
+    
     // 考虑向前兼容性，需要先解析device type
     if (response.GetHeader()["his_device_type"].empty()) {
         ProcessSinkDeviceType("");
     } else {
         ProcessSinkDeviceType((*(response.GetHeader().find("his_device_type"))).second);
     }
+
     std::string content = response.GetHeader()["his_video_formats"];
     if (content.empty()) {
         CLOGE("Process M3 Rsp Error, sink not have his_video_formats.");
@@ -811,8 +825,9 @@ bool RtspController::ProcessPlayM7Response(RtspParse &response)
 
 bool RtspController::ProcessTearDownM8Response(RtspParse &response)
 {
-    CLOGD("WaitRsp state %{public}d receive teardown response, status %{public}d.", waitRsp_, response.GetStatusCode());
+    CLOGI("WaitRsp state %{public}d receive teardown response, status %{public}d.", waitRsp_, response.GetStatusCode());
     listener_->OnTearDown();
+
     return true;
 }
 
@@ -872,11 +887,14 @@ void RtspController::ProcessUibc(const std::string &content)
             CLOGE("No generic_cap_list.");
             return;
         }
+
         if (paramInfo_.GetRemoteControlParamInfo().genericList.size() <= 0) {
             CLOGE("Local genericList is empty.");
             return;
         }
-        ProcessUibcDetermine(genericStr, remoteControlParamInfo.genericList);
+
+        ProcessUibcDetermine(genericStr, remoteControlParamInfo.genericList,
+            paramInfo_.GetRemoteControlParamInfo().genericList);
         remoteControlParamInfo.isSupportGeneric = true;
     }
 
@@ -886,13 +904,17 @@ void RtspController::ProcessUibc(const std::string &content)
             CLOGE("No hidc_cap_list.");
             return;
         }
+
         if (paramInfo_.GetRemoteControlParamInfo().hidcList.size() <= 0) {
             CLOGE("Local hidcList is empty.");
             return;
         }
-        ProcessUibcDetermine(hidcStr, remoteControlParamInfo.hidcList);
+
+        ProcessUibcDetermine(hidcStr, remoteControlParamInfo.hidcList,
+            paramInfo_.GetRemoteControlParamInfo().hidcList);
         remoteControlParamInfo.isSupportHidc = true;
     }
+
     ProcessUibcVendor(content, remoteControlParamInfo);
     negotiatedParamInfo_.SetRemoteControlParamInfo(remoteControlParamInfo);
 
@@ -908,23 +930,33 @@ void RtspController::ProcessUibcVendor(const std::string &content, RemoteControl
             CLOGE("No vendor_cap_list.");
             return;
         }
+
         if (paramInfo_.GetRemoteControlParamInfo().vendorList.size() <= 0) {
             CLOGE("Local vendor_list is empty.");
             return;
         }
-        ProcessUibcDetermine(vendorStr, remoteControlParamInfo.vendorList);
+
+        ProcessUibcDetermine(vendorStr, remoteControlParamInfo.vendorList,
+            paramInfo_.GetRemoteControlParamInfo().vendorList);
         remoteControlParamInfo.isSupportVendor = true;
     }
 }
 
-void RtspController::ProcessUibcDetermine(const std::string &givenStr, std::vector<std::string> &list)
+void RtspController::ProcessUibcDetermine(const std::string &givenStr, std::vector<std::string> &intersection,
+    const std::vector<std::string> &localList)
 {
     CLOGD("In, %{public}s.", givenStr.c_str());
+
     std::vector<std::string> splitStrings;
     Utils::SplitString(givenStr, splitStrings, ", ");
-    list.clear();
+    intersection.clear();
     for (auto &iter : splitStrings) {
-        list.push_back(iter);
+        auto it = std::find(localList.begin(), localList.end(), iter);
+        if (it == localList.end()) {
+            CLOGI("local not support event:%{public}s", iter.c_str());
+            continue;
+        }
+        intersection.push_back(iter);
     }
 }
 
@@ -966,10 +998,12 @@ void RtspController::ProcessSinkBitrate(const std::string &content, VideoPropert
 void RtspController::ProcessSinkVideoForResolution(const std::string &content, VideoProperty &videoProperty)
 {
     CLOGD("In, %{public}s.", content.c_str());
-    std::string strHeight = RtspParse::GetTargetStr(content, "height", "");
+    std::string strHeight = RtspParse::GetTargetStr(content, "height", COMMON_SEPARATOR);
     std::string strWidth = RtspParse::GetTargetStr(content, "width", COMMON_SEPARATOR);
     uint32_t height = (!strHeight.empty()) ? RtspParse::ParseUint32Safe(strHeight) : 0;
     uint32_t width = (!strWidth.empty()) ? RtspParse::ParseUint32Safe(strWidth) : 0;
+    screenParam_[KEY_BEFORE_VIDEO_HEIGHT] = height;
+    screenParam_[KEY_BEFORE_VIDEO_WIDTH] = width;
     if ((height > 0) && (width > 0)) {
         videoProperty.videoHeight = height;
         videoProperty.videoWidth = width;
@@ -1027,6 +1061,20 @@ void RtspController::ProcessVideoInfo(const std::string &content)
         negotiatedParamInfo_.GetVideoProperty().videoWidth, negotiatedParamInfo_.GetVideoProperty().videoHeight,
         negotiatedParamInfo_.GetVideoProperty().fps, negotiatedParamInfo_.GetVideoProperty().codecType,
         negotiatedParamInfo_.GetVideoProperty().gop);
+    AddScreenParam();
+}
+
+void RtspController::AddScreenParam()
+{
+    CLOGI("AddScreenParam");
+
+    screenParam_[KEY_SCREEN_HEIGHT] = negotiatedParamInfo_.GetVideoProperty().screenHeight;
+    screenParam_[KEY_SCREEN_WIDTH] = negotiatedParamInfo_.GetVideoProperty().screenWidth;
+    screenParam_[KEY_DPI] = negotiatedParamInfo_.GetVideoProperty().dpi;
+    screenParam_[KEY_AFTER_VIDEO_HEIGHT] = negotiatedParamInfo_.GetVideoProperty().videoHeight;
+    screenParam_[KEY_AFTER_VIDEO_WIDTH] = negotiatedParamInfo_.GetVideoProperty().videoWidth;
+    std::string data = screenParam_.dump();
+    listener_->NotifyScreenParam(data);
 }
 
 void RtspController::ProcessAudioExpandInfo(const std::string &content, AudioProperty &audioProperty)
@@ -1203,13 +1251,20 @@ void RtspController::ProcessModuleCustomParams(const std::string &mediaParams, c
     if (strPos != std::string::npos) {
         controllerParamsProcessed = controllerParams.substr(0, strPos);
     }
-    CLOGD("In, mediaParams:%{public}s controllerParams:%{public}s.", mediaParams.c_str(),
+
+    auto mediaParamsProcessed = mediaParams;
+    auto mediaStrPos = mediaParams.find(COMMON_SEPARATOR);
+    if (strPos != std::string::npos) {
+        mediaParamsProcessed = mediaParams.substr(0, mediaStrPos);
+    }
+    CLOGD("In, mediaParams:%{public}s controllerParams:%{public}s.", mediaParamsProcessed.c_str(),
         controllerParamsProcessed.c_str());
+
     if (listener_ == nullptr) {
         CLOGE("Listener is null.");
         return;
     }
-    listener_->NotifyModuleCustomParamsNegotiation(mediaParams, controllerParamsProcessed);
+    listener_->NotifyModuleCustomParamsNegotiation(mediaParamsProcessed, controllerParamsProcessed);
 }
 
 bool RtspController::SendOptionM1M2()
@@ -1301,6 +1356,11 @@ const std::set<int> &RtspController::GetNegotiatedFeatureSet()
 void RtspController::SetNegotiatedMediaCapability(const std::string &negotiationMediaParams)
 {
     negotiatedParamInfo_.SetMediaCapability(negotiationMediaParams);
+}
+
+void RtspController::SetNegotiatedStreamCapability(const std::string &controllerParams)
+{
+    negotiatedParamInfo_.SetStreamCapability(controllerParams);
 }
 
 void RtspController::SetNegotiatedPlayerControllerCapability(const std::string &negotiationParams)
