@@ -147,7 +147,8 @@ bool WriteCastRemoteDevice(Parcel &parcel, const CastRemoteDevice &device)
         parcel.WriteString(device.networkId) && parcel.WriteString(device.localIpAddress) &&
         parcel.WriteBool(device.isLeagacy) && parcel.WriteInt32(device.sessionId) &&
         parcel.WriteUint32(device.mediumTypes) && parcel.WriteUint32(device.protocolCapabilities) &&
-        parcel.WriteString(device.dlnaDeviceModelNameStr) && parcel.WriteString(device.dlnaDeviceManufacturerStr);
+        parcel.WriteString(device.modelName) && parcel.WriteString(device.manufacturerName) &&
+        parcel.WriteBool(device.isTrushed);
     if (device.sessionKeyLength == SESSION_KEY_LENGTH && device.sessionKey) {
         res = res && parcel.WriteUint32(device.sessionKeyLength);
         res = res && parcel.WriteBuffer(device.sessionKey, device.sessionKeyLength);
@@ -199,8 +200,9 @@ std::unique_ptr<CastRemoteDevice> ReadCastRemoteDevice(Parcel &parcel)
     device->sessionId = parcel.ReadInt32();
     device->mediumTypes = parcel.ReadUint32();
     device->protocolCapabilities = parcel.ReadUint32();
-    device->dlnaDeviceModelNameStr = parcel.ReadString();
-    device->dlnaDeviceManufacturerStr = parcel.ReadString();
+    device->modelName = parcel.ReadString();
+    device->manufacturerName = parcel.ReadString();
+    device->isTrushed = parcel.ReadBool();
     device->sessionKeyLength = parcel.ReadUint32();
     if (device->sessionKeyLength == SESSION_KEY_LENGTH) {
         device->sessionKey = parcel.ReadBuffer(static_cast<size_t>(device->sessionKeyLength));
