@@ -60,8 +60,9 @@ struct CastInnerRemoteDevice {
     CapabilityType capability{ CapabilityType::CAST_PLUS };
     uint32_t dlnaDeviceId{ static_cast<uint32_t>(INVALID_ID) };
     std::vector<std::string> drmCapabilities;
-    std::string dlnaDeviceModelNameStr;
-    std::string dlnaDeviceManufacturerStr;
+    std::string modelName;
+    std::string manufacturerName;
+    bool isTrushed;
 
     bool operator==(const CastInnerRemoteDevice &rhs) const
     {
