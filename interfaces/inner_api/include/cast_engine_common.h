@@ -370,8 +370,9 @@ struct EXPORT CastRemoteDevice {
     int sessionId{ INVALID_ID };
     std::vector<std::string> drmCapabilities;
     uint32_t mediumTypes{ 0 };
-    std::string dlnaDeviceModelNameStr;
-    std::string dlnaDeviceManufacturerStr;
+    std::string modelName;
+    std::string manufacturerName;
+    bool isTrushed;
 };
 
 enum class EXPORT CastMode {
