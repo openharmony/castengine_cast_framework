@@ -27,7 +27,6 @@
 
 #include "cast_engine_log.h"
 #include "cast_local_file_channel_common.h"
-#include "encrypt_decrypt.h"
 #include "securec.h"
 
 namespace OHOS {
