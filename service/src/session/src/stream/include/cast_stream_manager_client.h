@@ -102,6 +102,16 @@ private:
         {HmosPlayerStates::STATE_ENDED, PlayerStates::PLAYER_PLAYBACK_COMPLETE},
     };
 
+    std::map<PlaybackSpeed, float> doubleSupportSpeed_ {
+        { PlaybackSpeed::SPEED_FORWARD_0_50_X, 0.5 },
+        { PlaybackSpeed::SPEED_FORWARD_0_75_X, 0.75 },
+        { PlaybackSpeed::SPEED_FORWARD_1_00_X, 1.0 },
+        { PlaybackSpeed::SPEED_FORWARD_1_25_X, 1.25 },
+        { PlaybackSpeed::SPEED_FORWARD_1_50_X, 1.5 },
+        { PlaybackSpeed::SPEED_FORWARD_1_75_X, 1.75 },
+        { PlaybackSpeed::SPEED_FORWARD_2_00_X, 2.0 },
+    };
+
     std::shared_ptr<RemotePlayerController> player_;
     std::mutex eventMutex_;
     std::shared_ptr<CastTimer> timer_;

@@ -129,6 +129,7 @@ void CastSessionImpl::RtspListenerImpl::OnTearDown()
         CLOGE("Tear down in, session is null");
         return;
     }
+    session->isTearDownReceived_ = true;
 
     session->SendCastMessage(
         Message(MessageId::MSG_ERROR, ERR_CODE, MODULE_TYPE_STRING[static_cast<int>(ModuleType::RTSP)]));
@@ -434,7 +435,7 @@ void CastSessionImpl::ChannelManagerListenerImpl::OnChannelRemoved(std::shared_p
             break;
     }
 
-    if (session->IsStreamMode() && session->IsSink()) {
+    if (session->IsStreamMode() && session->IsSink() && !session->isTearDownReceived_) {
         CLOGI("Support to continue playing resources after channel disconnected accidently");
         session->OnEvent(EventId::STEAM_DEVICE_DISCONNECTED, "Connection is disconnected unexpectedly.");
         return;

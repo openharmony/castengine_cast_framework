@@ -203,8 +203,9 @@ int ConvertFileId(const std::string &fileId)
 bool ParseStringToInt64(const std::string &str, int64_t &val)
 {
     errno = 0;
-    val = std::strtoll(str.c_str(), nullptr, DECIMALISM);
-    if (errno == ERANGE) {
+    char *end = nullptr;
+    val = std::strtoll(str.c_str(), &end, DECIMALISM);
+    if (errno == ERANGE || (val == 0 && *end != '\0')) {
         return false;
     }
 

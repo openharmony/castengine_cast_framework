@@ -30,6 +30,7 @@
 #include "i_cast_local_file_channel.h"
 #include "i_cast_stream_listener.h"
 #include "i_stream_player_ipc.h"
+#include "rtsp_param_info.h"
 
 namespace OHOS {
 namespace CastEngine {
@@ -49,6 +50,7 @@ public:
     std::string GetStreamPlayerCapability();
     std::string HandleCustomNegotiationParams(const std::string &playerParams);
     virtual bool PlayAfterSwitchToStream() = 0;
+    void SetParamInfo(CastSessionRtsp::ParamInfo &paramInfo, const CastInnerRemoteDevice &remote);
 
     static constexpr int MODULE_EVENT_ID_CONTROL_EVENT = 100;
     static constexpr int MODULE_EVENT_ID_CALLBACK_EVENT = 101;
@@ -110,6 +112,8 @@ protected:
     const std::string KEY_CAPABILITY_SUPPORT_4K = "SUPPORT_4K";
     const std::string KEY_CAPABILITY_SUPPORT_DRM = "DRM_CAPABILITY";
     const std::string KEY_CAPABILITY_DRM_PROPERTIES = "DRM_PROPERTIES_CAPABILITY";
+    const std::string KEY_CAPABILITY_SUPPOR_ALBUM_COVER = "SUPPOR_ALBUM_COVER";
+    const std::string KEY_UX_ADAPT_MODE = "UX_ADAPT_MODE";
     const std::string KEY_REQUEST_KEY = "REQUEST_KEY";
     const std::string KEY_RESPONSE_KEY = "RESPONSE_KEY";
 
@@ -168,6 +172,7 @@ protected:
     std::mutex listenerMutex_;
     int currentVolume_{ CAST_STREAM_INT_INVALID };
     int maxVolume_{ DEFAULT_MAX_VOLUME };
+    bool isSupportAlbumCover_ { false };
     bool isMute_ = false;
 };
 } // namespace CastEngineService

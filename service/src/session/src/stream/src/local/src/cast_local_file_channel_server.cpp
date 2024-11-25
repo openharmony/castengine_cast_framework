@@ -35,6 +35,7 @@
 #include "cast_engine_log.h"
 #include "cast_local_file_channel_common.h"
 #include "utils.h"
+#include "securec.h"
 
 namespace OHOS {
 namespace CastEngine {
@@ -54,6 +55,9 @@ CastLocalFileChannelServer::~CastLocalFileChannelServer()
     CLOGD("in");
 
     ClearAllMapInfo();
+    if (memset_s(sessionKey_, SESSION_KEY_LENGTH, 0, SESSION_KEY_LENGTH) != EOK) {
+        CLOGE("memset fail");
+    }
 }
 
 void CastLocalFileChannelServer::ClearAllMapInfo()
@@ -89,6 +93,18 @@ void CastLocalFileChannelServer::RemoveChannel(std::shared_ptr<Channel> channel)
     std::unique_lock<std::mutex> lock(chLock_);
     channel_ = nullptr;
     CLOGI("out");
+}
+
+void CastLocalFileChannelServer::SetParamInfo(CastSessionRtsp::ParamInfo &param, const CastInnerRemoteDevice &remote)
+{
+    CLOGI("In, algCode %{public}d", param.GetEncryptionParamInfo().dataChannelAlgId);
+    algCode_ = param.GetEncryptionParamInfo().dataChannelAlgId;
+
+    if (memcpy_s(sessionKey_, SESSION_KEY_LENGTH, remote.sessionKey, remote.sessionKeyLength) != 0) {
+        CLOGE("SessionKey Copy Error!");
+        return;
+    }
+    sessionKeyLength_ = remote.sessionKeyLength;
 }
 
 void CastLocalFileChannelServer::AddFileInfoToMap(const std::string encodedId, const struct LocalFileInfo &data)
@@ -202,13 +218,19 @@ struct CastLocalFileChannelServer::LocalFileInfo CastLocalFileChannelServer::Fin
 int64_t CastLocalFileChannelServer::GetFileLengthByFd(int fd)
 {
     // This lseek may cause performance issues. Record the consumption time and print.
+    auto t1 = std::chrono::steady_clock::now();
 
     off64_t fileLen = lseek64(fd, 0, SEEK_END);
     if (fileLen < 0) {
         CLOGE("file seek error, errno %{public}s", strerror(errno));
         return -1;
     }
+
+    auto t2 = std::chrono::steady_clock::now();
+    auto cost = std::chrono::duration_cast<std::chrono::milliseconds>(t2 - t1);
     int64_t ret = static_cast<int64_t>(fileLen);
+    CLOGI("file length %" PRId64 ", time cost %{public}" PRIu64 "ms", fileLen, static_cast<uint64_t>(cost.count()));
+
     return ret;
 }
 
@@ -319,12 +341,16 @@ void CastLocalFileChannelServer::ResponseFileDataRequest(const std::string &uri,
 
 void CastLocalFileChannelServer::ResponseFileRequest(const std::string &uri, int64_t start, int64_t end)
 {
+    CLOGD("file: %s start: %{public}" PRId64 " end: %{public}" PRId64, uri.c_str(), start, end);
+
     if (uri.empty()) {
+        CLOGE("Invalid request, %s", uri.c_str());
         return;
     }
 
     int64_t fileLen = FindFileLengthByUri(uri);
     if (fileLen <= 0) {
+        CLOGE("Invalid file: %s, len %{public}" PRIu64, uri.c_str(), fileLen);
         return;
     }
 
