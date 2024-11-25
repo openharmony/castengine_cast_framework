@@ -155,12 +155,14 @@ public:
     bool IsPlaying();
     bool IsLooping();
     void NotifyPlayComplete();
+    bool SetPlayRangeWithMode(int32_t start);
 
 private:
     bool SeekPrepare(int32_t &mseconds, Media::PlayerSeekMode &mode);
     bool Release();
     bool SendInitSysVolume();
     bool GetImageResource();
+    bool InvokeImageChanged(std::shared_ptr<Media::PixelMap> sharedImg);
     bool ProcessAlbumCover(std::shared_ptr<Media::AVSharedMemory> albumCoverMem);
     std::mutex mutex_;
     std::shared_ptr<Media::Player> player_ = nullptr;

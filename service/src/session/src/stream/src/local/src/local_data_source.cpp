@@ -91,6 +91,7 @@ void LocalDataSource::SolveReqData(std::shared_ptr<Cache> cache, int64_t pos)
     if (isNeedReq == Cache::NO_NEED_REQ) {
         return;
     }
+
     if (isNeedReq == Cache::NEED_REQ_IN_NEXT_CACHE) {
         cache = GetBestCache(start);
         if (!cache) {
@@ -100,6 +101,12 @@ void LocalDataSource::SolveReqData(std::shared_ptr<Cache> cache, int64_t pos)
             return;
         }
     }
+
+    if (!channelClient_) {
+        CLOGE("channelClient_ is nullptr");
+        return;
+    }
+
     CLOGD("request data, start:%{public}" PRId64 " end:%{public}" PRId64 " pos:%{public}" PRId64, start, end, pos);
     channelClient_->RequestByteData(start, end, fileId_);
 }
@@ -121,6 +128,8 @@ int32_t LocalDataSource::ReadAt(uint32_t length, const std::shared_ptr<Media::AV
 
 int32_t LocalDataSource::ReadBuffer(uint8_t *data, uint32_t length, int64_t pos)
 {
+    CLOGD("ReadBuffer length = %{public}d pos = %{public}" PRId64 , length, pos);
+
     if (pos >= fileLength_) {
         CLOGE("ReadAt EOF, pos:%{public}" PRId64 " fileLength_:%{public}" PRId64, pos, fileLength_);
         return Media::SOURCE_ERROR_EOF;
@@ -306,7 +315,7 @@ int64_t Cache::Read(uint8_t *data, uint32_t length, int64_t pos)
 bool Cache::Write(const uint8_t *data, int64_t offset, int64_t length)
 {
     std::unique_lock<std::mutex> lock(dataMutex_);
-    if (offset != endPos_) {
+    if (offset != endPos_ || endPos_ < startPos_) {
         return false;
     }
     int64_t remainLen = capacity_ - (endPos_ - startPos_);
