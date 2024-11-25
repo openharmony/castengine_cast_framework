@@ -44,6 +44,7 @@ public:
     std::shared_ptr<IChannelListener> GetChannelListener() override;
     void AddChannel(std::shared_ptr<Channel> channel) override;
     void RemoveChannel(std::shared_ptr<Channel> channel) override;
+    void SetParamInfo(CastSessionRtsp::ParamInfo &paramInfo, const CastInnerRemoteDevice &remote) override;
 
     void OnDataReceived(const uint8_t *buffer, unsigned int length, long timeCost) override;
 
@@ -56,9 +57,15 @@ public:
     void RemoveDataListener(std::shared_ptr<IDataListener> dataListener);
 
 private:
+    constexpr static int SESSION_KEY_LENGTH = 16;
+
     std::weak_ptr<ICastStreamManagerServer> callback_;
     std::shared_ptr<Channel> channel_;
     std::list<std::shared_ptr<IDataListener>> dataListeners_;
+    int32_t algCode_ = 0;
+    uint8_t sessionKey_[SESSION_KEY_LENGTH] = {0};
+    int32_t sessionKeyLength_ = 0;
+
     std::condition_variable cond_;
     std::mutex chLock_;
     std::mutex listenerLock_;

@@ -27,13 +27,14 @@
 
 #include "cast_engine_log.h"
 #include "cast_local_file_channel_common.h"
+#include "securec.h"
 
 namespace OHOS {
 namespace CastEngine {
 namespace CastEngineService {
 DEFINE_CAST_ENGINE_LABEL("Cast-Localfile-Client");
 
-static const int CREATE_CHANNEL_TIMEOUT = 100 * 1000;
+static const int CREATE_CHANNEL_TIMEOUT = 10 * 1000;
 
 CastLocalFileChannelClient::CastLocalFileChannelClient(std::shared_ptr<ICastStreamManagerServer> callback)
 {
@@ -44,6 +45,10 @@ CastLocalFileChannelClient::CastLocalFileChannelClient(std::shared_ptr<ICastStre
 CastLocalFileChannelClient::~CastLocalFileChannelClient()
 {
     CLOGD("in");
+
+    if (memset_s(sessionKey_, SESSION_KEY_LENGTH, 0, SESSION_KEY_LENGTH) != EOK) {
+        CLOGE("memset fail");
+    }
 }
 
 std::shared_ptr<IChannelListener> CastLocalFileChannelClient::GetChannelListener()
@@ -109,6 +114,19 @@ void CastLocalFileChannelClient::RemoveChannel(std::shared_ptr<Channel> channel)
     channel_ = nullptr;
 }
 
+void CastLocalFileChannelClient::SetParamInfo(CastSessionRtsp::ParamInfo &param, const CastInnerRemoteDevice &remote)
+{
+    CLOGI("In");
+
+    algCode_ = param.GetEncryptionParamInfo().dataChannelAlgId;
+    CLOGI("In, paramInfo %{public}d, sessionKey len %{publilc}d", algCode_, remote.sessionKeyLength);
+    if (memcpy_s(sessionKey_, SESSION_KEY_LENGTH, remote.sessionKey, remote.sessionKeyLength) != 0) {
+        CLOGE("SessionKey Copy Error!");
+        return;
+    }
+    sessionKeyLength_ = remote.sessionKeyLength;
+}
+
 void CastLocalFileChannelClient::RequestByteData(int64_t start, int64_t end, const std::string &fileId)
 {
     std::shared_ptr<Channel> channel;
@@ -143,6 +161,8 @@ void CastLocalFileChannelClient::AddDataListener(std::shared_ptr<IDataListener> 
     }
     std::lock_guard<std::mutex> lock(listenerLock_);
     dataListeners_.push_back(dataListener);
+
+    CLOGD("listener count %{public}zu", dataListeners_.size());
 }
 
 void CastLocalFileChannelClient::RemoveDataListener(std::shared_ptr<IDataListener> dataListener)
@@ -153,6 +173,8 @@ void CastLocalFileChannelClient::RemoveDataListener(std::shared_ptr<IDataListene
     }
     std::lock_guard<std::mutex> lock(listenerLock_);
     dataListeners_.remove(dataListener);
+
+    CLOGD("listener count %{public}zu", dataListeners_.size());
 }
 
 bool CastLocalFileChannelClient::ProcessServerResponse(const uint8_t *buffer, unsigned int length,
