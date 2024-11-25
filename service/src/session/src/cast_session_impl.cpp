@@ -107,8 +107,13 @@ const std::array<std::string, static_cast<size_t>(MessageId::MSG_ID_MAX)>
         "MSG_PEER_RENDER_READY",
         "MSG_ERROR",
         "MSG_SET_CAST_MODE",
+        "MSG_SWITCH_TO_MIRROR",
         "MSG_READY_TO_PLAYING",
+        "MSG_START_AUTH",
+        "MSG_AUTHING",
         "MSG_MIRROR_SEND_ACTION_EVENT_TO_PEERS",
+        "MSG_SWITCH_TO_STREAM",
+        "MSG_PEER_RENDER_FAIL",
     };
 std::atomic<int> CastSessionImpl::idCount_ = rand();
 
