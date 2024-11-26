@@ -809,6 +809,26 @@ bool CastStreamPlayer::SetSource(const MediaInfo &mediaInfo)
     return true;
 }
 
+bool CastStreamPlayer::SetPlayRangeWithMode(int32_t start)
+{
+    CLOGI("SetPlayRangeWithMode in, start %{public}d", start);
+
+    if (start <= 0) {
+        CLOGE("start position less than 0");
+        return false;
+    }
+    if (!player_) {
+        CLOGE("Media player is null");
+        return false;
+    }
+    if (player_->SetPlayRangeWithMode(start, -1) != MSERR_OK) {
+        CLOGE("SetPlayRangeWithMode fail");
+        return false;
+    }
+
+    return true;
+}
+
 bool CastStreamPlayer::GetImageResource()
 {
     int64_t imageSize;
@@ -853,7 +873,11 @@ bool CastStreamPlayer::GetImageResource()
         CLOGE("pixelMap is null, errCode = %{public}d", errCode);
         return false;
     }
-    std::shared_ptr<Media::PixelMap> sharedImg = std::move(pixelMap);
+    return InvokeImageChanged(std::move(pixelMap));
+}
+
+bool CastStreamPlayer::InvokeImageChanged(std::shared_ptr<Media::PixelMap> sharedImg)
+{
     if (!callback_) {
         CLOGE("callback_ is null");
         return false;
