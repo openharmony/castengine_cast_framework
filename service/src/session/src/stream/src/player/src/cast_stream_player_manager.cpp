@@ -42,6 +42,7 @@ CastStreamPlayerManager::CastStreamPlayerManager(std::shared_ptr<ICastStreamMana
         return;
     }
     callback_->SetPlayer(player_);
+    MockErrorCode_ = OHOS::system::GetParameter("debug.cast.stream.error", "");
     CLOGD("CastStreamPlayerManager out");
 }
 
@@ -86,16 +87,6 @@ int32_t CastStreamPlayerManager::UnregisterListener()
 
 int32_t CastStreamPlayerManager::SetSurface(sptr<IBufferProducer> producer)
 {
-    HiSysEventWriteWrap(__func__, {
-            {"BIZ_SCENE", static_cast<int32_t>(BIZSceneType::DUAL_POINTS_CONTROL)},
-            {"BIZ_STAGE", static_cast<int32_t>(BIZSceneStage::SINK_CONTROL)},
-            {"STAGE_RES", static_cast<int32_t>(StageResType::STAGE_RES_SUCCESS)},
-            {"ERROR_CODE", CAST_RADAR_SUCCESS}}, {
-            {"TO_CALL_PKG", DSOFTBUS_NAME},
-            {"LOCAL_SESS_NAME", ""},
-            {"PEER_SESS_NAME", ""},
-            {"PEER_UDID", ""}});
-
     CLOGD("SetSurface in");
     sptr<Surface> surface = Surface::CreateSurfaceAsProducer(producer);
     if (surface == nullptr) {
@@ -129,16 +120,6 @@ int32_t CastStreamPlayerManager::SetSurface(sptr<IBufferProducer> producer)
 
 int32_t CastStreamPlayerManager::Load(const MediaInfo &mediaInfo)
 {
-    HiSysEventWriteWrap(__func__, {
-        {"BIZ_SCENE", static_cast<int32_t>(BIZSceneType::DUAL_POINTS_CONTROL)},
-        {"BIZ_STAGE", static_cast<int32_t>(BIZSceneStage::SINK_CONTROL)},
-        {"STAGE_RES", static_cast<int32_t>(StageResType::STAGE_RES_SUCCESS)},
-        {"ERROR_CODE", CAST_RADAR_SUCCESS}}, {
-        {"TO_CALL_PKG", DSOFTBUS_NAME},
-        {"LOCAL_SESS_NAME", ""},
-        {"PEER_SESS_NAME", ""},
-        {"PEER_UDID", ""}});
-
     CLOGI("Load in");
     if (!player_) {
         CLOGE("player_ is null");
@@ -148,7 +129,7 @@ int32_t CastStreamPlayerManager::Load(const MediaInfo &mediaInfo)
         CLOGE("callback_ is null");
         return CAST_ENGINE_ERROR;
     }
-
+    MOCK_TEST_PLAYER_ERROR(static_cast<int>(StreamActionId::LOAD));
     std::lock_guard<std::mutex> lock(mutex_);
     if (callback_->IsNeededToReset()) {
         callback_->SetSwitching();
@@ -181,17 +162,6 @@ int32_t CastStreamPlayerManager::Play(int index)
 // Play request from sink.
 int32_t CastStreamPlayerManager::Play(const MediaInfo &mediaInfo)
 {
-    HiSysEventWriteWrap(__func__, {
-            {"BIZ_SCENE", static_cast<int32_t>(BIZSceneType::DUAL_POINTS_CONTROL)},
-            {"BIZ_STATE", static_cast<int32_t>(BIZStateType::BIZ_STATE_BEGIN)},
-            {"BIZ_STAGE", static_cast<int32_t>(BIZSceneStage::SINK_CONTROL)},
-            {"STAGE_RES", static_cast<int32_t>(StageResType::STAGE_RES_SUCCESS)},
-            {"ERROR_CODE", CAST_RADAR_SUCCESS}}, {
-            {"TO_CALL_PKG", DSOFTBUS_NAME},
-            {"LOCAL_SESS_NAME", ""},
-            {"PEER_SESS_NAME", ""},
-            {"PEER_UDID", ""}});
-
     CLOGD("Play in");
     if (!callback_) {
         CLOGE("callback_ is null");
@@ -204,6 +174,7 @@ int32_t CastStreamPlayerManager::Play(const MediaInfo &mediaInfo)
 bool CastStreamPlayerManager::InnerPlayLocked(bool isLoading)
 {
     CLOGD("InnerPlayLocked in");
+
     if (!player_) {
         CLOGE("player_ is null");
         return false;
@@ -224,14 +195,13 @@ bool CastStreamPlayerManager::InnerPlayLocked(bool isLoading)
         CLOGE("StreamPlayer SetVideoSurface failed");
         return false;
     }
+    if (mediaInfo_.startPosition > 0) {
+        auto ret = player_->SetPlayRangeWithMode(mediaInfo_.startPosition);
+        CLOGI("ret %{public}d", ret);
+    }
     if (!player_->Prepare()) {
         CLOGE("StreamPlayer Prepare failed");
         return false;
-    }
-    if (mediaInfo_.startPosition > 0) {
-        if (!player_->Seek(mediaInfo_.startPosition, Media::SEEK_PREVIOUS_SYNC)) {
-            CLOGE("StreamPlayer Seek failed");
-        }
     }
     if (!isLoading) {
         if (!player_->Play()) {
@@ -239,6 +209,7 @@ bool CastStreamPlayerManager::InnerPlayLocked(bool isLoading)
             return false;
         }
     }
+
     CLOGD("InnerPlayLocked out");
     return true;
 }
@@ -286,22 +257,12 @@ PlaybackSpeed CastStreamPlayerManager::ConvertMediaSpeedToPlaybackSpeed(Media::P
 
 int32_t CastStreamPlayerManager::Pause()
 {
-    HiSysEventWriteWrap(__func__, {
-            {"BIZ_SCENE", static_cast<int32_t>(BIZSceneType::DUAL_POINTS_CONTROL)},
-            {"BIZ_STATE", static_cast<int32_t>(BIZStateType::BIZ_STATE_BEGIN)},
-            {"BIZ_STAGE", static_cast<int32_t>(BIZSceneStage::SINK_CONTROL)},
-            {"STAGE_RES", static_cast<int32_t>(StageResType::STAGE_RES_SUCCESS)},
-            {"ERROR_CODE", CAST_RADAR_SUCCESS}}, {
-            {"TO_CALL_PKG", DSOFTBUS_NAME},
-            {"LOCAL_SESS_NAME", ""},
-            {"PEER_SESS_NAME", ""},
-            {"PEER_UDID", ""}});
-
     CLOGD("Pause in");
     if (!player_) {
         CLOGE("player_ is null");
         return CAST_ENGINE_ERROR;
     }
+    MOCK_TEST_PLAYER_ERROR(static_cast<int>(StreamActionId::PAUSE));
     if (!player_->Pause()) {
         CLOGE("StreamPlayer Pause failed");
         return CAST_ENGINE_ERROR;
@@ -311,22 +272,12 @@ int32_t CastStreamPlayerManager::Pause()
 
 int32_t CastStreamPlayerManager::Play()
 {
-    HiSysEventWriteWrap(__func__, {
-            {"BIZ_SCENE", static_cast<int32_t>(BIZSceneType::DUAL_POINTS_CONTROL)},
-            {"BIZ_STATE", static_cast<int32_t>(BIZStateType::BIZ_STATE_BEGIN)},
-            {"BIZ_STAGE", static_cast<int32_t>(BIZSceneStage::SINK_CONTROL)},
-            {"STAGE_RES", static_cast<int32_t>(StageResType::STAGE_RES_SUCCESS)},
-            {"ERROR_CODE", CAST_RADAR_SUCCESS}}, {
-            {"TO_CALL_PKG", DSOFTBUS_NAME},
-            {"LOCAL_SESS_NAME", ""},
-            {"PEER_SESS_NAME", ""},
-            {"PEER_UDID", ""}});
-
     CLOGD("Play in");
     if (!player_) {
         CLOGE("player_ is null");
         return CAST_ENGINE_ERROR;
     }
+    MOCK_TEST_PLAYER_ERROR(static_cast<int>(StreamActionId::PLAY));
     if (!player_->Play()) {
         CLOGE("StreamPlayer Play failed");
         return CAST_ENGINE_ERROR;
@@ -336,16 +287,6 @@ int32_t CastStreamPlayerManager::Play()
 
 int32_t CastStreamPlayerManager::Stop()
 {
-    HiSysEventWriteWrap(__func__, {
-            {"BIZ_SCENE", static_cast<int32_t>(BIZSceneType::DUAL_POINTS_CONTROL)},
-            {"BIZ_STAGE", static_cast<int32_t>(BIZSceneStage::SINK_CONTROL)},
-            {"STAGE_RES", static_cast<int32_t>(StageResType::STAGE_RES_SUCCESS)},
-            {"ERROR_CODE", CAST_RADAR_SUCCESS }}, {
-            {"TO_CALL_PKG", DSOFTBUS_NAME},
-            {"LOCAL_SESS_NAME", ""},
-            {"PEER_SESS_NAME", ""},
-            {"PEER_UDID", ""}});
-
     CLOGD("Stop in");
     if (!callback_) {
         CLOGE("callback_ is null");
@@ -386,21 +327,12 @@ bool CastStreamPlayerManager::StopLocked()
 
 int32_t CastStreamPlayerManager::Next()
 {
-    HiSysEventWriteWrap(__func__, {
-            {"BIZ_SCENE", static_cast<int32_t>(BIZSceneType::DUAL_POINTS_CONTROL)},
-            {"BIZ_STAGE", static_cast<int32_t>(BIZSceneStage::SINK_CONTROL)},
-            {"STAGE_RES", static_cast<int32_t>(StageResType::STAGE_RES_SUCCESS)},
-            {"ERROR_CODE", CAST_RADAR_SUCCESS}}, {
-            {"TO_CALL_PKG", DSOFTBUS_NAME},
-            {"LOCAL_SESS_NAME", ""},
-            {"PEER_SESS_NAME", ""},
-            {"PEER_UDID", ""}});
-
     CLOGD("Next in");
     if (!callback_) {
         CLOGE("callback_ is null");
         return CAST_ENGINE_ERROR;
     }
+    MOCK_TEST_PLAYER_ERROR(static_cast<int>(StreamActionId::NEXT));
     callback_->OnNextRequest();
     CLOGD("Next out");
     return CAST_ENGINE_SUCCESS;
@@ -408,21 +340,12 @@ int32_t CastStreamPlayerManager::Next()
 
 int32_t CastStreamPlayerManager::Previous()
 {
-    HiSysEventWriteWrap(__func__, {
-            {"BIZ_SCENE", static_cast<int32_t>(BIZSceneType::DUAL_POINTS_CONTROL)},
-            {"BIZ_STAGE", static_cast<int32_t>(BIZSceneStage::SINK_CONTROL)},
-            {"STAGE_RES", static_cast<int32_t>(StageResType::STAGE_RES_SUCCESS)},
-            {"ERROR_CODE", CAST_RADAR_SUCCESS}}, {
-            {"TO_CALL_PKG", DSOFTBUS_NAME},
-            {"LOCAL_SESS_NAME", ""},
-            {"PEER_SESS_NAME", ""},
-            {"PEER_UDID", ""}});
-
     CLOGD("Previous in");
     if (!callback_) {
         CLOGE("callback_ is null");
         return CAST_ENGINE_ERROR;
     }
+    MOCK_TEST_PLAYER_ERROR(static_cast<int>(StreamActionId::PREVIOUS));
     callback_->OnPreviousRequest();
     CLOGD("Previous out");
     return CAST_ENGINE_SUCCESS;
@@ -430,21 +353,12 @@ int32_t CastStreamPlayerManager::Previous()
 
 int32_t CastStreamPlayerManager::Seek(int position)
 {
-    HiSysEventWriteWrap(__func__, {
-            {"BIZ_SCENE", static_cast<int32_t>(BIZSceneType::DUAL_POINTS_CONTROL)},
-            {"BIZ_STAGE", static_cast<int32_t>(BIZSceneStage::SINK_CONTROL)},
-            {"STAGE_RES", static_cast<int32_t>(StageResType::STAGE_RES_SUCCESS)},
-            {"ERROR_CODE", CAST_RADAR_SUCCESS}}, {
-            {"TO_CALL_PKG", DSOFTBUS_NAME},
-            {"LOCAL_SESS_NAME", ""},
-            {"PEER_SESS_NAME", ""},
-            {"PEER_UDID", ""}});
-
     CLOGD("Seek in");
     if (!player_) {
         CLOGE("player_ is null");
         return CAST_ENGINE_ERROR;
     }
+    MOCK_TEST_PLAYER_ERROR(static_cast<int>(StreamActionId::SEEK));
     if (!player_->Seek(position, Media::SEEK_PREVIOUS_SYNC)) {
         CLOGE("StreamPlayer Seek failed");
         return CAST_ENGINE_ERROR;
@@ -455,21 +369,12 @@ int32_t CastStreamPlayerManager::Seek(int position)
 
 int32_t CastStreamPlayerManager::FastForward(int delta)
 {
-    HiSysEventWriteWrap(__func__, {
-            {"BIZ_SCENE", static_cast<int32_t>(BIZSceneType::DUAL_POINTS_CONTROL)},
-            {"BIZ_STAGE", static_cast<int32_t>(BIZSceneStage::SINK_CONTROL)},
-            {"STAGE_RES", static_cast<int32_t>(StageResType::STAGE_RES_SUCCESS)},
-            {"ERROR_CODE", CAST_RADAR_SUCCESS}}, {
-            {"TO_CALL_PKG", DSOFTBUS_NAME},
-            {"LOCAL_SESS_NAME", ""},
-            {"PEER_SESS_NAME", ""},
-            {"PEER_UDID", ""}});
-
     CLOGD("FastForWard in");
     if (!player_) {
         CLOGE("player_ is null");
         return CAST_ENGINE_ERROR;
     }
+    MOCK_TEST_PLAYER_ERROR(static_cast<int>(StreamActionId::FASTFORWARD));
     int curPosition;
     int ret = GetPosition(curPosition);
     if (ret != CAST_ENGINE_SUCCESS) {
@@ -486,21 +391,12 @@ int32_t CastStreamPlayerManager::FastForward(int delta)
 
 int32_t CastStreamPlayerManager::FastRewind(int delta)
 {
-    HiSysEventWriteWrap(__func__, {
-            {"BIZ_SCENE", static_cast<int32_t>(BIZSceneType::DUAL_POINTS_CONTROL)},
-            {"BIZ_STAGE", static_cast<int32_t>(BIZSceneStage::SINK_CONTROL)},
-            {"STAGE_RES", static_cast<int32_t>(StageResType::STAGE_RES_SUCCESS)},
-            {"ERROR_CODE", CAST_RADAR_SUCCESS}}, {
-            {"TO_CALL_PKG", DSOFTBUS_NAME},
-            {"LOCAL_SESS_NAME", ""},
-            {"PEER_SESS_NAME", ""},
-            {"PEER_UDID", ""}});
-
     CLOGD("FastForRewind in");
     if (!player_) {
         CLOGE("player_ is null");
         return CAST_ENGINE_ERROR;
     }
+    MOCK_TEST_PLAYER_ERROR(static_cast<int>(StreamActionId::FASTREWIND));
     int curPosition;
     int ret = GetPosition(curPosition);
     if (ret != CAST_ENGINE_SUCCESS) {
@@ -517,21 +413,12 @@ int32_t CastStreamPlayerManager::FastRewind(int delta)
 
 int32_t CastStreamPlayerManager::SetVolume(int volume)
 {
-    HiSysEventWriteWrap(__func__, {
-            {"BIZ_SCENE", static_cast<int32_t>(BIZSceneType::DUAL_POINTS_CONTROL)},
-            {"BIZ_STAGE", static_cast<int32_t>(BIZSceneStage::SINK_CONTROL)},
-            {"STAGE_RES", static_cast<int32_t>(StageResType::STAGE_RES_SUCCESS)},
-            {"ERROR_CODE", CAST_RADAR_SUCCESS}}, {
-            {"TO_CALL_PKG", DSOFTBUS_NAME},
-            {"LOCAL_SESS_NAME", ""},
-            {"PEER_SESS_NAME", ""},
-            {"PEER_UDID", ""}});
-
     CLOGD("SetVolume in");
     if (!player_) {
         CLOGE("player_ is null");
         return CAST_ENGINE_ERROR;
     }
+    MOCK_TEST_PLAYER_ERROR(static_cast<int>(StreamActionId::SET_VOLUME));
     if (!player_->SetVolume(volume)) {
         CLOGE("StreamPlayer SetVolume failed");
         return CAST_ENGINE_ERROR;
@@ -542,21 +429,12 @@ int32_t CastStreamPlayerManager::SetVolume(int volume)
 
 int32_t CastStreamPlayerManager::SetMute(bool mute)
 {
-    HiSysEventWriteWrap(__func__, {
-            {"BIZ_SCENE", static_cast<int32_t>(BIZSceneType::DUAL_POINTS_CONTROL)},
-            {"BIZ_STAGE", static_cast<int32_t>(BIZSceneStage::SINK_CONTROL)},
-            {"STAGE_RES", static_cast<int32_t>(StageResType::STAGE_RES_SUCCESS)},
-            {"ERROR_CODE", CAST_RADAR_SUCCESS}}, {
-            {"TO_CALL_PKG", DSOFTBUS_NAME},
-            {"LOCAL_SESS_NAME", ""},
-            {"PEER_SESS_NAME", ""},
-            {"PEER_UDID", ""}});
-
     CLOGD("SetMute in");
     if (!player_) {
         CLOGE("player_ is null");
         return CAST_ENGINE_ERROR;
     }
+    MOCK_TEST_PLAYER_ERROR(static_cast<int>(StreamActionId::SET_MUTE));
     if (!player_->SetMute(mute)) {
         CLOGE("StreamPlayer SetMute failed");
         return CAST_ENGINE_ERROR;
@@ -567,21 +445,12 @@ int32_t CastStreamPlayerManager::SetMute(bool mute)
 
 int32_t CastStreamPlayerManager::SetLoopMode(const LoopMode mode)
 {
-    HiSysEventWriteWrap(__func__, {
-            {"BIZ_SCENE", static_cast<int32_t>(BIZSceneType::DUAL_POINTS_CONTROL)},
-            {"BIZ_STAGE", static_cast<int32_t>(BIZSceneStage::SINK_CONTROL)},
-            {"STAGE_RES", static_cast<int32_t>(StageResType::STAGE_RES_SUCCESS)},
-            {"ERROR_CODE", CAST_RADAR_SUCCESS}}, {
-            {"TO_CALL_PKG", DSOFTBUS_NAME},
-            {"LOCAL_SESS_NAME", ""},
-            {"PEER_SESS_NAME", ""},
-            {"PEER_UDID", ""}});
-
     CLOGD("SetLoopMode in");
     if (!player_) {
         CLOGE("player_ is null");
         return CAST_ENGINE_ERROR;
     }
+    MOCK_TEST_PLAYER_ERROR(static_cast<int>(StreamActionId::SET_LOOP_MODE));
     if (!player_->SetLoopMode(mode)) {
         CLOGE("StreamPlayer SetLoopMode failed");
         return CAST_ENGINE_ERROR;
@@ -612,16 +481,6 @@ int32_t CastStreamPlayerManager::SetAvailableCapability(const StreamCapability &
 
 int32_t CastStreamPlayerManager::SetSpeed(const PlaybackSpeed speed)
 {
-    HiSysEventWriteWrap(__func__, {
-            {"BIZ_SCENE", static_cast<int32_t>(BIZSceneType::DUAL_POINTS_CONTROL)},
-            {"BIZ_STAGE", static_cast<int32_t>(BIZSceneStage::SINK_CONTROL)},
-            {"STAGE_RES", static_cast<int32_t>(StageResType::STAGE_RES_SUCCESS)},
-            {"ERROR_CODE", CAST_RADAR_SUCCESS}}, {
-            {"TO_CALL_PKG", DSOFTBUS_NAME},
-            {"LOCAL_SESS_NAME", ""},
-            {"PEER_SESS_NAME", ""},
-            {"PEER_UDID", ""}});
-
     CLOGD("SetSpeed in");
     auto iter = g_doubleToModeTypeMap.find(speed);
     if (iter == g_doubleToModeTypeMap.end()) {
@@ -774,6 +633,27 @@ int32_t CastStreamPlayerManager::Release()
     sessionCallback_();
     return CAST_ENGINE_SUCCESS;
 }
+
+// Used for mock tests
+bool CastStreamPlayerManager::MockPlayerError(int32_t action)
+{
+    CLOGI("MockPlayerError MockErrorCode_%{public}s, action %{public}d", MockErrorCode_.c_str(), action);
+    if (MockErrorCode_.empty() || !callback_) {
+        return false;
+    }
+    std::string param = OHOS::system::GetParameter("debug.cast.stream.error", "");
+    std::string errormsg = std::to_string(action);
+    json jsonObj = json::parse(param, nullptr, false);
+    if (!jsonObj.is_discarded()) {
+        if (jsonObj.contains(errormsg) && jsonObj[errormsg].is_string()) {
+            int32_t errorCode = std::atoi(jsonObj[errormsg].get<std::string>().c_str());
+            callback_->OnPlayerError(errorCode, errormsg);
+            return true;
+        }
+    }
+    return false;
+}
+
 } // namespace CastEngineService
 } // namespace CastEngine
 } // namespace OHOS

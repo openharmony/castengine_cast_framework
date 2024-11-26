@@ -20,6 +20,7 @@
 #define CAST_ENGINE_LOG_H
 
 #include "hilog/log_cpp.h"
+#include "parameters.h"
 
 using OHOS::HiviewDFX::HiLog;
 using OHOS::HiviewDFX::HiLogLabel;

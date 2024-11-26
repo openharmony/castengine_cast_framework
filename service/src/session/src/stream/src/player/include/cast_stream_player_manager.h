@@ -73,6 +73,7 @@ private:
     bool InnerPlayLocked(bool isLoading);
     bool StopLocked();
     PlaybackSpeed ConvertMediaSpeedToPlaybackSpeed(Media::PlaybackRateMode speedMode);
+    bool MockPlayerError(int32_t action);
     std::function<void(void)> sessionCallback_;
 
     std::mutex mutex_;
@@ -85,6 +86,8 @@ private:
     std::atomic<bool> isReady_{ false };
     sptr<Surface> surface_;
     StreamCapability availableCapability_{};
+    std::string MockErrorCode_{};
+
     enum StreamActionId {
         INIT,
         LOAD,
