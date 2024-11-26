@@ -128,7 +128,7 @@ int32_t LocalDataSource::ReadAt(uint32_t length, const std::shared_ptr<Media::AV
 
 int32_t LocalDataSource::ReadBuffer(uint8_t *data, uint32_t length, int64_t pos)
 {
-    CLOGD("ReadBuffer length = %{public}d pos = %{public}" PRId64 , length, pos);
+    CLOGD("ReadBuffer length = %{public}d pos = %{public}" PRId64, length, pos);
 
     if (pos >= fileLength_) {
         CLOGE("ReadAt EOF, pos:%{public}" PRId64 " fileLength_:%{public}" PRId64, pos, fileLength_);
