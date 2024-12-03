@@ -284,7 +284,6 @@ void CastSessionImpl::ConnectingState::HandleSetupMessage(const Message &msg, sp
         session->TransferTo(session->disconnectingState_);
         session->ChangeDeviceState(DeviceState::DISCONNECTED, deviceId);
         session->RemoveRemoteDevice(deviceId);
-
     }
 }
 
