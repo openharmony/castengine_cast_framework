@@ -19,6 +19,7 @@
 #include "cast_session_impl.h"
 #include "cast_engine_log.h"
 #include "cast_engine_dfx.h"
+#include "utils.h"
 
 namespace OHOS {
 namespace CastEngine {
@@ -36,7 +37,7 @@ void CastSessionImpl::BaseState::Enter(SessionState state)
     // BaseState and its inherited classes work under the strict control of the session,
     // so the session_ used in the BaseState member function must not be null.
     session->sessionState_ = state;
-    CLOGI("%s enter", SESSION_STATE_STRING[static_cast<int>(state)].c_str());
+    CLOGI("%{public}s enter", SESSION_STATE_STRING[static_cast<int>(state)].c_str());
 }
 
 void CastSessionImpl::BaseState::Exit()
@@ -47,7 +48,7 @@ void CastSessionImpl::BaseState::Exit()
         return;
     }
 
-    CLOGI("%s exit", SESSION_STATE_STRING[static_cast<int>(session->sessionState_)].c_str());
+    CLOGI("%{public}s exit", SESSION_STATE_STRING[static_cast<int>(session->sessionState_)].c_str());
 }
 
 bool CastSessionImpl::BaseState::HandleMessage(const Message &msg)
@@ -58,7 +59,7 @@ bool CastSessionImpl::BaseState::HandleMessage(const Message &msg)
         return false;
     }
 
-    CLOGI("msg: %s, session state: %s", session->MESSAGE_ID_STRING[msg.what_].c_str(),
+    CLOGI("msg: %{public}s, session state: %{public}s", session->MESSAGE_ID_STRING[msg.what_].c_str(),
         SESSION_STATE_STRING[static_cast<int>(session->sessionState_)].c_str());
     return true;
 }
@@ -89,12 +90,13 @@ bool CastSessionImpl::DefaultState::HandleMessage(const Message &msg)
     BaseState::HandleMessage(msg);
 
     MessageId msgId = static_cast<MessageId>(msg.what_);
+    std::string deviceId = msg.strArg_;
     switch (msgId) {
         case MessageId::MSG_CONNECT_TIMEOUT:
             session->ProcessStateEvent(MessageId::MSG_CONNECT_TIMEOUT, msg);
             break;
         default:
-            CLOGW("unsupported msg: %s, in default state", MESSAGE_ID_STRING[msgId].c_str());
+            CLOGW("unsupported msg: %{public}s, in default state", MESSAGE_ID_STRING[msgId].c_str());
             return false;
     }
     return true;
@@ -103,6 +105,15 @@ bool CastSessionImpl::DefaultState::HandleMessage(const Message &msg)
 void CastSessionImpl::DisconnectedState::Enter()
 {
     BaseState::Enter(SessionState::DISCONNECTED);
+    auto session = session_.promote();
+    if (!session) {
+        CLOGE("Session is invalid");
+        return;
+    }
+    if (session->property_.protocolType == ProtocolType::CAST_PLUS_MIRROR ||
+        session->property_.protocolType == ProtocolType::HICAR) {
+        Utils::LightAndLockScreen();
+    }
 }
 
 void CastSessionImpl::DisconnectedState::Exit()
@@ -241,7 +252,6 @@ bool CastSessionImpl::ConnectingState::HandleMessage(const Message &msg)
             HandleSetupSuccessMessage(msg, msgId, session);
             break;
         case MessageId::MSG_DISCONNECT:
-        case MessageId::MSG_CONNECT_TIMEOUT:
             HandleDisconnectMessage(msg, session);
             break;
         case MessageId::MSG_ERROR:
@@ -256,7 +266,7 @@ bool CastSessionImpl::ConnectingState::HandleMessage(const Message &msg)
             HandleConnectMessage(msg, msgId, session);
             break;
         default:
-            CLOGW("unsupported msg: %s, in connecting state", MESSAGE_ID_STRING[msgId].c_str());
+            CLOGW("unsupported msg: %{public}s, in connecting state", MESSAGE_ID_STRING[msgId].c_str());
             return false;
     }
     return true;
@@ -270,9 +280,10 @@ void CastSessionImpl::ConnectingState::HandleSetupMessage(const Message &msg, sp
     }
     std::string deviceId = msg.strArg_;
     if (!session->ProcessSetUp(msg)) {
+        session->DisconnectPhysicalLink(deviceId);
+        session->TransferTo(session->disconnectingState_);
         session->ChangeDeviceState(DeviceState::DISCONNECTED, deviceId);
         session->RemoveRemoteDevice(deviceId);
-        session->TransferTo(session->disconnectingState_);
     }
 }
 
@@ -337,7 +348,7 @@ void CastSessionImpl::ConnectingState::HandleConnectMessage(const Message &msg, 
         CLOGE("Session is invalid");
         return;
     }
-    CLOGI("in connecting state, defer message: %d", msgId);
+    CLOGI("in connecting state, defer message: %{public}d", msgId);
     session->DeferMessage(msg);
 }
 
@@ -391,23 +402,20 @@ bool CastSessionImpl::ConnectedState::HandleMessage(const Message &msg)
     BaseState::HandleMessage(msg);
     MessageId msgId = static_cast<MessageId>(msg.what_);
     const auto &deviceId = msg.strArg_;
+    Message msgError = msg;
     switch (msgId) {
         case MessageId::MSG_CONNECT:
             // Designed for 1->N scenarios
             session->ChangeDeviceState(DeviceState::CONNECTING, deviceId);
             if (session->ProcessConnect(msg) >= 0) {
-                session->ChangeDeviceState(DeviceState::CONNECTED, deviceId);
-                session->ChangeDeviceState(DeviceState::PAUSED, deviceId);
-                session->TransferTo(session->pausedState_);
+                TransferToPaused(deviceId);
             } else {
                 session->ChangeDeviceState(DeviceState::DISCONNECTED, deviceId);
             }
             return true;
         case MessageId::MSG_SETUP_SUCCESS:
             if (!session->IsStreamMode()) {
-                session->ChangeDeviceState(DeviceState::CONNECTED, deviceId);
-                session->ChangeDeviceState(DeviceState::PAUSED, deviceId);
-                session->TransferTo(session->pausedState_);
+                TransferToPaused(deviceId);
             } else if (session->IsSink()) {
                 session->ChangeDeviceState(DeviceState::STREAM, deviceId);
                 session->TransferTo(session->streamState_);
@@ -421,17 +429,36 @@ bool CastSessionImpl::ConnectedState::HandleMessage(const Message &msg)
             session->SetMirrorToStreamState(false);
             return true;
         case MessageId::MSG_ERROR:
-            session->ProcessError(msg);
+            msgError.arg1_ = REASON_DEFAULT;
+            session->ProcessError(msgError);
             session->TransferTo(session->disconnectingState_);
             return true;
         case MessageId::MSG_PLAY_REQ:
-            CLOGI("in connected state, defer message: %d", msgId);
+            CLOGI("in connected state, defer message: %{public}d", msgId);
             session->DeferMessage(msg);
             return true;
+        case MessageId::MSG_UPDATE_VIDEO_SIZE:
+            session->ProcessStateEvent(MessageId::MSG_UPDATE_VIDEO_SIZE, msg);
+            return true;
         default:
-            CLOGW("unsupported msg: %s, in connected state", MESSAGE_ID_STRING[msgId].c_str());
+            CLOGW("unsupported msg: %{public}s, in connected state", MESSAGE_ID_STRING[msgId].c_str());
             return false;
     }
+}
+
+void CastSessionImpl::ConnectedState::TransferToPaused(std::string deviceId)
+{
+    auto session = session_.promote();
+    if (!session) {
+        CLOGE("Session is invalid");
+        return;
+    }
+    if (session->property_.protocolType != ProtocolType::HICAR
+        && session->property_.protocolType != ProtocolType::SUPER_LAUNCHER) {
+        session->ChangeDeviceState(DeviceState::CONNECTED, deviceId);
+    }
+    session->ChangeDeviceState(DeviceState::PAUSED, deviceId);
+    session->TransferTo(session->pausedState_);
 }
 
 void CastSessionImpl::StreamState::Enter()
@@ -485,7 +512,7 @@ bool CastSessionImpl::StreamState::HandleMessage(const Message &msg)
             }
             break;
         default:
-            CLOGW("unsupported msg: %s, in stream state", MESSAGE_ID_STRING[msgId].c_str());
+            CLOGW("unsupported msg: %{public}s, in stream state", MESSAGE_ID_STRING[msgId].c_str());
             return false;
     }
     return true;
@@ -526,7 +553,7 @@ bool CastSessionImpl::PausedState::HandleMessage(const Message &msg)
             session->ProcessTriggerReq(msg);
             break;
         default:
-            CLOGW("unsupported msg: %s, in paused state", MESSAGE_ID_STRING[msgId].c_str());
+            CLOGW("unsupported msg: %{public}s, in paused state", MESSAGE_ID_STRING[msgId].c_str());
             return false;
     }
     return true;
@@ -535,10 +562,29 @@ bool CastSessionImpl::PausedState::HandleMessage(const Message &msg)
 void CastSessionImpl::PlayingState::Enter()
 {
     BaseState::Enter(SessionState::PLAYING);
+    auto session = session_.promote();
+    if (!session) {
+        CLOGE("Session is invalid");
+        return;
+    }
+    if (session->property_.protocolType == ProtocolType::CAST_PLUS_MIRROR ||
+        session->property_.protocolType == ProtocolType::HICAR) {
+        Utils::EnablePowerForceTimingOut();
+    }
 }
 
 void CastSessionImpl::PlayingState::Exit()
 {
+    auto session = session_.promote();
+    if (!session) {
+        CLOGE("Session is invalid");
+        BaseState::Exit();
+        return;
+    }
+    if (session->property_.protocolType == ProtocolType::CAST_PLUS_MIRROR ||
+        session->property_.protocolType == ProtocolType::HICAR) {
+        Utils::ResetPowerForceTimingOut();
+    }
     BaseState::Exit();
 }
 
@@ -571,7 +617,7 @@ bool CastSessionImpl::PlayingState::HandleMessage(const Message &msg)
             session->ProcessSetCastMode(msg);
             break;
         case MessageId::MSG_MIRROR_SEND_ACTION_EVENT_TO_PEERS:
-            session->SendEventChange(MODULE_ID_MEDIA, msg.arg1_, param);
+            session->SendEventChange(msg.arg1_, msg.arg2_, param);
             break;
         case MessageId::MSG_SWITCH_TO_STREAM:
             if (!session->IsSink()) {
@@ -580,8 +626,11 @@ bool CastSessionImpl::PlayingState::HandleMessage(const Message &msg)
                 session->TransferTo(session->mirrorToStreamState_);
             }
             break;
+        case MessageId::MSG_PROCESS_TRIGGER_REQ:
+            session->ProcessTriggerReq(msg);
+            break;
         default:
-            CLOGW("unsupported msg: %s, in playing state", MESSAGE_ID_STRING[msgId].c_str());
+            CLOGW("unsupported msg: %{public}s, in playing state", MESSAGE_ID_STRING[msgId].c_str());
             return false;
     }
     return true;
@@ -657,11 +706,11 @@ bool CastSessionImpl::DisconnectingState::HandleMessage(const Message &msg)
 
     switch (msgId) {
         case MessageId::MSG_CONNECT:
-            CLOGI("in connecting state, defer message: %d", msgId);
+            CLOGI("in connecting state, defer message: %{public}d", msgId);
             session->DeferMessage(msg);
             break;
         default:
-            CLOGW("unsupported msg: %s, in disconnecting state", MESSAGE_ID_STRING[msgId].c_str());
+            CLOGW("unsupported msg: %{public}s, in disconnecting state", MESSAGE_ID_STRING[msgId].c_str());
             return false;
     }
     return true;

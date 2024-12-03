@@ -26,13 +26,10 @@
 
 #include "cast_device_data_manager.h"
 #include "cast_engine_common.h"
-#include "cast_engine_log.h"
 #include "cast_service_common.h"
 #include "connection_manager_listener.h"
-#include "device_manager.h"
 #include "dm_device_info.h"
 #include "device_manager_callback.h"
-#include "session.h"
 #include "json.hpp"
 #include "socket.h"
 
