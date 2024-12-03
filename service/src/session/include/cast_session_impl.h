@@ -179,6 +179,7 @@ protected:
     void Enter() override;
     void Exit() override;
     bool HandleMessage(const Message &msg) override;
+    void TransferToPaused(std::string deviceId);
     DISALLOW_EVIL_CONSTRUCTORS(ConnectedState);
 };
 
