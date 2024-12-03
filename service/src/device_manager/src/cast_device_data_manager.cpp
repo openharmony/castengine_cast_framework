@@ -33,7 +33,7 @@ namespace CastEngineService {
 DEFINE_CAST_ENGINE_LABEL("Cast-DeviceDataManager");
 namespace {
 using namespace OHOS::DistributedHardware;
-constexpr int SESSION_KEY_LENGTH = 16;
+constexpr int CAST_SESSION_KEY_LENGTH = 16;
 }
 CastDeviceDataManager &CastDeviceDataManager::GetInstance()
 {
@@ -260,7 +260,6 @@ std::optional<bool> CastDeviceDataManager::GetDeviceIsActiveAuth(const std::stri
     return it->isActiveAuth;
 }
 
-
 bool CastDeviceDataManager::SetDeviceSessionKey(const std::string &deviceId, const uint8_t *sessionKey)
 {
     std::lock_guard<std::mutex> lock(mutex_);
@@ -268,10 +267,12 @@ bool CastDeviceDataManager::SetDeviceSessionKey(const std::string &deviceId, con
     if (it == devices_.end()) {
         return false;
     }
-    if (memcpy_s(it->device.sessionKey, SESSION_KEY_LENGTH, sessionKey, SESSION_KEY_LENGTH) != 0) {
+
+    if (memcpy_s(it->device.sessionKey, CAST_SESSION_KEY_LENGTH, sessionKey, CAST_SESSION_KEY_LENGTH) != 0) {
         return false;
     }
-    it->device.sessionKeyLength = SESSION_KEY_LENGTH;
+    it->device.sessionKeyLength = CAST_SESSION_KEY_LENGTH;
+
     return true;
 }
 

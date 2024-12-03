@@ -24,6 +24,7 @@
 #include "cast_device_data_manager.h"
 #include "cast_engine_dfx.h"
 #include "cast_engine_log.h"
+#include "cast_meta_node_constant.h"
 #include "dm_constants.h"
 #include "parameters.h"
 #include "securec.h"
@@ -81,6 +82,7 @@ void CastDmInitCallback::OnRemoteDied()
 {
     CLOGE("DM is dead, deinit the DiscoveryManager");
     std::thread([]() {
+        Utils::SetThreadName("DmOnRemoteDied");
         std::this_thread::sleep_for(std::chrono::milliseconds(REMOTE_DIED_SLEEP));
         constexpr int sleepTime = 100;       // uint: ms
         constexpr int retryTimes = 10 * 10;  // total 10s
@@ -108,7 +110,7 @@ DiscoveryManager &DiscoveryManager::GetInstance()
 void DiscoveryManager::Init(std::shared_ptr<IDiscoveryManagerListener> listener)
 {
     CLOGD("init start");
-    eventRunner_ = EventRunner::Create("cast-discovery-manager");
+    eventRunner_ = EventRunner::Create(false);
     eventHandler_ = std::make_shared<DiscoveryEventHandler>(eventRunner_);
     if (listener == nullptr) {
         CLOGE("The input listener is null!");
@@ -159,6 +161,10 @@ void DiscoveryManager::StartDiscovery(int protocols, std::vector<std::string> dr
     CastLocalDevice localDevice;
     ConnectionManager::GetInstance().GetLocalDeviceInfo(localDevice);
     std::lock_guard<std::mutex> lock(mutex_);
+    if (eventHandler_ == nullptr) {
+        CLOGE("Event handler is null!");
+        return;
+    }
     std::thread([this]() {
         Utils::SetThreadName("DiscoveryEventRunner");
         if (eventRunner_ != nullptr) {
@@ -200,21 +206,6 @@ void DiscoveryManager::StopDiscovery()
     StopDmDiscovery();
 }
 
-void DiscoveryManager::GetAndReportTrustedDevices()
-{
-    std::vector<DmDeviceInfo> dmDevices;
-    auto result = DeviceManager::GetInstance().GetTrustedDeviceList(PKG_NAME, "", true, dmDevices);
-    if (result != DM_OK || dmDevices.size() == 0) {
-        CLOGW("No trusted devices, result:%d", result);
-        return;
-    }
-    for (const auto &dmDevice : dmDevices) {
-        CLOGI("GetAndReportTrustedDevices, device id is %s, device name is %s", dmDevice.deviceId, dmDevice.deviceName);
-        CastInnerRemoteDevice newDevice = CreateRemoteDevice(dmDevice);
-        NotifyDeviceIsFound(newDevice);
-    }
-}
-
 void DiscoveryManager::StartDmDiscovery()
 {
     CLOGI("StartDmDiscovery in");
@@ -236,13 +227,6 @@ void DiscoveryManager::StartDmDiscovery()
     }
 }
 
-void DiscoveryManager::StopDmDiscovery()
-{
-    CLOGI("StopDmDiscovery in");
-    std::map<std::string, std::string> discoverParam = {};
-    DeviceManager::GetInstance().StopDiscovering(PKG_NAME, discoverParam);
-}
-
 bool DiscoveryManager::StartAdvertise()
 {
     CLOGI("PublishDiscovery in");
@@ -250,7 +234,7 @@ bool DiscoveryManager::StartAdvertise()
     int ret = DeviceManager::GetInstance().StartAdvertising(PKG_NAME, advertiseParam,
         std::make_shared<CastPublishDiscoveryCallback>());
     if (ret != DM_OK) {
-        CLOGE("Failed to publish discovery, ret:%d", ret);
+        CLOGE("Failed to publish discovery, ret:%{public}d", ret);
         return false;
     }
     return true;
@@ -262,7 +246,7 @@ bool DiscoveryManager::StopAdvertise()
     std::map<std::string, std::string> advertiseParam = {};
     int ret = DeviceManager::GetInstance().StopAdvertising(PKG_NAME, advertiseParam);
     if (ret != DM_OK) {
-        CLOGE("Failed to unpublish discovery, ret:%d", ret);
+        CLOGE("Failed to unpublish discovery, ret:%{public}d", ret);
         return false;
     }
     return true;
@@ -271,56 +255,6 @@ bool DiscoveryManager::StopAdvertise()
 int DiscoveryManager::GetProtocolType() const
 {
     return protocolType_;
-}
-
-void DiscoveryManager::SetListener(std::shared_ptr<IDiscoveryManagerListener> listener)
-{
-    std::lock_guard<std::mutex> lock(mutex_);
-    listener_ = listener;
-}
-
-std::shared_ptr<IDiscoveryManagerListener> DiscoveryManager::GetListener()
-{
-    std::lock_guard<std::mutex> lock(mutex_);
-    return listener_;
-}
-
-bool DiscoveryManager::HasListener()
-{
-    std::lock_guard<std::mutex> lock(mutex_);
-    return listener_ != nullptr;
-}
-
-void DiscoveryManager::ResetListener()
-{
-    SetListener(nullptr);
-}
-
-void DiscoveryManager::RemoveSameDeviceLocked(const CastInnerRemoteDevice &newDevice)
-{
-    auto it = std::find_if(remoteDeviceMap_.begin(), remoteDeviceMap_.end(), [&](const auto& pair) {
-        return pair.first.deviceId == newDevice.deviceId;
-    });
-    if (it != remoteDeviceMap_.end()) {
-        remoteDeviceMap_.erase(it);
-    }
-}
-
-CastInnerRemoteDevice DiscoveryManager::CreateRemoteDevice(const DmDeviceInfo &dmDeviceInfo)
-{
-    CastInnerRemoteDevice newDevice = {
-        .deviceId = dmDeviceInfo.deviceId,
-        .deviceName = dmDeviceInfo.deviceName,
-        .deviceType = ConvertDeviceType(dmDeviceInfo.deviceTypeId),
-        .deviceTypeId = dmDeviceInfo.deviceTypeId,
-        .subDeviceType = SubDeviceType::SUB_DEVICE_DEFAULT,
-        .channelType = ChannelType::SOFT_BUS,
-        .networkId = dmDeviceInfo.networkId
-    };
-
-    ParseDeviceInfo(dmDeviceInfo, newDevice);
-
-    return newDevice;
 }
 
 // {"BLE_MAC":"74:41:3d:f3:3d:cd","BLE_UDID_HASH":"xxxxxx","CONN_ADDR_TYPE":"BLE_TYPE","CUSTOM_DATA":""}
@@ -395,6 +329,29 @@ void DiscoveryManager::NotifyDeviceIsOnline(const DmDeviceInfo &dmDeviceInfo)
 {
     CastInnerRemoteDevice newDevice = CreateRemoteDevice(dmDeviceInfo);
     NotifyDeviceIsFound(newDevice);
+}
+
+void DiscoveryManager::StopDmDiscovery()
+{
+    CLOGI("StopDmDiscovery in");
+    std::map<std::string, std::string> discoverParam = {};
+    DeviceManager::GetInstance().StopDiscovering(PKG_NAME, discoverParam);
+}
+
+void DiscoveryManager::GetAndReportTrustedDevices()
+{
+    std::vector<DmDeviceInfo> dmDevices;
+    auto result = DeviceManager::GetInstance().GetTrustedDeviceList(PKG_NAME, "", true, dmDevices);
+    if (result != DM_OK || dmDevices.size() == 0) {
+        CLOGW("No trusted devices, result:%d", result);
+        return;
+    }
+    for (const auto &dmDevice : dmDevices) {
+        CLOGI("GetAndReportTrustedDevices, device id is %{public}s, device name is %s",
+            Mask(dmDevice.deviceId).c_str(), dmDevice.deviceName);
+        CastInnerRemoteDevice newDevice = CreateRemoteDevice(dmDevice);
+        NotifyDeviceIsFound(newDevice);
+    }
 }
 
 void DiscoveryManager::ParseDeviceInfo(const DmDeviceInfo &dmDevice, CastInnerRemoteDevice &castDevice)
@@ -482,6 +439,63 @@ void DiscoveryManager::ParseCapability(const std::string castData, CastInnerRemo
         "capability:0x%{public}x",
         Mask(newDevice.deviceName).c_str(), castData.c_str(), newDevice.authVersion.c_str(), newDevice.capabilityInfo,
         (newDevice.drmCapabilities.size() > 0), newDevice.capability);
+}
+
+void DiscoveryManager::SetListener(std::shared_ptr<IDiscoveryManagerListener> listener)
+{
+    std::lock_guard<std::mutex> lock(mutex_);
+    listener_ = listener;
+}
+
+std::shared_ptr<IDiscoveryManagerListener> DiscoveryManager::GetListener()
+{
+    std::lock_guard<std::mutex> lock(mutex_);
+    return listener_;
+}
+
+bool DiscoveryManager::HasListener()
+{
+    std::lock_guard<std::mutex> lock(mutex_);
+    return listener_ != nullptr;
+}
+
+void DiscoveryManager::ResetListener()
+{
+    SetListener(nullptr);
+}
+
+void DiscoveryManager::RemoveSameDeviceLocked(const CastInnerRemoteDevice &newDevice)
+{
+    auto it = std::find_if(remoteDeviceMap_.begin(), remoteDeviceMap_.end(), [&](const auto& pair) {
+        return pair.first.deviceId == newDevice.deviceId;
+    });
+    if (it != remoteDeviceMap_.end()) {
+        remoteDeviceMap_.erase(it);
+    }
+}
+
+CastInnerRemoteDevice DiscoveryManager::CreateRemoteDevice(const DmDeviceInfo &dmDeviceInfo)
+{
+    auto device = CastDeviceDataManager::GetInstance().GetDeviceByDeviceId(dmDeviceInfo.deviceId);
+    CastInnerRemoteDevice newDevice;
+    if (device != std::nullopt) {
+        newDevice = *device;
+    }
+    newDevice.deviceId = dmDeviceInfo.deviceId;
+    newDevice.deviceName = dmDeviceInfo.deviceName;
+    newDevice.deviceType = ConvertDeviceType(dmDeviceInfo.deviceTypeId);
+    newDevice.deviceTypeId = dmDeviceInfo.deviceTypeId;
+    newDevice.subDeviceType = SubDeviceType::SUB_DEVICE_DEFAULT;
+    newDevice.channelType = ChannelType::SOFT_BUS;
+    newDevice.networkId = dmDeviceInfo.networkId;
+    newDevice.authVersion = AUTH_VERSION_1;
+    if (newDevice.deviceType == DeviceType::DEVICE_TYPE_2IN1) {
+        newDevice.authVersion = AUTH_VERSION_3;
+    }
+
+    ParseDeviceInfo(dmDeviceInfo, newDevice);
+
+    return newDevice;
 }
 
 void DiscoveryManager::UpdateDeviceStateLocked()
