@@ -117,6 +117,10 @@ const std::string KEY_LOCAL_P2P_IP = "localP2PIp";
 const std::string KEY_REMOTE_P2P_IP = "remoteP2PIp";
 const std::string NETWORK_ID = "networkId";
 
+const std::string TIME_RECORD = "TimeRecord";
+const std::string TOTAL_AUTH_TIME = "totalAuthTime";
+const std::string TIME_RECORD_STRING = "timeRecordString";
+
 void DeviceDiscoveryWriteWrap(const std::string& funcName, const std::string& puid)
 {
     HiSysEventWriteWrap(funcName, {
@@ -368,10 +372,11 @@ bool ConnectionManager::IsDeviceTrusted(const std::string &deviceId, std::string
     for (const auto &device : trustedDevices) {
         if (device.deviceId == deviceId) {
             networkId = device.networkId;
-            CLOGI("Device: %{public}s has been trusted.", device.deviceId);
+            CLOGI("Device: %{public}s has been trusted.", Utils::Mask(deviceId).c_str());
             return true;
         }
     }
+    CLOGI("Device: %{public}s has not been trusted yet.", Utils::Mask(deviceId).c_str());
 
     return false;
 }
@@ -389,7 +394,8 @@ DmDeviceInfo ConnectionManager::GetDmDeviceInfo(const std::string &deviceId)
             return device;
         }
     }
-    CLOGW("Can't find device");
+    CLOGW("Can't find device(%{public}s)", Utils::Mask(deviceId).c_str());
+
     return {};
 }
 
@@ -420,9 +426,11 @@ void ConnectionManager::GrabDevice()
 {
     CLOGI("GrabDevice in");
     if (grabState_ == DeviceGrabState::NO_GRAB) {
+        CLOGE("DeviceGrabState: NO_GRAB");
         return;
     }
     if (listener_ == nullptr) {
+        CLOGE("listener_ nullptr.");
         return;
     }
     listener_->GrabDevice(sessionId_);
@@ -721,7 +729,8 @@ void ConnectionManager::DisconnectDevice(const std::string &deviceId)
 
 bool ConnectionManager::UpdateDeviceState(const std::string &deviceId, RemoteDeviceState state)
 {
-    CLOGD("UpdateDeviceState: %s", REMOTE_DEVICE_STATE_STRING[static_cast<size_t>(state)].c_str());
+    CLOGI("UpdateDeviceState device: %{public}s state: %{public}s", Utils::Mask(deviceId).c_str(),
+        REMOTE_DEVICE_STATE_STRING[static_cast<size_t>(state)].c_str());
     return CastDeviceDataManager::GetInstance().SetDeviceState(deviceId, state);
 }
 
@@ -1185,8 +1194,8 @@ std::string ConnectionManager::convLatin1ToUTF8(std::string &latin1)
 
 void ConnectionManager::DestroyConsulationSession(const std::string &deviceId)
 {
-    CLOGI("DestroyConsulationSession in");
     int transportId = CastDeviceDataManager::GetInstance().ResetDeviceTransId(deviceId);
+    CLOGI("DestroyConsulationSession in tranId = %{public}d", transportId);
     if (transportId != INVALID_ID) {
         CloseSession(transportId);
     }
@@ -1243,7 +1252,6 @@ bool ConnectionManager::ParseAndCheckJsonData(const std::string &data, json &jso
 
 std::unique_ptr<CastInnerRemoteDevice> ConnectionManager::GetRemoteFromJsonData(const std::string &data)
 {
-    CLOGI("GetRemoteFromJsonData in");
     json jsonData;
     if (!ParseAndCheckJsonData(data, jsonData)) {
         return nullptr;
@@ -1432,8 +1440,8 @@ void ConnectionManager::SetConnectingDeviceId(std::string deviceId)
 void CastBindTargetCallback::OnBindResult(const PeerTargetId &targetId, int32_t result, int32_t status,
     std::string content)
 {
-    CLOGI("OnBindResult, device id:%s, content:%s, status: %{public}d, result: %{public}d", targetId.deviceId.c_str(),
-        content.c_str(), status, result);
+    CLOGI("device id: %{public}s, status: %{public}d, result: %{public}d", Utils::Mask(targetId.deviceId).c_str(),
+          status, result);
     auto remote = CastDeviceDataManager::GetInstance().GetDeviceByDeviceId(targetId.deviceId);
     if (remote == std::nullopt) {
         CLOGE("Get remote device is empty");
@@ -1494,6 +1502,14 @@ void CastBindTargetCallback::HandleConnectDeviceAction(const CastInnerRemoteDevi
     if (!authInfo.contains(NETWORK_ID) || !authInfo[NETWORK_ID].is_string()) {
         CLOGE("networkId json data is not string");
         return;
+    }
+
+    if (authInfo.contains(TIME_RECORD_STRING) && authInfo[TIME_RECORD_STRING].is_string()) {
+        ConnectionManager::GetInstance().authTimeString_ = authInfo[TIME_RECORD_STRING];
+    }
+
+    if (authInfo.contains(TOTAL_AUTH_TIME) && authInfo[TOTAL_AUTH_TIME].is_number()) {
+        ConnectionManager::GetInstance().totalAuthTime_ = authInfo[TOTAL_AUTH_TIME];
     }
 
     const std::string networkId = authInfo[NETWORK_ID];

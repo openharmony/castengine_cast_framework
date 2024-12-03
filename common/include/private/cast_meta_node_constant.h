@@ -58,6 +58,12 @@ constexpr int CAUSE_DISCONNECT = 2;
 inline constexpr int OK = 0;
 inline constexpr int INVALID_VALUE = -1;
 
+// send to json key auth version, hichain 1.0 or 2.0
+const std::string AUTH_VERSION_KEY = "authVersion";
+const std::string AUTH_VERSION_1 = "1.0";
+const std::string AUTH_VERSION_2 = "2.0";
+const std::string AUTH_VERSION_3 = "DM";
+
 constexpr int AUTH_MODE_GENERIC = 1;
 constexpr int AUTH_MODE_PWD = 2;
 
