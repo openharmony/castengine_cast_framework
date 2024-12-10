@@ -36,6 +36,7 @@ void CastServiceListenerImplProxy::OnServiceDied()
         CLOGE("Failed to write the interface token");
         return;
     }
+
     if (Remote()->SendRequest(ON_SERVICE_DIE, data, reply, option) != ERR_NONE) {
         CLOGE("Failed to send ipc request when reporting service die");
     }
@@ -70,10 +71,12 @@ bool FillCastSession(MessageParcel &data, const sptr<ICastSessionImpl> &castSess
     if (!castSession) {
         return false;
     }
+
     if (!data.WriteRemoteObject(castSession->AsObject())) {
         CLOGE("Failed to write cast session");
         return false;
     }
+
     return true;
 }
 } // namespace
@@ -88,10 +91,12 @@ void CastServiceListenerImplProxy::OnDeviceFound(const std::vector<CastRemoteDev
         CLOGE("Failed to write the interface token");
         return;
     }
+
     if (!FillCastRemoteDevices(data, devices)) {
         CLOGE("Failed to Write remote devices");
         return;
     }
+
     Remote()->SendRequest(ON_DEVICE_FOUND, data, reply, option);
 }
 
@@ -104,10 +109,12 @@ void CastServiceListenerImplProxy::OnSessionCreated(const sptr<ICastSessionImpl>
         CLOGE("Failed to write the interface token");
         return;
     }
+
     if (!FillCastSession(data, castSession)) {
         CLOGE("Failed to Write cast session");
         return;
     }
+
     Remote()->SendRequest(ON_SESSION_CREATE, data, reply, option);
 }
 
@@ -116,14 +123,17 @@ void CastServiceListenerImplProxy::OnDeviceOffline(const std::string &deviceId)
     MessageParcel data, reply;
     MessageOption option;
     CLOGD("OnDeviceOffline in");
+    
     if (!data.WriteInterfaceToken(GetDescriptor())) {
         CLOGE("Failed to write the interface token");
         return;
     }
+
     if (!data.WriteString(deviceId)) {
         CLOGE("Failed to Write deviceId");
         return;
     }
+
     CLOGD("send request");
     Remote()->SendRequest(ON_DEVICE_OFFLINE, data, reply, option);
 }
