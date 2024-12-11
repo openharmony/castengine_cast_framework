@@ -78,6 +78,7 @@ ohos_static_library("cast_session") {
     "power_manager:powermgr_client",
     "state_registry:tel_state_registry_api",
     "wifi:wifi_sdk",
+    "dsoftbus:softbus_client",
   ]
 
   subsystem_name = "castplus"

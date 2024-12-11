@@ -59,6 +59,7 @@ ohos_static_library("cast_discovery") {
     "screenlock_mgr:screenlock_client",
     "sharing_framework:sharingwfd_client",
     "wifi:wifi_sdk",
+    "dsoftbus:softbus_client",
   ]
 
   subsystem_name = "castplus"
