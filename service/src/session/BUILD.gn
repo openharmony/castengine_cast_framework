@@ -68,6 +68,7 @@ ohos_static_library("cast_session") {
     "c_utils:utils",
     "core_service:tel_core_service_api",
     "device_manager:devicemanagersdk",
+    "dsoftbus:softbus_client",
     "graphic_surface:surface",
     "hilog:libhilog",
     "image_framework:image_native",
@@ -78,7 +79,6 @@ ohos_static_library("cast_session") {
     "power_manager:powermgr_client",
     "state_registry:tel_state_registry_api",
     "wifi:wifi_sdk",
-    "dsoftbus:softbus_client",
   ]
 
   subsystem_name = "castplus"
