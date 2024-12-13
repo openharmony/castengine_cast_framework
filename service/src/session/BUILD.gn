@@ -68,6 +68,7 @@ ohos_static_library("cast_session") {
     "c_utils:utils",
     "core_service:tel_core_service_api",
     "device_manager:devicemanagersdk",
+    "dsoftbus:softbus_client",
     "graphic_surface:surface",
     "hilog:libhilog",
     "image_framework:image_native",
