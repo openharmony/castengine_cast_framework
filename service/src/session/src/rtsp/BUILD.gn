@@ -53,6 +53,7 @@ ohos_static_library("cast_session_rtsp") {
     "hilog:libhilog",
     "init:libbegetutil",
     "ipc:ipc_core",
+    "json:nlohmann_json_static",
   ]
 
   subsystem_name = "castplus"

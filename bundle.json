@@ -60,7 +60,8 @@
                 "core_service",
                 "call_manager",
                 "os_account",
-                "sharing_framework"
+                "sharing_framework",
+                "json"
             ],
             "third_party":[
                 "glib",
