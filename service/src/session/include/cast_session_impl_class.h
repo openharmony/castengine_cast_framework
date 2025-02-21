@@ -184,6 +184,7 @@ private:
     bool ProcessPause(const Message &msg);
     bool ProcessPauseReq(const Message &msg);
     bool ProcessDisconnect(const Message &msg);
+    bool ProcessDisconnectAndContinuePlay(const Message &msg);
     bool ProcessError(const Message &msg);
     bool ProcessTriggerReq(const Message &msg);
     bool ProcessUpdateVideoSize(const Message &msg);
