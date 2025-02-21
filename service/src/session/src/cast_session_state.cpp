@@ -513,16 +513,26 @@ bool CastSessionImpl::StreamState::HandleMessage(const Message &msg)
             }
             break;
         case MessageIdL::MSG_DISCONNECT_AND_CONTINUE_PLAY:
-            session->ProcessDisconnectAndContinueplay(msg);
-            session->TransferTo(session->disconnectingState_);
-            session->ChangeDeviceState(DeviceState::DISCONNECTED, deviceId);
-            session->RemoveRemoteDevice(deviceId);
+            HandleContinuePlayMessage(msg, session, deviceId);
             break;
         default:
             CLOGW("unsupported msg: %{public}s, in stream state", MESSAGE_ID_STRING[msgId].c_str());
             return false;
     }
     return true;
+}
+
+void CastSessionImpl::SteamState::HandleContinuePlayMessage(const Message &msg, sptr <CastSessionImpl> session,
+                                                                const std::string &deviceId)
+{
+    if(!session){
+        CLOGE("Session is invalid");
+        return;
+    }
+    session->ProcessDisconnectAndContinueplay(msg);
+    session->TransferTo(session->disconnectingState_);
+    session->ChangeDeviceState(DeviceState::DISCONNECTED, deviceId);
+    session->RemoveRemoteDevice(deviceId);
 }
 
 void CastSessionImpl::PausedState::Enter()
