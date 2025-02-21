@@ -523,9 +523,9 @@ bool CastSessionImpl::StreamState::HandleMessage(const Message &msg)
 }
 
 void CastSessionImpl::SteamState::HandleContinuePlayMessage(const Message &msg, sptr <CastSessionImpl> session,
-                                                                const std::string &deviceId)
+    const std::string &deviceId)
 {
-    if(!session){
+    if (!session) {
         CLOGE("Session is invalid");
         return;
     }
