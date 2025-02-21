@@ -529,7 +529,7 @@ void CastSessionImpl::StreamState::HandleContinuePlayMessage(const Message &msg,
         CLOGE("Session is invalid");
         return;
     }
-    session->ProcessDisconnectAndContinueplay(msg);
+    session->ProcessDisconnectAndContinuePlay(msg);
     session->TransferTo(session->disconnectingState_);
     session->ChangeDeviceState(DeviceState::DISCONNECTED, deviceId);
     session->RemoveRemoteDevice(deviceId);
