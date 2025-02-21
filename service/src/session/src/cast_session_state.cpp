@@ -481,6 +481,7 @@ bool CastSessionImpl::StreamState::HandleMessage(const Message &msg)
     BaseState::HandleMessage(msg);
     MessageId msgId = static_cast<MessageId>(msg.what_);
     const auto &param = msg.strArg_;
+    const auto &deviceId = msg.strArg_;
     auto streamManager = session->StreamManagerGetter();
     switch (msgId) {
         case MessageId::MSG_STREAM_RECV_ACTION_EVENT_FROM_PEERS:
@@ -510,6 +511,12 @@ bool CastSessionImpl::StreamState::HandleMessage(const Message &msg)
                 session->TransferTo(session->streamToMirrorState_);
                 session->SetMirrorToStreamState(false);
             }
+            break;
+        case MessageIdL::MSG_DISCONNECT_AND_CONTINUE_PLAY:
+            session->ProcessDisconnectAndContinueplay(msg);
+            session->TransferTo(session->disconnectingState_);
+            session->ChangeDeviceState(DeviceState::DISCONNECTED, deviceId);
+            session->RemoveRemoteDevice(deviceId);
             break;
         default:
             CLOGW("unsupported msg: %{public}s, in stream state", MESSAGE_ID_STRING[msgId].c_str());
