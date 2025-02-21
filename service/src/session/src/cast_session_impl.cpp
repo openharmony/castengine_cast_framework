@@ -309,7 +309,7 @@ void CastSessionImpl::WaitSinkSetProperty()
 
 int32_t CastSessionImpl::RemoveDevice(const std::string &deviceId, const int32_t &type)
 {
-    CLOGI("In: session state: %{public}s, deviceId:%{public}s, type:${public}d",
+    CLOGI("In: session state: %{public}s, deviceId:%{public}s, type:%{public}d",
         SESSION_STATE_STRING[static_cast<int>(sessionState_)].c_str(), Utils::Mask(deviceId).c_str(), type);
 
     std::lock_guard<std::mutex> lock(mutex_);
@@ -955,7 +955,7 @@ bool CastSessionImpl::ProcessDisconnectAndContinuePlay(const Message &msg)
 {
     CLOGD("in");
     SetWifiScene(0);
-    channelManager_->DestoryAllChannels();
+    channelManager_->DestroyAllChannels();
     DisconnectPhysicalLink(msg.strArg_);
     return true;
 }

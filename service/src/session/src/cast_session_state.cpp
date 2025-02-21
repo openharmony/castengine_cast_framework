@@ -512,7 +512,7 @@ bool CastSessionImpl::StreamState::HandleMessage(const Message &msg)
                 session->SetMirrorToStreamState(false);
             }
             break;
-        case MessageIdL::MSG_DISCONNECT_AND_CONTINUE_PLAY:
+        case MessageId::MSG_DISCONNECT_AND_CONTINUE_PLAY:
             HandleContinuePlayMessage(msg, session, deviceId);
             break;
         default:
@@ -522,7 +522,7 @@ bool CastSessionImpl::StreamState::HandleMessage(const Message &msg)
     return true;
 }
 
-void CastSessionImpl::SteamState::HandleContinuePlayMessage(const Message &msg, sptr <CastSessionImpl> session,
+void CastSessionImpl::StreamState::HandleContinuePlayMessage(const Message &msg, sptr <CastSessionImpl> session,
     const std::string &deviceId)
 {
     if (!session) {
