@@ -220,6 +220,7 @@ protected:
     void Enter() override;
     void Exit() override;
     bool HandleMessage(const Message &msg) override;
+    void HandleContinuePlayMessage(const Message &msg, sptr<CastSessionImpl> session, const std::string &deviceId);
     DISALLOW_EVIL_CONSTRUCTORS(StreamState);
 };
 
