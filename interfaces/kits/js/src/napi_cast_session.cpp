@@ -352,7 +352,7 @@ napi_value NapiCastSession::RemoveDevice(napi_env env, napi_callback_info info)
     CLOGD("Start to remove device in");
     struct ConcreteTask : public NapiAsyncTask {
         string deviceId_;
-        int32_t type_;
+        DeviceRemoveAction actionType_;
     };
     auto napiAsyntask = std::make_shared<ConcreteTask>();
     if (napiAsyntask == nullptr) {
@@ -370,7 +370,8 @@ napi_value NapiCastSession::RemoveDevice(napi_env env, napi_callback_info info)
         CHECK_ARGS_RETURN_VOID(napiAsyntask, isParamsTypeValid, "invalid arguments",
             NapiErrors::errcode_[ERR_INVALID_PARAM]);
         napiAsyntask->deviceId_ = ParseString(env, argv[0]);
-        napiAsyntask->type_ = (argc == expectedArgcType) ? ParseInt32(env, argv[1]) : DEVICE_REMOVE_DISCONNECT;
+        napiAsyntask->actionType_ = (argc == expectedArgcType) ?
+            static_cast<DeviceRemoveAction>(ParseInt32(env, argv[1])) : DeviceRemoveAction::ACTION_DISCONNECT;
     };
     napiAsyntask->GetJSInfo(env, info, inputParser);
     auto executor = [napiAsyntask]() {
@@ -380,7 +381,7 @@ napi_value NapiCastSession::RemoveDevice(napi_env env, napi_callback_info info)
         shared_ptr<ICastSession> castSession = napiSession->GetCastSession();
         CHECK_ARGS_RETURN_VOID(napiAsyntask, castSession, "ICastSession is null",
             NapiErrors::errcode_[CAST_ENGINE_ERROR]);
-        int32_t ret = castSession->RemoveDevice(napiAsyntask->deviceId_, napiAsyntask->type_);
+        int32_t ret = castSession->RemoveDevice(napiAsyntask->deviceId_, napiAsyntask->actionType_);
         if (ret != CAST_ENGINE_SUCCESS) {
             if (ret == ERR_NO_PERMISSION) {
                 napiAsyntask->errMessage = "RemoveDevice failed : no permission";

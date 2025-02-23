@@ -307,16 +307,17 @@ void CastSessionImpl::WaitSinkSetProperty()
     }
 }
 
-int32_t CastSessionImpl::RemoveDevice(const std::string &deviceId, const int32_t &type)
+int32_t CastSessionImpl::RemoveDevice(const std::string &deviceId, const DeviceRemoveAction &actionType)
 {
-    CLOGI("In: session state: %{public}s, deviceId:%{public}s, type:%{public}d",
-        SESSION_STATE_STRING[static_cast<int>(sessionState_)].c_str(), Utils::Mask(deviceId).c_str(), type);
+    CLOGI("In: session state: %{public}s, deviceId:%{public}s, actionType:%{public}d",
+        SESSION_STATE_STRING[static_cast<int>(sessionState_)].c_str(),
+        Utils::Mask(deviceId).c_str(), static_cast<int32_t>(actionType));
 
     std::lock_guard<std::mutex> lock(mutex_);
-    return RemoveDeviceInner(deviceId, type);
+    return RemoveDeviceInner(deviceId, actionType);
 }
 
-int32_t CastSessionImpl::RemoveDeviceInner(const std::string &deviceId, const int32_t &type)
+int32_t CastSessionImpl::RemoveDeviceInner(const std::string &deviceId, const DeviceRemoveAction &actionType)
 {
     CLOGI("RemoveDeviceInner in");
 
@@ -334,7 +335,7 @@ int32_t CastSessionImpl::RemoveDeviceInner(const std::string &deviceId, const in
         }
     }
 
-    MessageId msgId = (type == DEVICE_REMOVE_CONTINUE_PLAY) ?
+    MessageId msgId = (actionType == DeviceRemoveAction::ACTION_CONTINUE_PLAY) ?
         MessageId::MSG_DISCONNECT_AND_CONTINUE_PLAY : MessageId::MSG_DISCONNECT;
     SendCastMessage(Message(msgId, deviceId));
     return CAST_ENGINE_SUCCESS;
