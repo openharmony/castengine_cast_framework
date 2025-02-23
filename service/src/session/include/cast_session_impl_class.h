@@ -65,7 +65,8 @@ public:
     int32_t UnregisterListener() override;
     int32_t AddDevice(const CastRemoteDevice &remoteDevice) override;
     bool AddDevice(const CastInnerRemoteDevice &remoteDevice) override;
-    int32_t RemoveDevice(const std::string &deviceId, const int32_t &type = DEVICE_REMOVE_DISCONNECT) override;
+    int32_t RemoveDevice(const std::string &deviceId,
+        const DeviceRemoveAction &actionType = DeviceRemoveAction::ACTION_DISCONNECT) override;
     int32_t StartAuth(const AuthInfo &authInfo) override;
     int32_t GetSessionId(std::string &sessionId) override;
     int32_t GetDeviceState(const std::string &deviceId, DeviceState &deviceState) override;
@@ -235,7 +236,8 @@ private:
     void WaitSinkSetProperty();
     void SetWifiScene(unsigned int scene);
     void SetMirrorToStreamState(bool state);
-    int32_t RemoveDeviceInner(const std::string &deviceId, const int32_t &type = DEVICE_REMOVE_DISCONNECT);
+    int32_t RemoveDeviceInner(const std::string &deviceId,
+        const DeviceRemoveAction &actionType = DeviceRemoveAction::ACTION_DISCONNECT);
     std::shared_ptr<DefaultState> defaultState_;
     std::shared_ptr<DisconnectedState> disconnectedState_;
     std::shared_ptr<AuthingState> authingState_;

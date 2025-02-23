@@ -70,13 +70,13 @@ int32_t CastSession::AddDevice(const CastRemoteDevice &remoteDevice)
     return proxy_ ? proxy_->AddDevice(remoteDevice) : CAST_ENGINE_ERROR;
 }
 
-    int32_t CastSession::RemoveDevice(const std::string &deviceId, const int32_t &type)
+    int32_t CastSession::RemoveDevice(const std::string &deviceId, const DeviceRemoveAction &actionType)
 {
     if (deviceId.empty()) {
         CLOGE("The device id is null");
         return ERR_INVALID_PARAM;
     }
-    return proxy_ ? proxy_->RemoveDevice(deviceId, type) : CAST_ENGINE_ERROR;
+    return proxy_ ? proxy_->RemoveDevice(deviceId, actionType) : CAST_ENGINE_ERROR;
 }
 
 int32_t CastSession::StartAuth(const AuthInfo &authInfo)

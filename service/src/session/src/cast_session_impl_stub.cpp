@@ -120,14 +120,14 @@ int32_t CastSessionImplStub::DoRemoveDeviceTask(MessageParcel &data, MessageParc
         return ERR_NO_PERMISSION;
     }
 
-    int32_t type = data.ReadInt32();
+    DeviceRemoveAction actionType = static_cast<DeviceRemoveAction>(data.ReadInt32());
     std::string deviceId = data.ReadString();
     if (deviceId.empty()) {
         CLOGE("The device id is empty");
         return ERR_INVALID_DATA;
     }
 
-    if (!reply.WriteInt32(RemoveDevice(deviceId, type))) {
+    if (!reply.WriteInt32(RemoveDevice(deviceId, actionType))) {
         CLOGE("Failed to write int value");
         return IPC_STUB_WRITE_PARCEL_ERR;
     }

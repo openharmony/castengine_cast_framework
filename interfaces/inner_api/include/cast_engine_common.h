@@ -97,10 +97,15 @@ enum class EXPORT DeviceState {
 };
 
 enum EXPORT DeviceRemoveType {
-    //device remve and stop playing.
     DEVICE_REMOVE_DISCONNECT = 0,
-    // device remove and keep playing
     DEVICE_REMOVE_CONTINUE_PLAY = 1,
+};
+
+enum EXPORT DeviceRemoveAction {
+    // device remove and stop playing.
+    ACTION_DISCONNECT = 0,
+    // device remove and keep playing.
+    ACTION_CONTINUE_PLAY = 1,
 };
 
 enum class EXPORT DeviceGrabState {
