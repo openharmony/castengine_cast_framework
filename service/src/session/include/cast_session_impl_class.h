@@ -65,8 +65,7 @@ public:
     int32_t UnregisterListener() override;
     int32_t AddDevice(const CastRemoteDevice &remoteDevice) override;
     bool AddDevice(const CastInnerRemoteDevice &remoteDevice) override;
-    int32_t RemoveDevice(const std::string &deviceId,
-        const DeviceRemoveAction &actionType = DeviceRemoveAction::ACTION_DISCONNECT) override;
+    int32_t RemoveDevice(const std::string &deviceId) override;
     int32_t StartAuth(const AuthInfo &authInfo) override;
     int32_t GetSessionId(std::string &sessionId) override;
     int32_t GetDeviceState(const std::string &deviceId, DeviceState &deviceState) override;
@@ -185,7 +184,6 @@ private:
     bool ProcessPause(const Message &msg);
     bool ProcessPauseReq(const Message &msg);
     bool ProcessDisconnect(const Message &msg);
-    bool ProcessDisconnectAndContinuePlay(const Message &msg);
     bool ProcessError(const Message &msg);
     bool ProcessTriggerReq(const Message &msg);
     bool ProcessUpdateVideoSize(const Message &msg);
@@ -236,8 +234,7 @@ private:
     void WaitSinkSetProperty();
     void SetWifiScene(unsigned int scene);
     void SetMirrorToStreamState(bool state);
-    int32_t RemoveDeviceInner(const std::string &deviceId,
-        const DeviceRemoveAction &actionType = DeviceRemoveAction::ACTION_DISCONNECT);
+    int32_t RemoveDeviceInner(const std::string &deviceId);
     std::shared_ptr<DefaultState> defaultState_;
     std::shared_ptr<DisconnectedState> disconnectedState_;
     std::shared_ptr<AuthingState> authingState_;
@@ -299,7 +296,6 @@ private:
         &CastSessionImpl::ProcessPlayReq,         // MSG_PLAY_REQ
         &CastSessionImpl::ProcessPauseReq,        // MSG_PAUSE_REQ
         &CastSessionImpl::ProcessDisconnect,      // MSG_DISCONNECT
-        &CastSessionImpl::ProcessDisconnectAndContinuePlay,    // MSG_DISCONNECT_AND_CONTINUE_PLAY
         &CastSessionImpl::ProcessDisconnect,      // MSG_CONNECT_TIMEOUT
         &CastSessionImpl::ProcessTriggerReq,      // MSG_PROCESS_TRIGGER_REQ
         &CastSessionImpl::ProcessUpdateVideoSize, // MSG_UPDATE_VIDEO_SIZE

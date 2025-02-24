@@ -307,17 +307,16 @@ void CastSessionImpl::WaitSinkSetProperty()
     }
 }
 
-int32_t CastSessionImpl::RemoveDevice(const std::string &deviceId, const DeviceRemoveAction &actionType)
+int32_t CastSessionImpl::RemoveDevice(const std::string &deviceId)
 {
-    CLOGI("In: session state: %{public}s, deviceId:%{public}s, actionType:%{public}d",
-        SESSION_STATE_STRING[static_cast<int>(sessionState_)].c_str(),
-        Utils::Mask(deviceId).c_str(), static_cast<int32_t>(actionType));
+    CLOGI("In: session state: %{public}s, deviceId:%{public}s",
+        SESSION_STATE_STRING[static_cast<int>(sessionState_)].c_str(), Utils::Mask(deviceId).c_str());
 
     std::lock_guard<std::mutex> lock(mutex_);
-    return RemoveDeviceInner(deviceId, actionType);
+    return RemoveDeviceInner(deviceId);
 }
 
-int32_t CastSessionImpl::RemoveDeviceInner(const std::string &deviceId, const DeviceRemoveAction &actionType)
+int32_t CastSessionImpl::RemoveDeviceInner(const std::string &deviceId)
 {
     CLOGI("RemoveDeviceInner in");
 
@@ -335,9 +334,7 @@ int32_t CastSessionImpl::RemoveDeviceInner(const std::string &deviceId, const De
         }
     }
 
-    MessageId msgId = (actionType == DeviceRemoveAction::ACTION_CONTINUE_PLAY) ?
-        MessageId::MSG_DISCONNECT_AND_CONTINUE_PLAY : MessageId::MSG_DISCONNECT;
-    SendCastMessage(Message(msgId, deviceId));
+    SendCastMessage(Message(MessageId::MSG_DISCONNECT, deviceId));
     return CAST_ENGINE_SUCCESS;
 }
 
@@ -949,15 +946,6 @@ bool CastSessionImpl::ProcessDisconnect(const Message &msg)
     SetWifiScene(0);
     rtspControl_->Action(ActionType::TEARDOWN);
     channelManager_->DestroyAllChannels();
-    return true;
-}
-
-bool CastSessionImpl::ProcessDisconnectAndContinuePlay(const Message &msg)
-{
-    CLOGD("in");
-    SetWifiScene(0);
-    channelManager_->DestroyAllChannels();
-    DisconnectPhysicalLink(msg.strArg_);
     return true;
 }
 

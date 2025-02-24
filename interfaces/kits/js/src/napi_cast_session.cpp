@@ -381,7 +381,7 @@ napi_value NapiCastSession::RemoveDevice(napi_env env, napi_callback_info info)
         shared_ptr<ICastSession> castSession = napiSession->GetCastSession();
         CHECK_ARGS_RETURN_VOID(napiAsyntask, castSession, "ICastSession is null",
             NapiErrors::errcode_[CAST_ENGINE_ERROR]);
-        int32_t ret = castSession->RemoveDevice(napiAsyntask->deviceId_, napiAsyntask->actionType_);
+        int32_t ret = castSession->RemoveDevice(napiAsyntask->deviceId_);
         if (ret != CAST_ENGINE_SUCCESS) {
             if (ret == ERR_NO_PERMISSION) {
                 napiAsyntask->errMessage = "RemoveDevice failed : no permission";
