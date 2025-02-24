@@ -99,17 +99,13 @@ int32_t CastSessionImplProxy::AddDevice(const CastRemoteDevice &remoteDevice)
     return reply.ReadInt32();
 }
 
-int32_t CastSessionImplProxy::RemoveDevice(const std::string &deviceId, const DeviceRemoveAction &actionType)
+int32_t CastSessionImplProxy::RemoveDevice(const std::string &deviceId)
 {
     MessageParcel data, reply;
     MessageOption option;
 
     if (!data.WriteInterfaceToken(GetDescriptor())) {
         CLOGE("Failed to write the interface token");
-        return CAST_ENGINE_ERROR;
-    }
-    if (!data.WriteInt32(static_cast<int32_t>(actionType))) {
-        CLOGE("Failed to write the remove device action type");
         return CAST_ENGINE_ERROR;
     }
     if (!data.WriteString(deviceId)) {
