@@ -36,7 +36,12 @@ public:
     int32_t UnregisterListener() override;
 
     int32_t AddDevice(const CastRemoteDevice &remoteDevice) override;
-    int32_t RemoveDevice(const std::string &deviceId, const int32_t &type = DEVICE_REMOVE_DISCONNECT) override;
+    int32_t RemoveDevice(const std::string &deviceId, const int32_t &type) override
+    {
+        return RemoveDevice(deviceId, DeviceRemoveAction::ACTION_DISCONNECT);
+    }
+    int32_t RemoveDevice(const std::string &deviceId,
+        const DeviceRemoveAction &actionType = DeviceRemoveAction::ACTION_DISCONNECT) override;
 
     int32_t StartAuth(const AuthInfo &authInfo) override;
     int32_t Release() override;
