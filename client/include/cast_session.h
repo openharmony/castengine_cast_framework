@@ -35,7 +35,8 @@ public:
     int32_t RegisterListener(std::shared_ptr<ICastSessionListener> listener) override;
     int32_t UnregisterListener() override;
     int32_t AddDevice(const CastRemoteDevice &remoteDevice) override;
-    int32_t RemoveDevice(const std::string &deviceId) override;
+    int32_t RemoveDevice(const std::string &deviceId,
+        const DeviceRemoveAction &actionType = DeviceRemoveAction::ACTION_DISCONNECT) override;
     int32_t StartAuth(const AuthInfo &authInfo) override;
     int32_t GetSessionId(std::string &sessionId) override;
     int32_t SetSessionProperty(const CastSessionProperty &property) override;
