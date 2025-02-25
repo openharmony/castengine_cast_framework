@@ -70,7 +70,7 @@ int32_t CastSession::AddDevice(const CastRemoteDevice &remoteDevice)
     return proxy_ ? proxy_->AddDevice(remoteDevice) : CAST_ENGINE_ERROR;
 }
 
-    int32_t CastSession::RemoveDevice(const std::string &deviceId, const DeviceRemoveAction &actionType)
+int32_t CastSession::RemoveDevice(const std::string &deviceId, const DeviceRemoveAction &actionType)
 {
     if (deviceId.empty()) {
         CLOGE("The device id is null");
