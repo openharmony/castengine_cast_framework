@@ -355,6 +355,7 @@ napi_value NapiCastSession::RemoveDevice(napi_env env, napi_callback_info info)
     CLOGD("Start to remove device in");
     struct ConcreteTask : public NapiAsyncTask {
         string deviceId_;
+        DeviceRemoveAction actionType_;
     };
     auto napiAsyntask = std::make_shared<ConcreteTask>();
     if (napiAsyntask == nullptr) {
@@ -363,14 +364,17 @@ napi_value NapiCastSession::RemoveDevice(napi_env env, napi_callback_info info)
     }
 
     auto inputParser = [env, napiAsyntask](size_t argc, napi_value *argv) {
-        constexpr size_t expectedArgc = 1;
-        CHECK_ARGS_RETURN_VOID(napiAsyntask, argc == expectedArgc, "invalid arguments",
-            NapiErrors::errcode_[ERR_INVALID_PARAM]);
-        napi_valuetype expectedTypes[expectedArgc] = { napi_string };
-        bool isParamsTypeValid = CheckJSParamsType(env, argv, expectedArgc, expectedTypes);
+        constexpr size_t expectedArgcDeviceId = 1;
+        constexpr size_t expectedArgcType = 2;
+        CHECK_ARGS_RETURN_VOID(napiAsyntask, (argc == expectedArgcDeviceId || argc == expectedArgcType),
+            "invalid arguments", NapiErrors::errcode_[ERR_INVALID_PARAM]);
+        napi_valuetype expectedTypes[expectedArgcType] = {napi_string, napi_number};
+        bool isParamsTypeValid = CheckJSParamsType(env, argv, argc, expectedTypes);
         CHECK_ARGS_RETURN_VOID(napiAsyntask, isParamsTypeValid, "invalid arguments",
             NapiErrors::errcode_[ERR_INVALID_PARAM]);
         napiAsyntask->deviceId_ = ParseString(env, argv[0]);
+        napiAsyntask->actionType_ = (argc == expectedArgcType) ?
+            static_cast<DeviceRemoveAction>(ParseInt32(env, argv[1])) : DeviceRemoveAction::ACTION_DISCONNECT;
     };
     napiAsyntask->GetJSInfo(env, info, inputParser);
     auto executor = [napiAsyntask]() {
