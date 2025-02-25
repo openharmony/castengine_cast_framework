@@ -109,7 +109,7 @@ int32_t CastSessionImplProxy::RemoveDevice(const std::string &deviceId)
         return CAST_ENGINE_ERROR;
     }
     if (!data.WriteString(deviceId)) {
-        CLOGE("Failed to write the the device id");
+        CLOGE("Failed to write the device id");
         return CAST_ENGINE_ERROR;
     }
 
