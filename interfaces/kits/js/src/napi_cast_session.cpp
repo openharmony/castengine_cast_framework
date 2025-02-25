@@ -364,7 +364,7 @@ napi_value NapiCastSession::RemoveDevice(napi_env env, napi_callback_info info)
         constexpr size_t expectedArgcDeviceId = 1;
         constexpr size_t expectedArgcType = 2;
         CHECK_ARGS_RETURN_VOID(napiAsyntask, (argc == expectedArgcDeviceId || argc == expectedArgcType),
-                               "invalid arguments", NapiErrors::errcode_[ERR_INVALID_PARAM]);
+            "invalid arguments", NapiErrors::errcode_[ERR_INVALID_PARAM]);
         napi_valuetype expectedTypes[expectedArgcType] = {napi_string, napi_number};
         bool isParamsTypeValid = CheckJSParamsType(env, argv, argc, expectedTypes);
         CHECK_ARGS_RETURN_VOID(napiAsyntask, isParamsTypeValid, "invalid arguments",
