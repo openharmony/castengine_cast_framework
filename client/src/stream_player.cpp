@@ -211,6 +211,12 @@ int32_t StreamPlayer::Release()
 {
     return proxy_ ? proxy_->Release() : CAST_ENGINE_ERROR;
 }
+
+int32_t StreamPlayer::GetMediaCapabilities(std::string &jsonCapabilities)
+{
+    return CAST_ENGINE_ERROR;
+}
+
 } // namespace CastEngineClient
 } // namespace CastEngine
 } // namespace OHOS
