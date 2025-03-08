@@ -22,6 +22,7 @@
 #include <array>
 #include <map>
 #include <string>
+#include "cast_data_source.h"
 
 #include <message_parcel.h>
 #define EXPORT __attribute__((visibility("default")))
@@ -453,6 +454,7 @@ struct EXPORT MediaInfo {
     std::string appIconUrl{ "" };
     std::string appName{ "" };
     std::string drmType;
+    std::shared_ptr<ICastDataSource> dataSrc;
 };
 
 struct EXPORT MediaInfoHolder {
