@@ -91,7 +91,6 @@ public:
     virtual int32_t GetMediaInfoHolder(MediaInfoHolder &mediaInfoHolder) = 0;
     virtual int32_t ProvideKeyResponse(const std::string &mediaId, const std::vector<uint8_t> &response) = 0;
     virtual int32_t Release() = 0;
-    virtual int32_t GetMediaCapabilities(std::string &jsonCapabilities) = 0;
 };
 } // namespace CastEngine
 } // namespace OHOS
