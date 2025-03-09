@@ -66,7 +66,6 @@ public:
     int32_t GetMediaInfoHolder(MediaInfoHolder &mediaInfoHolder) override;
 
     int32_t ProvideKeyResponse(const std::string &mediaId, const std::vector<uint8_t> &response) override;
-    int32_t GetMediaCapabilities(std::string &jsonCapabilities) override;
 
 private:
     static const int GET_FAILED = -1;
