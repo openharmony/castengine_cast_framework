@@ -71,6 +71,7 @@ ohos_static_library("cast_session") {
     "dsoftbus:softbus_client",
     "graphic_surface:surface",
     "hilog:libhilog",
+    "hisysevent:libhisysevent",
     "image_framework:image_native",
     "init:libbegetutil",
     "input:libmmi-client",
