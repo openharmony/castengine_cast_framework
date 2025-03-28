@@ -525,6 +525,7 @@ enum class EXPORT PlaybackSpeed {
     SPEED_FORWARD_2_00_X = 4,
     SPEED_FORWARD_0_50_X = 5,
     SPEED_FORWARD_1_50_X = 6,
+    SPEED_FORWARD_3_00_X = 7,
 };
 
 enum class EXPORT LogCodeId {
