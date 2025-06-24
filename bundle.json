@@ -2,7 +2,7 @@
     "name":"@ohos/cast_engine",
     "description":"supply cast engine service",
     "version":"3.1",
-    "license":"",
+    "license":"Apache License 2.0",
     "publishAs":"binary",
     "dirs":{},
     "scripts":{},
