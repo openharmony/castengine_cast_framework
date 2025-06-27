@@ -16,7 +16,6 @@ import("//foundation/CastEngine/castengine_cast_framework/cast_engine.gni")
 config("cast_session_config") {
   include_dirs = [
     "include",
-    "//third_party/jsoncpp/include",
   ]
 }
 
@@ -57,8 +56,6 @@ ohos_static_library("cast_session") {
     "src/rtsp:cast_session_rtsp",
     "src/stream:cast_session_stream",
     "src/utils:cast_session_utils",
-    "//third_party/jsoncpp:jsoncpp",
-    "//third_party/openssl:libcrypto_shared",
   ]
 
   external_deps = [
@@ -76,6 +73,9 @@ ohos_static_library("cast_session") {
     "init:libbegetutil",
     "input:libmmi-client",
     "ipc:ipc_core",
+    "jsoncpp:jsoncpp",
+    "jsoncpp:jsoncpp_static",
+    "openssl:libcrypto_shared",
     "player_framework:media_client",
     "power_manager:powermgr_client",
     "state_registry:tel_state_registry_api",

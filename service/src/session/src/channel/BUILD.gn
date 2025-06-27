@@ -44,15 +44,6 @@ ohos_static_library("cast_session_channel") {
     "src/softbus",
     "src/tcp",
     "${cast_engine_service}/src/session/src/utils/include",
-    "//foundation/communication/dsoftbus/sdk/transmission/trans_channel/udp/file/include",
-    "//foundation/communication/dsoftbus/interfaces/inner_kits/transport/",
-    "//foundation/communication/dsoftbus/sdk/transmission/trans_channel/udp/file/include",
-    "//foundation/communication/dsoftbus/dsoftbus_enhance/interfaces/kits/transport",
-    "//foundation/communication/dsoftbus/dsoftbus_enhance/sdk/transmission/trans_channel/udp/file/include",
-    "//foundation/communication/dsoftbus/sdk/transmission/trans_channel/udp/common/include",
-    "//foundation/communication/dsoftbus/sdk/transmission/session/include",
-    "//foundation/communication/dsoftbus/core/common/include",
-    "//foundation/communication/dsoftbus/adapter/common/include",
   ]
 
   configs = [
@@ -70,7 +61,9 @@ ohos_static_library("cast_session_channel") {
   external_deps = [
     "c_utils:utils",
     "device_manager:devicemanagersdk",
+    "dsoftbus:softbus_adapter",
     "dsoftbus:softbus_client",
+    "dsoftbus:softbus_utils",
     "hilog:libhilog",
     "hisysevent:libhisysevent",
     "init:libbegetutil",
