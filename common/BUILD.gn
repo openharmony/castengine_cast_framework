@@ -33,8 +33,6 @@ ohos_static_library("cast_engine_common_sources") {
     "${cast_engine_root}:cast_engine_default_config",
   ]
 
-  include_dirs = [ "//third_party/json/single_include/nlohmann" ]
-
   public_configs = [
     ":cast_engine_common_private_config",
     "${cast_engine_interfaces}/inner_api:cast_interfaces_config",
@@ -49,6 +47,7 @@ ohos_static_library("cast_engine_common_sources") {
     "image_framework:image_native",
     "init:libbegetutil",
     "ipc:ipc_core",
+    "json:nlohmann_json_static",
   ]
 
   subsystem_name = "castplus"
