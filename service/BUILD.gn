@@ -38,7 +38,6 @@ ohos_shared_library("cast_engine_service") {
     "${cast_engine_common}:cast_engine_common_sources",
     "src/device_manager:cast_discovery",
     "src/session:cast_session",
-    "//third_party/openssl:libcrypto_shared",
   ]
 
   external_deps = [
@@ -54,6 +53,7 @@ ohos_shared_library("cast_engine_service") {
     "init:libbegetutil",
     "input:libmmi-client",
     "ipc:ipc_core",
+    "openssl:libcrypto_shared",
     "os_account:os_account_innerkits",
     "player_framework:media_client",
     "power_manager:powermgr_client",

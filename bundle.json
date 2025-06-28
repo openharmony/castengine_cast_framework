@@ -64,13 +64,13 @@
                 "call_manager",
                 "os_account",
                 "sharing_framework",
+                "glib",
+                "jsoncpp",
+                "openssl",
                 "json"
             ],
             "third_party":[
                 "glib",
-                "json",
-                "jsoncpp",
-                "openssl",
                 "bounds_checking_function",
                 "musl"
             ]

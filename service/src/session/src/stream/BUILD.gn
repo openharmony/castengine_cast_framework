@@ -22,7 +22,6 @@ config("cast_session_stream_config") {
     "${cast_engine_service}/src/session/src/stream/include",
     "${cast_engine_service}/src/session/src/stream/src/local/include",
     "${cast_engine_service}/src/session/src/stream/src/player/include",
-    "//third_party/json/single_include/nlohmann",
   ]
 }
 
@@ -71,6 +70,7 @@ ohos_static_library("cast_session_stream") {
     "hisysevent:libhisysevent",
     "image_framework:image_native",
     "init:libbegetutil",
+    "json:nlohmann_json_static",
     "player_framework:media_client",
   ]
 
