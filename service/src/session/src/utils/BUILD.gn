@@ -44,7 +44,6 @@ ohos_static_library("cast_session_utils") {
 
   deps = [
     "${cast_engine_common}:cast_engine_common_sources",
-    "//third_party/glib:glib_packages",
   ]
 
   external_deps = [
