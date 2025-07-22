@@ -76,6 +76,7 @@ public:
     void OnAlbumCoverChanged(std::shared_ptr<Media::PixelMap> pixelMap) override;
     void OnKeyRequest(const std::string &mediaId, const std::vector<uint8_t> &keyRequestData) override;
     void OnAvailableCapabilityChanged(const StreamCapability &streamCapability) override;
+    void OnData(const DataType dataType, const std::string &dataStr) override;
 
     napi_status AddCallback(napi_env env, int32_t event, napi_value callback);
     napi_status RemoveCallback(napi_env env, int32_t event, napi_value callback);

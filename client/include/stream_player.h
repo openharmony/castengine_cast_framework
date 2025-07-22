@@ -54,6 +54,7 @@ public:
     int32_t SetLoopMode(const LoopMode mode) override;
     int32_t SetAvailableCapability(const StreamCapability &streamCapability) override;
     int32_t SetSpeed(const PlaybackSpeed speed) override;
+    int32_t SendData(const DataType dataType, const std::string &dataStr) override;
 
     int32_t GetPlayerStatus(PlayerStates &playerStates) override;
     int32_t GetPosition(int &position) override;

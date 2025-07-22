@@ -595,6 +595,8 @@ struct EXPORT CastRemoteDevice {
     std::string manufacturerName;
     bool isTrushed;
     AudioStreamInfo audioCapability;
+    std::string spid{""}; // stream load sink app
+    std::string streamCapability{""};
 };
 
 enum class EXPORT CastMode {
@@ -670,6 +672,8 @@ struct EXPORT MediaInfo {
     uid_t appUid{ 0 };
     std::string drmType;
     std::shared_ptr<ICastDataSource> dataSrc;
+    uint32_t spid{ 0 };
+    std::string launchClientData{""};
 };
 
 struct EXPORT MediaInfoHolder {
@@ -753,6 +757,10 @@ enum class EXPORT LogCodeId {
     START_REPEAT = 6,
     NOT_INIT = 7,
     UID_MISMATCH = 8,
+};
+
+enum class EXPORT DataType {
+    CUSTOM_DATA,
 };
 
 inline constexpr int EXPORT INVALID_PORT = -1;
