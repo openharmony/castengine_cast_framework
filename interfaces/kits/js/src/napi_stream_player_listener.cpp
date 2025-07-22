@@ -234,6 +234,11 @@ void NapiStreamPlayerListener::OnKeyRequest(const std::string &mediaId, const st
     CLOGD("OnKeyRequest start");
 }
 
+void NapiStreamPlayerListener::OnData(const DataType dataType, const std::string &dataStr)
+{
+    CLOGD("OnData start");
+}
+
 napi_status NapiStreamPlayerListener::AddCallback(napi_env env, int32_t event, napi_value callback)
 {
     CLOGI("Add callback %{public}d", event);
