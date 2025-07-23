@@ -157,6 +157,11 @@ int32_t StreamPlayer::SetSpeed(const PlaybackSpeed speed)
     return proxy_ ? proxy_->SetSpeed(speed) : CAST_ENGINE_ERROR;
 }
 
+int32_t StreamPlayer::SendData(const DataType dataType, const std::string &dataStr)
+{
+    return CAST_ENGINE_ERROR;
+}
+
 int32_t StreamPlayer::GetPlayerStatus(PlayerStates &playerStates)
 {
     return proxy_ ? proxy_->GetPlayerStatus(playerStates) : CAST_ENGINE_ERROR;
