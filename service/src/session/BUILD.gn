@@ -78,7 +78,6 @@ ohos_static_library("cast_session") {
     "openssl:libcrypto_shared",
     "player_framework:media_client",
     "power_manager:powermgr_client",
-    "state_registry:tel_state_registry_api",
     "wifi:wifi_sdk",
   ]
 
