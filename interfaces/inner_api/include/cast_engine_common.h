@@ -154,6 +154,12 @@ const EXPORT std::array<std::string, static_cast<size_t>(DeviceState::DEVICE_STA
     "MIRROR_TO_UI", "UI_TO_MIRROR", "UICAST", "AUTHING",
 };
 
+const size_t EXPORT MIRROR_TO_STREAM_APP_LIST_LEN = 5;
+const EXPORT std::array<std::string, MIRROR_TO_STREAM_APP_LIST_LEN> MIRROR_TO_STREAM_APP_LIST = {
+    "com.huawei.hmsapp.himovie", "com.cmcc.cmvideohm", "com.ss.hm.article.news",
+    "com.ss.hm.article.video", "com.hm.ct.tvzhibo"
+};
+
 inline bool EXPORT IsDeviceState(int32_t state)
 {
     return (state >= static_cast<int32_t>(DeviceState::CONNECTING)) &&
