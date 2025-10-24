@@ -73,12 +73,13 @@ enum class EXPORT TriggerType {
     PASSIVE_MATCH_TAG = 1,
     ACTIVE_MATCH_TAG = 2,
     PASSIVE_BIND_TAG = 3,
+    HIPLAY_DEVICE_BROADCAST = 5,
 };
 
 inline bool EXPORT IsTriggerType(int32_t type)
 {
     return (type >= static_cast<int32_t>(TriggerType::UNSPEC_TAG)) &&
-        (type <= static_cast<int32_t>(TriggerType::PASSIVE_BIND_TAG));
+        (type <= static_cast<int32_t>(TriggerType::HIPLAY_DEVICE_BROADCAST));
 }
 
 enum class EXPORT DeviceState {
@@ -603,6 +604,7 @@ struct EXPORT CastRemoteDevice {
     AudioStreamInfo audioCapability;
     std::string spid{""}; // stream load sink app
     std::string streamCapability{""};
+    std::string bleMac{"DD:DD:DD:DD:DD:DD"};
 };
 
 enum class EXPORT CastMode {
