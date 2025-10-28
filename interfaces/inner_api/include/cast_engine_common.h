@@ -602,6 +602,7 @@ struct EXPORT CastRemoteDevice {
     std::string manufacturerName;
     bool isTrushed;
     AudioStreamInfo audioCapability;
+    TriggerType triggerType{TriggerType::UNSPEC_TAG};
     std::string spid{""}; // stream load sink app
     std::string streamCapability{""};
     std::string bleMac{"DD:DD:DD:DD:DD:DD"};
