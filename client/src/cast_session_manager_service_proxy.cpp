@@ -307,11 +307,6 @@ int32_t CastSessionManagerServiceProxy::StartDeviceLogging(int32_t fd, uint32_t 
     return reply.ReadInt32();
 }
 
-sptr<IRemoteObject> CastSessionManagerServiceProxy::GetSessionManagerService()
-{
-    return this->AsObject();
-}
-
 int32_t CastSessionManagerServiceProxy::GetCastSession(std::string sessionId, sptr<ICastSessionImpl> &castSession)
 {
     MessageParcel data, reply;
