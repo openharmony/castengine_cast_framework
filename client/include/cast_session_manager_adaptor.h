@@ -34,7 +34,7 @@ namespace CastEngineClient {
 class CastSessionManagerAdaptor : public ICastSessionManagerAdaptor,
     public std::enable_shared_from_this<CastSessionManagerAdaptor> {
 public:
-    CastSessionManagerAdaptor(sptr<CastSessionManagerServiceProxy> proxy) : proxy_(proxy) {}
+    CastSessionManagerAdaptor(sptr<ICastSessionManagerService> proxy) : proxy_(proxy) {}
     ~CastSessionManagerAdaptor() override;
 
     int32_t RegisterListener(std::shared_ptr<ICastSessionManagerListener> listener,
@@ -57,7 +57,7 @@ public:
 private:
     void UnsubscribeDeathRecipient();
 
-    sptr<CastSessionManagerServiceProxy> proxy_;
+    sptr<ICastSessionManagerService> proxy_;
     std::mutex mutex_;
     wptr<IRemoteObject> remote_;
     sptr<IRemoteObject::DeathRecipient> deathRecipient_{ nullptr };

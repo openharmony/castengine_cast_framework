@@ -41,7 +41,7 @@ int32_t CastSessionManagerAdaptor::RegisterListener(std::shared_ptr<ICastSession
         CLOGE("Failed to malloc service listener");
         return CAST_ENGINE_ERROR;
     }
-    auto object = proxy_ ? proxy_->GetSessionManagerService() : nullptr;
+    auto object = proxy_ ? proxy_->AsObject() : nullptr;
     if (!object) {
         CLOGW("Failed to get session manager service");
         return CAST_ENGINE_ERROR;

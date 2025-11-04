@@ -249,7 +249,7 @@ void CastSessionManager::NotifyServiceLoadResult(const sptr<IRemoteObject> &remo
         loadServiceCond_.notify_all();
         return;
     }
-    auto proxy = iface_cast<CastSessionManagerServiceProxy>(remoteObject);
+    auto proxy = iface_cast<ICastSessionManagerService>(remoteObject);
     adaptor_ = std::make_shared<CastSessionManagerAdaptor>(proxy);
     loadServiceCond_.notify_all();
 }

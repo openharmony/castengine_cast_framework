@@ -45,7 +45,6 @@ public:
     int32_t StopDiscovery() override;
     int32_t StartDeviceLogging(int32_t fd, uint32_t maxSize) override;
 
-    sptr<IRemoteObject> GetSessionManagerService();
     int32_t GetCastSession(std::string sessionId, sptr<ICastSessionImpl> &castSession) override;
 
 private:
