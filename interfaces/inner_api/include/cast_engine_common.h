@@ -606,6 +606,7 @@ struct EXPORT CastRemoteDevice {
     std::string spid{""}; // stream load sink app
     std::string streamCapability{""};
     std::string bleMac{"DD:DD:DD:DD:DD:DD"};
+    std::string uuid {""};
 };
 
 enum class EXPORT CastMode {
