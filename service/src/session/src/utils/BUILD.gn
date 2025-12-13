@@ -61,6 +61,7 @@ ohos_static_library("cast_session_utils") {
     "power_manager:powermgr_client",
     "samgr:samgr_proxy",
     "wifi:wifi_sdk",
+    "image_framework:image_native",
   ]
 
   subsystem_name = "castplus"
