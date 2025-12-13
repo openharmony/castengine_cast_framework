@@ -54,6 +54,7 @@ ohos_static_library("cast_session_rtsp") {
     "ipc:ipc_core",
     "json:nlohmann_json_static",
     "openssl:libcrypto_shared",
+    "image_framework:image_native",
   ]
 
   subsystem_name = "castplus"

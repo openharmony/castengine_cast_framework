@@ -22,6 +22,7 @@
 #include <array>
 #include <map>
 #include <string>
+#include "pixel_map.h"
 #include "cast_data_source.h"
 
 #include <message_parcel.h>
@@ -684,6 +685,7 @@ struct EXPORT MediaInfo {
     std::shared_ptr<ICastDataSource> dataSrc;
     uint32_t spid{ 0 };
     std::string launchClientData{""};
+    std::shared_ptr<Media::PixelMap> albumPixelMap;
 };
 
 struct EXPORT MediaInfoHolder {
