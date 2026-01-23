@@ -267,6 +267,7 @@ struct EXPORT DeviceStateInfo {
     DeviceState deviceState{ DeviceState::DISCONNECTED };
     std::string deviceId{};
     ReasonCode reasonCode{ ReasonCode::REASON_DEFAULT };
+    int32_t radarErrCode = 0;
 };
 
 struct EXPORT VideoSize {
