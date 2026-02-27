@@ -640,6 +640,7 @@ inline const std::string EXPORT KEY_CAST_CODE = "code";
 inline const std::string EXPORT KEY_CAST_MODE = "mode";
 inline const std::string EXPORT KEY_CAST_UID = "uid";
 inline const std::string EXPORT KEY_CAST_SESSION_ID = "sessionId";
+inline const std::string EXPORT KEY_CAST_DEVICE_ID = "deviceId";
 
 enum class EXPORT EventId {
     EVENT_BEGIN = 1,
