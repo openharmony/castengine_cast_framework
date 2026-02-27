@@ -609,6 +609,12 @@ struct EXPORT CastRemoteDevice {
     std::string streamCapability{""};
     std::string bleMac{"DD:DD:DD:DD:DD:DD"};
     std::string uuid {""};
+    bool isSupportDeviceCast{ false };
+};
+
+enum class EXPORT HiPlayCastMode {
+    DEVICE_LEVEL = 1,
+    APP_LEVEL = 2,
 };
 
 enum class EXPORT CastMode {
@@ -629,6 +635,12 @@ const std::string EXPORT KEY_APP_MIN_COMPATIBLE_VERSION = "minCompatibleVersionC
 const std::string EXPORT KEY_APP_TARGET_VERSION = "targetVersion";
 const int EXPORT MAX_DEVICE_NUM = 100;
 const int32_t EXPORT MAX_FILE_NUM = 16 * 1024;
+
+inline const std::string EXPORT KEY_CAST_CODE = "code";
+inline const std::string EXPORT KEY_CAST_MODE = "mode";
+inline const std::string EXPORT KEY_CAST_UID = "uid";
+inline const std::string EXPORT KEY_CAST_SESSION_ID = "sessionId";
+inline const std::string EXPORT KEY_CAST_DEVICE_ID = "deviceId";
 
 enum class EXPORT EventId {
     EVENT_BEGIN = 1,
@@ -657,6 +669,10 @@ enum class EXPORT EventId {
     UICAST_RCV_RESOURCE_PATH,
     UICAST_NOTIFY_DUMP_UITREE,
     UICAST_END = 3999,
+    HIPLAY_BEGIN = 4200,
+    HIPLAY_CONFIG_MODE = 4204,
+    HIPLAY_CONFIG_MODE_RESULT = 4205,
+    HIPLAY_END = 4250,
     EVENT_END = 5000,
 };
 
