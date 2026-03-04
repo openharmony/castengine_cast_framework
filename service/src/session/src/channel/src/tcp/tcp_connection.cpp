@@ -236,12 +236,11 @@ void TcpConnection::HandleReceivedData(int socket)
             listener->OnConnectionError(shared_from_this(), length);
             return;
         }
-        uint8_t buf[dataLength];
-        if (memset_s(buf, dataLength, 0, dataLength) != RET_OK) {
+        std::unique_ptr<uint8_t[]> buf = std::make_unique<uint8_t[]>(dataLength);
+        if (memset_s(buf.get(), dataLength, 0, dataLength) != RET_OK) {
             CLOGE("memset_s failed");
-            continue;
         }
-        length = socket_.Recv(sockfd, buf, sizeof(buf));
+        length = socket_.Recv(sockfd, buf.get(), dataLength);
         if (length == STOP_RECEIVE) {
             break;
         }
@@ -251,12 +250,12 @@ void TcpConnection::HandleReceivedData(int socket)
             return;
         }
         if (channelRequest_.moduleType == ModuleType::REMOTE_CONTROL) {
-            HandleRemoteControlReceivedData(dataLength, header, buf);
+            HandleRemoteControlReceivedData(dataLength, header, buf.get());
             continue;
         }
         CLOGD("TCP recvFrameLen done, dataLength = %{public}d", dataLength);
         if (GetListener()) {
-            GetListener()->OnDataReceived(buf, dataLength, 0);
+            GetListener()->OnDataReceived(buf.get(), dataLength, 0);
         }
     }
 
@@ -276,20 +275,20 @@ uint32_t TcpConnection::GetReceivedDataLength(uint8_t *header, int length)
 
 void TcpConnection::HandleRemoteControlReceivedData(uint32_t dataLength, uint8_t *header, uint8_t *buf)
 {
-    uint8_t controlBuf[PACKET_HEADER_LEN + dataLength];
-    if (memcpy_s(controlBuf, PACKET_HEADER_LEN, header, PACKET_HEADER_LEN) != RET_OK) {
+    std::unique_ptr<uint8_t[]> controlBuf = std::make_unique<uint8_t[]>(PACKET_HEADER_LEN + dataLength);
+    if (memcpy_s(controlBuf.get(), PACKET_HEADER_LEN, header, PACKET_HEADER_LEN) != RET_OK) {
         CLOGE("Copy data failed");
         return;
     }
 
-    if (memcpy_s(controlBuf + PACKET_HEADER_LEN, dataLength, buf, dataLength) != RET_OK) {
+    if (memcpy_s(controlBuf.get() + PACKET_HEADER_LEN, dataLength, buf, dataLength) != RET_OK) {
         CLOGE("Copy data failed");
         return;
     }
 
     CLOGI("TCP recv remote control done, dataLength = %{public}d", PACKET_HEADER_LEN + dataLength);
     if (GetListener()) {
-        GetListener()->OnDataReceived(controlBuf, PACKET_HEADER_LEN + dataLength, 0);
+        GetListener()->OnDataReceived(controlBuf.get(), PACKET_HEADER_LEN + dataLength, 0);
     }
 }
 
