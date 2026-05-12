@@ -48,6 +48,9 @@ enum class EXPORT DeviceType {
     DEVICE_MAX, // add deviceType before this
 };
 
+inline constexpr uint32_t DEVICE_TYPE_DLNA = 0x9C;
+inline constexpr uint32_t DEVICE_TYPE_SPECIAL_AUTH = 0xA2F;
+
 inline constexpr int EXPORT INVALID_ID = -1;
 
 inline bool EXPORT IsDeviceType(int32_t type)
@@ -587,6 +590,7 @@ struct EXPORT CastRemoteDevice {
     std::string deviceId;
     std::string deviceName;
     DeviceType deviceType;
+    uint32_t rawDeviceType{0};
     SubDeviceType subDeviceType;
     std::string ipAddress;
     ChannelType channelType;
