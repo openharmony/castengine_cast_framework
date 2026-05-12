@@ -218,7 +218,7 @@ public:
         for (const auto &device : devices) {
             std::pair<CastRemoteDevice, bool> remoteDevice;
             remoteDevice.first = CastRemoteDevice{ device.deviceId, device.deviceName, device.deviceType,
-                device.subDeviceType, device.ipAddress, device.channelType, device.capability,
+                device.rawDeviceType, device.subDeviceType, device.ipAddress, device.channelType, device.capability,
                 device.capabilityInfo, device.networkId, "", 0, nullptr, device.isLeagacy, device.sessionId,
                 device.drmCapabilities, device.mediumTypes };
 

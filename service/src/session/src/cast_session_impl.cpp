@@ -162,7 +162,8 @@ int32_t CastSessionImpl::AddDevice(const CastRemoteDevice &remoteDevice)
         property_.protocolType == ProtocolType::SUPER_LAUNCHER || property_.protocolType == ProtocolType::HICAR) {
         CastInnerRemoteDevice remote = {
             .deviceId = remoteDevice.deviceId, .deviceName = remoteDevice.deviceName,
-            .deviceType = remoteDevice.deviceType, .subDeviceType = remoteDevice.subDeviceType,
+            .deviceType = remoteDevice.deviceType, .rawDeviceType = remoteDevice.rawDeviceType,
+            .subDeviceType = remoteDevice.subDeviceType,
             .ipAddress = remoteDevice.ipAddress, .sessionId = sessionId_,
             .channelType = remoteDevice.channelType, .networkId = remoteDevice.networkId,
             .isLeagacy = remoteDevice.isLeagacy,
@@ -1391,7 +1392,7 @@ int32_t CastSessionImpl::GetRemoteDeviceInfo(std::string deviceId, CastRemoteDev
     auto networkId = CastDeviceDataManager::GetInstance().GetDeviceNetworkId(deviceId);
     remoteDevice = CastRemoteDevice {
         device->deviceId, device->deviceName,
-        device->deviceType, device->subDeviceType,
+        device->deviceType, device->rawDeviceType, device->subDeviceType,
         device->ipAddress, device->channelType,
         device->capability, device->capabilityInfo,
         *networkId, "", 0, nullptr, device->isLeagacy,
