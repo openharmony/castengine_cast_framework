@@ -29,6 +29,7 @@ struct CastInnerRemoteDevice {
     std::string deviceId;
     std::string deviceName;
     DeviceType deviceType{ DeviceType::DEVICE_OTHERS };
+    uint32_t rawDeviceType{0};
     int deviceTypeId = 0;
     SubDeviceType subDeviceType{ SubDeviceType::SUB_DEVICE_DEFAULT };
     std::string ipAddress;
