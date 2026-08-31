@@ -20,6 +20,7 @@
 
 #include "cast_engine_errors.h"
 #include "cast_engine_log.h"
+#include "parse_surface_uint64.h"
 #include "surface_utils.h"
 
 namespace OHOS {
@@ -82,11 +83,9 @@ int32_t MirrorPlayer::SetAppInfo(const AppInfo &appInfo)
 
 int32_t MirrorPlayer::SetSurface(const std::string &surfaceId)
 {
-    errno = 0;
-    char *end = nullptr;
-    uint64_t surfaceUniqueId = static_cast<uint64_t>(std::strtoll(surfaceId.c_str(), &end, 10));
-    if (errno == ERANGE || (surfaceUniqueId == 0 && *end != '\0')) {
-        CLOGE("Failed to strtoll, errno: %{public}d", errno);
+    uint64_t surfaceUniqueId = 0;
+    if (!ParseSurfaceUInt64(surfaceId, surfaceUniqueId)) {
+        CLOGE("Failed to parse surfaceId");
         return ERR_INVALID_PARAM;
     }
 

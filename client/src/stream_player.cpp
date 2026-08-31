@@ -20,6 +20,7 @@
 
 #include "cast_engine_errors.h"
 #include "cast_engine_log.h"
+#include "parse_surface_uint64.h"
 #include "stream_player_listener_impl_stub.h"
 
 namespace OHOS {
@@ -54,11 +55,9 @@ int32_t StreamPlayer::UnregisterListener()
 
 int32_t StreamPlayer::SetSurface(const std::string &surfaceId)
 {
-    errno = 0;
-    char *end = nullptr;
-
-    uint64_t surfaceUniqueId = static_cast<uint64_t>(std::strtoll(surfaceId.c_str(), &end, 10));
-    if (errno == ERANGE || (surfaceUniqueId == 0 && *end != '\0')) {
+    uint64_t surfaceUniqueId = 0;
+    if (!ParseSurfaceUInt64(surfaceId, surfaceUniqueId)) {
+        CLOGE("Failed to parse surfaceId");
         return ERR_INVALID_PARAM;
     }
 
